@@ -133,16 +133,16 @@ export function buildSeedDb(): DemoDb {
   }
   // Estudiante de demostración (hija del usuario padre demo)
   const demoStudent = students.find((s) => s.id === 's-01')!
-  demoStudent.fullName = 'Laura Vásquez Tavarez'
+  demoStudent.fullName = 'Laura Fernández Castillo'
   demoStudent.gradeId = 'g-6toA'
-  demoStudent.parentName = 'Luis Vásquez Tavarez'
-  demoStudent.parentEmail = 'luis.vasquez@correo.com'
+  demoStudent.parentName = 'Luis Rodríguez García'
+  demoStudent.parentEmail = 'luis.rodriguez@correo.com'
   db.ARC_Students = students
 
   const demoUsers: User[] = [
     { id: 'u-docente', displayName: 'Leoncio A. Vásquez Tavarez', email: 'leoncio.vasquez@arcadecristo.edu.do', roles: ['docente'], teacherId: 't1' },
-    { id: 'u-estudiante', displayName: 'Laura Vásquez Tavarez', email: 'laura.vasquez@arcadecristo.edu.do', roles: ['estudiante'], studentId: 's-01' },
-    { id: 'u-padre', displayName: 'Luis Vásquez Tavarez', email: 'luis.vasquez@correo.com', roles: ['padre'] },
+    { id: 'u-estudiante', displayName: 'Laura Fernández Castillo', email: 'laura.fernandez@arcadecristo.edu.do', roles: ['estudiante'], studentId: 's-01' },
+    { id: 'u-padre', displayName: 'Luis Rodríguez García', email: 'luis.rodriguez@correo.com', roles: ['padre'] },
     { id: 'u-admin', displayName: 'Dirección General Arca de Cristo', email: 'direccion@arcadecristo.edu.do', roles: ['admin'] },
     { id: 'u-superadmin', displayName: 'Super Administrador', email: 'superadmin@arcadecristo.edu.do', roles: ['docente', 'estudiante', 'padre', 'admin'] },
   ]
@@ -431,13 +431,13 @@ export function buildSeedDb(): DemoDb {
   const now = new Date()
   const ago = (mins: number) => new Date(now.getTime() - mins * 60000).toISOString()
   db.ARC_Messages = [
-    { id: 'msg-1', senderId: 'u-docente', senderName: 'Leoncio A. Vásquez Tavarez', senderRole: 'docente', receiverId: 'u-estudiante', receiverName: 'Laura Vásquez Tavarez', content: 'Buenos días, Laura. Recuerda que la tarea de informática se entrega el viernes. ¿Tienes alguna duda?', timestamp: ago(45), read: false },
-    { id: 'msg-2', senderId: 'u-estudiante', senderName: 'Laura Vásquez Tavarez', senderRole: 'estudiante', receiverId: 'u-docente', receiverName: 'Leoncio A. Vásquez Tavarez', content: 'Buenos días profe. Sí, tengo una duda con el ejercicio 3 de Excel. ¿Lo revisamos mañana?', timestamp: ago(40), read: true },
-    { id: 'msg-3', senderId: 'u-docente', senderName: 'Leoncio A. Vásquez Tavarez', senderRole: 'docente', receiverId: 'u-estudiante', receiverName: 'Laura Vásquez Tavarez', content: 'Claro, lo revisamos mañana en clase. Lleva tu laptop.', timestamp: ago(35), read: false },
+    { id: 'msg-1', senderId: 'u-docente', senderName: 'Leoncio A. Vásquez Tavarez', senderRole: 'docente', receiverId: 'u-estudiante', receiverName: 'Laura Fernández Castillo', content: 'Buenos días, Laura. Recuerda que la tarea de informática se entrega el viernes. ¿Tienes alguna duda?', timestamp: ago(45), read: false },
+    { id: 'msg-2', senderId: 'u-estudiante', senderName: 'Laura Fernández Castillo', senderRole: 'estudiante', receiverId: 'u-docente', receiverName: 'Leoncio A. Vásquez Tavarez', content: 'Buenos días profe. Sí, tengo una duda con el ejercicio 3 de Excel. ¿Lo revisamos mañana?', timestamp: ago(40), read: true },
+    { id: 'msg-3', senderId: 'u-docente', senderName: 'Leoncio A. Vásquez Tavarez', senderRole: 'docente', receiverId: 'u-estudiante', receiverName: 'Laura Fernández Castillo', content: 'Claro, lo revisamos mañana en clase. Lleva tu laptop.', timestamp: ago(35), read: false },
     { id: 'msg-4', senderId: 'u-admin', senderName: 'Dirección General Arca de Cristo', senderRole: 'admin', receiverId: 'u-docente', receiverName: 'Leoncio A. Vásquez Tavarez', content: 'Leoncio, favor enviar el informe de cumplimiento de la planificación de este mes antes del viernes.', timestamp: ago(120), read: true },
     { id: 'msg-5', senderId: 'u-docente', senderName: 'Leoncio A. Vásquez Tavarez', senderRole: 'docente', receiverId: 'u-admin', receiverName: 'Dirección General Arca de Cristo', content: 'Recibido, Dirección. Lo envío mañana sin falta.', timestamp: ago(110), read: true },
-    { id: 'msg-6', senderId: 'u-padre', senderName: 'Luis Vásquez Tavarez', senderRole: 'padre', receiverId: 'u-docente', receiverName: 'Leoncio A. Vásquez Tavarez', content: 'Buenas tardes, profesor. ¿Cómo va Laura en informática? Quisiera saber si necesita algún refuerzo.', timestamp: ago(180), read: true },
-    { id: 'msg-7', senderId: 'u-docente', senderName: 'Leoncio A. Vásquez Tavarez', senderRole: 'docente', receiverId: 'u-padre', receiverName: 'Luis Vásquez Tavarez', content: 'Buenas tardes, Sr. Vásquez. Laura va muy bien, tiene promedio de 92. Solo recomiendo reforzar el tema de Excel con práctica en casa.', timestamp: ago(170), read: true },
+    { id: 'msg-6', senderId: 'u-padre', senderName: 'Luis Rodríguez García', senderRole: 'padre', receiverId: 'u-docente', receiverName: 'Leoncio A. Vásquez Tavarez', content: 'Buenas tardes, profesor. ¿Cómo va Laura en informática? Quisiera saber si necesita algún refuerzo.', timestamp: ago(180), read: true },
+    { id: 'msg-7', senderId: 'u-docente', senderName: 'Leoncio A. Vásquez Tavarez', senderRole: 'docente', receiverId: 'u-padre', receiverName: 'Luis Rodríguez García', content: 'Buenas tardes, Sr. Vásquez. Laura va muy bien, tiene promedio de 92. Solo recomiendo reforzar el tema de Excel con práctica en casa.', timestamp: ago(170), read: true },
     { id: 'msg-8', senderId: 'u-admin', senderName: 'Dirección General Arca de Cristo', senderRole: 'admin', receiverId: 'u-docente', receiverName: 'Leoncio A. Vásquez Tavarez', content: 'Recuerden que el viernes tenemos consejo de docentes a las 3pm en Teams. Revisar la agenda que envié.', timestamp: ago(60), read: false },
   ]
 
@@ -447,8 +447,9 @@ export function buildSeedDb(): DemoDb {
 export function seedUsers(): User[] {
   return [
     { id: 'u-docente', displayName: 'Leoncio A. Vásquez Tavarez', email: 'leoncio.vasquez@arcadecristo.edu.do', roles: ['docente'], teacherId: 't1' },
-    { id: 'u-estudiante', displayName: 'Laura Vásquez Tavarez', email: 'laura.vasquez@arcadecristo.edu.do', roles: ['estudiante'], studentId: 's-01' },
-    { id: 'u-padre', displayName: 'Luis Vásquez Tavarez', email: 'luis.vasquez@correo.com', roles: ['padre'] },
+    { id: 'u-estudiante', displayName: 'Laura Fernández Castillo', email: 'laura.fernandez@arcadecristo.edu.do', roles: ['estudiante'], studentId: 's-01' },
+    { id: 'u-padre', displayName: 'Luis Rodríguez García', email: 'luis.rodriguez@correo.com', roles: ['padre'] },
     { id: 'u-admin', displayName: 'Dirección General Arca de Cristo', email: 'direccion@arcadecristo.edu.do', roles: ['admin'] },
+    { id: 'u-superadmin', displayName: 'Super Administrador', email: 'superadmin@arcadecristo.edu.do', roles: ['docente', 'estudiante', 'padre', 'admin'] },
   ]
 }
