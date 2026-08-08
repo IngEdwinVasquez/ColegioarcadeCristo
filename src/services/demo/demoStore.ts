@@ -1,6 +1,6 @@
 import { buildSeedDb } from './seed'
 
-const STORAGE_KEY = 'arca_demo_db_v6'
+const STORAGE_KEY = 'arca_demo_db_v7'
 
 export type DemoDb = Record<string, object[]>
 

@@ -140,7 +140,7 @@ export function buildSeedDb(): DemoDb {
   db.ARC_Students = students
 
   const demoUsers: User[] = [
-    { id: 'u-docente', displayName: 'Leoncio A. Vásquez Tavarez', email: 'leoncio.vasquez@arcadecristo.edu.do', roles: ['docente', 'admin'], teacherId: 't1' },
+    { id: 'u-docente', displayName: 'Leoncio A. Vásquez Tavarez', email: 'leoncio.vasquez@arcadecristo.edu.do', roles: ['docente'], teacherId: 't1' },
     { id: 'u-estudiante', displayName: 'Laura Vásquez Tavarez', email: 'laura.vasquez@arcadecristo.edu.do', roles: ['estudiante'], studentId: 's-01' },
     { id: 'u-padre', displayName: 'Luis Vásquez Tavarez', email: 'luis.vasquez@correo.com', roles: ['padre'] },
     { id: 'u-admin', displayName: 'Dirección General Arca de Cristo', email: 'direccion@arcadecristo.edu.do', roles: ['admin'] },
@@ -446,7 +446,7 @@ export function buildSeedDb(): DemoDb {
 
 export function seedUsers(): User[] {
   return [
-    { id: 'u-docente', displayName: 'Leoncio A. Vásquez Tavarez', email: 'leoncio.vasquez@arcadecristo.edu.do', roles: ['docente', 'admin'], teacherId: 't1' },
+    { id: 'u-docente', displayName: 'Leoncio A. Vásquez Tavarez', email: 'leoncio.vasquez@arcadecristo.edu.do', roles: ['docente'], teacherId: 't1' },
     { id: 'u-estudiante', displayName: 'Laura Vásquez Tavarez', email: 'laura.vasquez@arcadecristo.edu.do', roles: ['estudiante'], studentId: 's-01' },
     { id: 'u-padre', displayName: 'Luis Vásquez Tavarez', email: 'luis.vasquez@correo.com', roles: ['padre'] },
     { id: 'u-admin', displayName: 'Dirección General Arca de Cristo', email: 'direccion@arcadecristo.edu.do', roles: ['admin'] },
