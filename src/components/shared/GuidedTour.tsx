@@ -106,7 +106,11 @@ export function GuidedTour({ steps, startLabel = 'Iniciar tour', children }: Gui
 
   return (
     <>
-      {children ?? <Button appearance="subtle" onClick={start}>{startLabel}</Button>}
+      {children ? (
+        <span onClick={start} style={{ display: 'inline-flex', cursor: 'pointer' }}>{children}</span>
+      ) : (
+        <Button appearance="subtle" onClick={start}>{startLabel}</Button>
+      )}
       {active && (
         <div className={styles.overlay} onClick={(e) => { if (e.target === e.currentTarget) dismiss() }}>
           <div className={styles.card}>

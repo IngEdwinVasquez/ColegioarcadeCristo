@@ -42,10 +42,11 @@ a {
 }
 
 .app-surface .fui-Table {
+  display: block;
+  overflow-x: auto;
   width: 100%;
   border-collapse: separate;
   border-spacing: 0;
-  overflow: hidden;
   background: var(--superficie);
   border-radius: 12px;
   border: 1px solid var(--borde);
@@ -61,6 +62,7 @@ a {
   text-transform: uppercase;
   padding: 12px 16px;
   border-bottom: 1px solid var(--borde);
+  white-space: nowrap;
 }
 
 .app-surface .fui-TableCell {
@@ -68,6 +70,7 @@ a {
   border-bottom: 1px solid #eef1f5;
   font-size: 14px;
   color: var(--texto);
+  white-space: nowrap;
 }
 
 .app-surface .fui-TableBody .fui-TableRow:last-child .fui-TableCell {
@@ -84,6 +87,7 @@ a {
   border: 1px solid var(--borde);
   box-shadow: 0 1px 2px rgba(16, 24, 40, 0.05);
   background: var(--superficie);
+  min-width: 0;
 }
 
 /* Panel auxiliar (div) */
@@ -93,22 +97,10 @@ a {
   border: 1px solid var(--borde);
   box-shadow: 0 1px 2px rgba(16, 24, 40, 0.05);
   padding: 20px;
+  min-width: 0;
 }
 
 /* ---------- Responsividad ---------- */
-
-/* En pantallas donde las tablas amplias no caben se vuelven desplazables en horizontal */
-@media (max-width: 1100px) {
-  .app-surface .fui-Table {
-    display: block;
-    overflow-x: auto;
-    width: 100%;
-  }
-  .app-surface .fui-TableHeaderCell,
-  .app-surface .fui-TableCell {
-    white-space: nowrap;
-  }
-}
 
 /* Scrollbars sutiles */
 ::-webkit-scrollbar {
