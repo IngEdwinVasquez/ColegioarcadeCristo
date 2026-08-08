@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 import { Button, makeStyles, Text } from '@fluentui/react-components'
 import { ArrowRightRegular, DismissRegular, ArrowLeftRegular } from '@fluentui/react-icons'
 
@@ -13,18 +14,21 @@ const useStyles = makeStyles({
     position: 'fixed',
     inset: 0,
     zIndex: 9999,
-    background: 'rgba(0,0,0,0.55)',
+    background: 'rgba(2,8,20,0.72)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
+    padding: '20px',
   },
   card: {
     background: '#fff',
     borderRadius: '18px',
     padding: '28px 28px 20px',
     maxWidth: '420px',
-    width: '90vw',
-    boxShadow: '0 20px 60px rgba(0,0,0,0.3)',
+    width: '100%',
+    maxHeight: '90vh',
+    overflowY: 'auto',
+    boxShadow: '0 24px 70px rgba(0,0,0,0.45)',
     display: 'flex',
     flexDirection: 'column',
     gap: '14px',
@@ -45,8 +49,8 @@ const useStyles = makeStyles({
   },
   title: { fontWeight: 800, fontSize: '20px', color: 'var(--azul-oscuro)' },
   desc: { fontSize: '14px', color: 'var(--texto-suave)', lineHeight: 1.6 },
-  actions: { display: 'flex', justifyContent: 'center', gap: '10px', marginTop: '6px' },
-  dots: { display: 'flex', gap: '6px', justifyContent: 'center' },
+  actions: { display: 'flex', justifyContent: 'center', gap: '10px', marginTop: '6px', flexWrap: 'wrap' },
+  dots: { display: 'flex', gap: '6px', justifyContent: 'center', marginBottom: '-6px' },
   dot: { width: '8px', height: '8px', borderRadius: '50%', background: '#d1d5db' },
   dotActive: { background: '#103F7E', width: '22px', borderRadius: '10px' },
 })
@@ -55,7 +59,6 @@ interface GuidedTourProps {
   steps: TourStep[]
   startLabel?: string
   children?: ReactNode
-  onStart?: () => void
 }
 
 export function GuidedTour({ steps, startLabel = 'Iniciar tour', children }: GuidedTourProps) {
@@ -77,6 +80,19 @@ export function GuidedTour({ steps, startLabel = 'Iniciar tour', children }: Gui
     if (step > 0) setStep((s) => s - 1)
   }, [step])
 
+  const dismiss = useCallback(() => setActive(false), [])
+
+  // Bloquear scroll del body mientras el tour está abierto
+  useEffect(() => {
+    if (!active) return
+    const prevOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.body.style.overflow = prevOverflow
+    }
+  }, [active])
+
+  // Resaltar el elemento objetivo del paso actual
   useEffect(() => {
     const selector = steps[step]?.target
     if (!selector) return
@@ -102,19 +118,29 @@ export function GuidedTour({ steps, startLabel = 'Iniciar tour', children }: Gui
     }
   }, [active, step, steps])
 
-  const dismiss = () => setActive(false)
+  // Manejar tecla Escape para cerrar
+  useEffect(() => {
+    if (!active) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') dismiss()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [active, dismiss])
 
-  return (
-    <>
-      {children ? (
-        <span onClick={start} style={{ display: 'inline-flex', cursor: 'pointer' }}>{children}</span>
-      ) : (
-        <Button appearance="subtle" onClick={start}>{startLabel}</Button>
-      )}
-      {active && (
-        <div className={styles.overlay} onClick={(e) => { if (e.target === e.currentTarget) dismiss() }}>
+  const modal = active
+    ? createPortal(
+        <div
+          className={styles.overlay}
+          role="dialog"
+          aria-modal="true"
+          aria-label={`Paso ${step + 1} de ${steps.length}`}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) dismiss()
+          }}
+        >
           <div className={styles.card}>
-            <div className={styles.dots} style={{ marginBottom: '-6px' }}>
+            <div className={styles.dots}>
               {steps.map((_, i) => (
                 <div key={i} className={`${styles.dot} ${i === step ? styles.dotActive : ''}`} />
               ))}
@@ -129,11 +155,22 @@ export function GuidedTour({ steps, startLabel = 'Iniciar tour', children }: Gui
               <Button appearance="primary" icon={<ArrowRightRegular />} onClick={next}>
                 {step < steps.length - 1 ? 'Siguiente' : 'Entendido'}
               </Button>
-              <Button appearance="subtle" icon={<DismissRegular />} onClick={dismiss} />
+              <Button appearance="subtle" icon={<DismissRegular />} onClick={dismiss} aria-label="Cerrar tour" />
             </div>
           </div>
-        </div>
+        </div>,
+        document.body,
+      )
+    : null
+
+  return (
+    <>
+      {children ? (
+        <span onClick={start} style={{ display: 'inline-flex', cursor: 'pointer' }}>{children}</span>
+      ) : (
+        <Button appearance="subtle" onClick={start}>{startLabel}</Button>
       )}
+      {modal}
     </>
   )
 }
