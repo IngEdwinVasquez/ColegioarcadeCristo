@@ -32,7 +32,7 @@ interface PageHeaderProps {
 export function PageHeader({ title, subtitle, actions }: PageHeaderProps) {
   const styles = useStyles()
   return (
-    <div className={styles.root}>
+    <div className={styles.root} data-tour="cabecera-pagina">
       <div className={styles.titles}>
         <Text size={700} className={styles.title}>{title}</Text>
         {subtitle && (
