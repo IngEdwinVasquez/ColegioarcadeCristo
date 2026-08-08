@@ -1,0 +1,36 @@
+# Pipeline de despliegue a Azure Static Web Apps
+# Se ejecuta cuando se hace un pull request hacia la rama produccion
+
+pr:
+  branches:
+    include:
+      - produccion
+
+trigger:
+  branches:
+    include:
+      - produccion
+
+pool:
+  vmImage: ubuntu-latest
+
+variables:
+  # Variables de entorno para el build de Vite
+  VITE_M365_ENABLED: 'false'
+
+steps:
+  - task: NodeTool@0
+    displayName: 'Instalar Node.js'
+    inputs:
+      versionSpec: '20.x'
+
+  - script: |
+      npm install
+      npm run build
+    displayName: 'npm install y build'
+
+  - task: AzureStaticWebApp@0
+    inputs:
+      app_location: 'dist'
+      skip_app_build: true
+      azure_static_web_apps_api_token: '2e78e99c4fbb7ed64862d200a30eccf3578526dea5b91a052533ebe9f65b0bea07-3851e80d-e082-4be5-b0aa-ffe2f6de414f010142006c0f8310'
