@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import { Badge, Text, makeStyles } from '@fluentui/react-components'
-import { PersonRegular, PersonSupportRegular, PeopleTeamRegular, PersonLockRegular, ArrowRightRegular } from '@fluentui/react-icons'
+import { PersonRegular, PersonSupportRegular, PeopleTeamRegular, PersonLockRegular, CrownRegular, ArrowRightRegular } from '@fluentui/react-icons'
 import { useApp } from '../context/useApp'
 import { ROLE_LABELS } from '../types/roles'
 import type { Role } from '../types/roles'
@@ -45,6 +45,7 @@ const USER_ICONS: Record<string, ReactNode> = {
   'u-estudiante': <PersonRegular />,
   'u-padre': <PeopleTeamRegular />,
   'u-admin': <PersonLockRegular />,
+  'u-superadmin': <CrownRegular />,
 }
 
 const USER_COLORS: Record<string, string> = {
@@ -52,6 +53,7 @@ const USER_COLORS: Record<string, string> = {
   'u-estudiante': 'linear-gradient(135deg,#A50E1E,#E53440)',
   'u-padre': 'linear-gradient(135deg,#14532D,#22C55E)',
   'u-admin': 'linear-gradient(135deg,#4C1D95,#7C3AED)',
+  'u-superadmin': 'linear-gradient(135deg,#B45309,#F59E0B)',
 }
 
 const ROLE_COLORS: Record<Role, string> = {
@@ -81,10 +83,10 @@ export function DemoLogin() {
               </span>
               <div style={{ minWidth: 0 }}>
                 <div className={styles.name}>{user.displayName}</div>
-                <div className={styles.email}>{user.email}</div>
-                <Badge appearance="tint" size="extra-small" style={{ background: ROLE_COLORS[user.roles[0]], color: '#fff', fontSize: '10px', marginTop: '4px' }}>
-                  {ROLE_LABELS[user.roles[0]]}
+                <Badge appearance="filled" size="small" style={{ background: ROLE_COLORS[user.roles[0]], color: '#fff', marginTop: '3px' }}>
+                  {ROLE_LABELS[user.roles[0]]}{user.roles.length > 1 ? ` +${user.roles.length - 1}` : ''}
                 </Badge>
+                <div className={styles.email}>{user.email}</div>
               </div>
               <ArrowRightRegular className={styles.arrow} />
             </div>

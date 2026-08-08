@@ -1,3 +1,4 @@
+import { useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Button, Text, makeStyles } from '@fluentui/react-components'
 import { ArrowRightRegular } from '@fluentui/react-icons'
@@ -93,7 +94,21 @@ const useStyles = makeStyles({
 export function PortalSelector() {
   const styles = useStyles()
   const navigate = useNavigate()
-  const { role, setRole } = useApp()
+  const { role, setRole, user } = useApp()
+
+  const allowed = useMemo(() => {
+    const roles = user?.roles ?? []
+    if (roles.length === 0) return PORTALS
+    return PORTALS.filter((p) => roles.includes(p.role))
+  }, [user])
+
+  useEffect(() => {
+    if (allowed.length === 1) {
+      const portal = allowed[0]
+      setRole(portal.role)
+      navigate(portal.path, { replace: true })
+    }
+  }, [allowed, navigate, setRole])
 
   const enter = (path: string, portalRole: Parameters<typeof setRole>[0]) => {
     setRole(portalRole)
@@ -113,7 +128,7 @@ export function PortalSelector() {
         <h1 className={styles.title}>{appConfig.appName}</h1>
         <p className={styles.sub}>{appConfig.institution} · {appConfig.city}</p>
         <Text size={300} style={{ color: 'rgba(255,255,255,0.8)', display: 'block', marginTop: '10px' }}>
-          Seleccione el portal al que desea acceder
+          {allowed.length === 1 ? 'Redirigiendo…' : 'Seleccione el portal al que desea acceder'}
         </Text>
         {role && (
           <Button appearance="secondary" icon={<ArrowRightRegular />} className={styles.continue} onClick={() => navigate(pathOfRole(role))}>
@@ -124,7 +139,7 @@ export function PortalSelector() {
 
       <div className={styles.gridWrap}>
         <div className={styles.grid}>
-          {PORTALS.map((portal) => (
+          {allowed.map((portal) => (
             <div key={portal.role} className={styles.card} onClick={() => enter(portal.path, portal.role)}>
               <span className={styles.icon} style={{ background: `linear-gradient(135deg, ${portal.accent}, ${portal.accent}cc)` }}>
                 {portal.icon}
