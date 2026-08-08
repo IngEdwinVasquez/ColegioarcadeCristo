@@ -43,7 +43,7 @@ interface WelcomeHeroProps {
 export function WelcomeHero({ title, subtitle, actions }: WelcomeHeroProps) {
   const styles = useStyles()
   return (
-    <div className={styles.hero}>
+    <div className={styles.hero} data-tour="hero-bienvenida">
       <div className={styles.watermark}><BrandLogo size={160} /></div>
       <div className={styles.content}>
         <Text size={500} className={styles.title}>{title}</Text>

@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react'
+import { useMemo, useState, type ReactNode } from 'react'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import {
   Avatar,
@@ -11,13 +11,14 @@ import {
   Text,
   makeStyles,
 } from '@fluentui/react-components'
-import { NavigationRegular, SignOutRegular, HomeRegular, ChevronRightRegular } from '@fluentui/react-icons'
+import { NavigationRegular, SignOutRegular, HomeRegular, ChevronRightRegular, LightbulbFilamentRegular } from '@fluentui/react-icons'
 import { useApp } from '../../context/useApp'
 import { appConfig } from '../../config/appConfig'
 import { PORTALS } from '../../portals/portals'
 import { initials } from '../../utils/helpers'
 import { InstallPWA } from '../shared/InstallPWA'
 import { BrandLogo } from '../shared/BrandLogo'
+import { GuidedTour, type TourStep } from '../shared/GuidedTour'
 
 export interface NavItem {
   to: string
@@ -194,6 +195,30 @@ export function AppShell({ nav }: AppShellProps) {
 
   const portal = PORTALS.find((p) => location.pathname.startsWith(p.path))
 
+  const tourSteps: TourStep[] = useMemo(() => {
+    const role = portal?.role
+    if (role === 'docente') return [
+      { target: '[data-tour="hero-bienvenida"]', title: 'Bienvenida', description: 'Aquí ves un resumen de tu actividad: clases de hoy, completadas y próximas. Usa los botones para ir directo a impartir clase, tomar asistencia o publicar una actividad.' },
+      { target: '[data-tour="nav-lateral"]', title: 'Navegación', description: 'En la barra izquierda están: Planificación Anual, Mis Clases (repositorio antes/durante/después), Asistencia, Aulas Virtuales, Encuentros, Comunicados y Mensajería para hablar con estudiantes y padres.' },
+      { target: '[data-tour="cabecera-pagina"]', title: 'Módulos', description: 'Cada página tiene título, descripción y botones de acción. Desde aquí creas nuevas clases, actividades, registras asistencia y más. Cada clase se vincula a la planificación anual.' },
+    ]
+    if (role === 'estudiante') return [
+      { target: '[data-tour="hero-bienvenida"]', title: 'Tu Campus Virtual', description: 'Aquí ves tu resumen académico: promedio, actividades pendientes, asistencia y clases de tu grado. Revisa tus calificaciones y entrega tus tareas a tiempo.' },
+      { target: '[data-tour="nav-lateral"]', title: 'Tus secciones', description: 'En el menú: Mis Clases, Aula Virtual (actividades y calificaciones), Mi Asistencia, Comunicados del colegio y Mensajería para hablar con tus docentes.' },
+      { target: '[data-tour="cabecera-pagina"]', title: 'Navega', description: 'Consulta tus calificaciones, revisa las actividades publicadas por tus docentes y participa en tu aprendizaje desde cada sección.' },
+    ]
+    if (role === 'padre') return [
+      { target: '[data-tour="hero-bienvenida"]', title: 'Portal de Familias', description: 'Selecciona a tu hijo(a) para supervisar su progreso académico, calificaciones y asistencia. Todo en un solo lugar.' },
+      { target: '[data-tour="nav-lateral"]', title: 'Navegación', description: 'En el menú: Progreso Académico, Asistencia, Comunicaciones (circulares oficiales) y Mensajería para contactar a los docentes de tu hijo(a).' },
+      { target: '[data-tour="cabecera-pagina"]', title: 'Seguimiento', description: 'Cada sección filtra los datos del estudiante que selecciones. Mantente al día con las circulares y comunícate directamente con los docentes.' },
+    ]
+    return [
+      { target: '[data-tour="hero-bienvenida"]', title: 'Panel Directivo', description: 'Dashboard con KPIs: matrícula, cumplimiento de planificación, asistencia promedio y rendimiento académico. Gráficos y tabla de cumplimiento por docente.' },
+      { target: '[data-tour="nav-lateral"]', title: 'Gestión del colegio', description: 'Menú agrupado: Gestión (Psicología y Admisiones), Académico (planificación, clases, asistencia, catálogos, promoción), Personas (estudiantes, docentes, tutores, usuarios y roles).' },
+      { target: '[data-tour="cabecera-pagina"]', title: 'Administración', description: 'Desde aquí gestionas matrícula, creas cursos y asignaturas, apruebas admisiones, asignas docentes y administras usuarios y roles. También publicas comunicados y usas la mensajería.' },
+    ]
+  }, [portal])
+
   const activeItem = nav.find((n) => (n.end ? location.pathname === n.to : location.pathname.startsWith(n.to)))
 
   const handleLogout = () => {
@@ -220,6 +245,15 @@ export function AppShell({ nav }: AppShellProps) {
           </div>
         </div>
         <InstallPWA />
+        <GuidedTour steps={tourSteps}>
+          <Button
+            appearance="subtle"
+            icon={<LightbulbFilamentRegular />}
+            style={{ color: 'rgba(255,255,255,0.85)', justifyContent: 'flex-start', width: '100%' }}
+          >
+            Iniciar tour
+          </Button>
+        </GuidedTour>
         <Button
           appearance="subtle"
           icon={<HomeRegular />}
@@ -242,7 +276,7 @@ export function AppShell({ nav }: AppShellProps) {
 
   return (
     <div className={styles.shell}>
-      <div className={`${styles.sidebar} ${styles.sideInner}`}>{sidebarBody}</div>
+      <div className={`${styles.sidebar} ${styles.sideInner}`} data-tour="nav-lateral">{sidebarBody}</div>
 
       <Drawer type="overlay" position="start" open={mobileOpen} onOpenChange={(_, data) => setMobileOpen(data.open)} style={{ width: '280px' }}>
         <DrawerHeader>
