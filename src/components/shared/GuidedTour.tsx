@@ -78,12 +78,14 @@ export function GuidedTour({ steps, startLabel = 'Iniciar tour', children }: Gui
   }, [step])
 
   useEffect(() => {
+    const selector = steps[step]?.target
+    if (!selector) return
     if (!active) {
-      const target = document.querySelector(`[data-tour="${steps[step]?.target}"]`) as HTMLElement | null
+      const target = document.querySelector(selector) as HTMLElement | null
       if (target) target.style.boxShadow = ''
       return
     }
-    const target = document.querySelector(`[data-tour="${steps[step].target}"]`) as HTMLElement | null
+    const target = document.querySelector(selector) as HTMLElement | null
     if (target) {
       target.scrollIntoView({ behavior: 'smooth', block: 'center' })
       target.style.transition = 'box-shadow 0.3s, outline 0.3s'
