@@ -31,7 +31,7 @@ const useStyles = makeStyles({
   overlay: {
     position: 'absolute',
     inset: 0,
-    background: 'linear-gradient(200deg, rgba(4,14,30,0.94) 0%, rgba(8,31,62,0.85) 50%, rgba(10,39,78,0.78) 100%)',
+    background: 'linear-gradient(200deg, rgba(2,10,24,0.97) 0%, rgba(5,22,46,0.92) 50%, rgba(8,31,62,0.88) 100%)',
   },
   brandRow: { position: 'relative', display: 'flex', alignItems: 'center', gap: '18px' },
   brandName: { fontWeight: 800, fontSize: '22px', color: '#fff', letterSpacing: '-0.01em', lineHeight: 1.25 },
