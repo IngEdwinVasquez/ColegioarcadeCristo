@@ -2,6 +2,8 @@ import type { ReactNode } from 'react'
 import { Badge, Text, makeStyles } from '@fluentui/react-components'
 import { PersonRegular, PersonSupportRegular, PeopleTeamRegular, PersonLockRegular, ArrowRightRegular } from '@fluentui/react-icons'
 import { useApp } from '../context/useApp'
+import { ROLE_LABELS } from '../types/roles'
+import type { Role } from '../types/roles'
 import { AuthShell } from './AuthShell'
 
 const useStyles = makeStyles({
@@ -52,6 +54,13 @@ const USER_COLORS: Record<string, string> = {
   'u-admin': 'linear-gradient(135deg,#4C1D95,#7C3AED)',
 }
 
+const ROLE_COLORS: Record<Role, string> = {
+  docente: '#103F7E',
+  estudiante: '#C62828',
+  padre: '#15803D',
+  admin: '#6B21A8',
+}
+
 export function DemoLogin() {
   const styles = useStyles()
   const { users, loginAsDemo } = useApp()
@@ -73,6 +82,9 @@ export function DemoLogin() {
               <div style={{ minWidth: 0 }}>
                 <div className={styles.name}>{user.displayName}</div>
                 <div className={styles.email}>{user.email}</div>
+                <Badge appearance="tint" size="extra-small" style={{ background: ROLE_COLORS[user.roles[0]], color: '#fff', fontSize: '10px', marginTop: '4px' }}>
+                  {ROLE_LABELS[user.roles[0]]}
+                </Badge>
               </div>
               <ArrowRightRegular className={styles.arrow} />
             </div>
