@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import { makeStyles, Text } from '@fluentui/react-components'
+import { BrandLogo } from './BrandLogo'
 
 const useStyles = makeStyles({
   hero: {
@@ -39,23 +40,11 @@ interface WelcomeHeroProps {
   actions?: ReactNode
 }
 
-function FlagMark() {
-  return (
-    <svg width="280" height="190" viewBox="0 0 72 48" className={undefined} aria-hidden>
-      <rect width="72" height="48" fill="#fff" />
-      <rect x="0" y="0" width="36" height="24" fill="#103F7E" />
-      <rect x="36" y="24" width="36" height="24" fill="#103F7E" />
-      <rect x="36" y="0" width="36" height="24" fill="#CE1126" />
-      <rect x="0" y="24" width="36" height="24" fill="#CE1126" />
-    </svg>
-  )
-}
-
 export function WelcomeHero({ title, subtitle, actions }: WelcomeHeroProps) {
   const styles = useStyles()
   return (
     <div className={styles.hero}>
-      <div className={styles.watermark}>{FlagMark()}</div>
+      <div className={styles.watermark}><BrandLogo size={160} /></div>
       <div className={styles.content}>
         <Text size={500} className={styles.title}>{title}</Text>
         {subtitle && <Text size={300} className={styles.sub}>{subtitle}</Text>}

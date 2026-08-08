@@ -17,6 +17,7 @@ import { appConfig } from '../../config/appConfig'
 import { PORTALS } from '../../portals/portals'
 import { initials } from '../../utils/helpers'
 import { InstallPWA } from '../shared/InstallPWA'
+import { BrandLogo } from '../shared/BrandLogo'
 
 export interface NavItem {
   to: string
@@ -200,20 +201,10 @@ export function AppShell({ nav }: AppShellProps) {
     navigate('/')
   }
 
-  const flagSvg = (
-    <svg className={styles.flag} viewBox="0 0 72 48" aria-hidden>
-      <rect width="72" height="48" fill="#fff" />
-      <rect x="0" y="0" width="36" height="24" fill="#103F7E" />
-      <rect x="36" y="24" width="36" height="24" fill="#103F7E" />
-      <rect x="36" y="0" width="36" height="24" fill="#CE1126" />
-      <rect x="0" y="24" width="36" height="24" fill="#CE1126" />
-    </svg>
-  )
-
   const sidebarBody = (
     <>
       <div className={styles.sideHeader}>
-        {flagSvg}
+        <BrandLogo size={36} />
         <div>
           <div className={styles.sideTitle}>{appConfig.shortName}</div>
           <div className={styles.sideSub}>{portal?.shortTitle ?? 'Portal'}</div>
@@ -257,7 +248,7 @@ export function AppShell({ nav }: AppShellProps) {
         <DrawerHeader>
           <DrawerHeaderTitle>
             <span style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '14px' }}>
-              {flagSvg}
+              <BrandLogo size={24} />
               {portal?.shortTitle}
             </span>
           </DrawerHeaderTitle>
