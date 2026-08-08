@@ -144,6 +144,7 @@ export function buildSeedDb(): DemoDb {
     { id: 'u-estudiante', displayName: 'Laura Vásquez Tavarez', email: 'laura.vasquez@arcadecristo.edu.do', roles: ['estudiante'], studentId: 's-01' },
     { id: 'u-padre', displayName: 'Luis Vásquez Tavarez', email: 'luis.vasquez@correo.com', roles: ['padre'] },
     { id: 'u-admin', displayName: 'Dirección General Arca de Cristo', email: 'direccion@arcadecristo.edu.do', roles: ['admin'] },
+    { id: 'u-superadmin', displayName: 'Super Administrador', email: 'superadmin@arcadecristo.edu.do', roles: ['docente', 'estudiante', 'padre', 'admin'] },
   ]
   db.ARC_Users = demoUsers
 
