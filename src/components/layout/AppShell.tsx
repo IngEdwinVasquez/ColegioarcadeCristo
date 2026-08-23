@@ -40,7 +40,7 @@ const useStyles = makeStyles({
     top: '0px',
     display: 'flex',
     flexDirection: 'column',
-    background: 'linear-gradient(180deg, #081F3E 0%, #0A274E 100%)',
+    background: 'linear-gradient(180deg, #0A1F2B 0%, #0B2E3F 100%)',
     color: '#fff',
     overflowY: 'auto',
   },
@@ -88,7 +88,7 @@ const useStyles = makeStyles({
     bottom: '8px',
     width: '4px',
     borderRadius: '0 4px 4px 0',
-    background: 'linear-gradient(180deg, #6990C0, #35679F)',
+    background: 'linear-gradient(180deg, #7FCCE8, #3AB1DA)',
   },
   sideFooter: {
     padding: '14px',

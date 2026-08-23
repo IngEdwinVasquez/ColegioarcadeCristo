@@ -14,7 +14,7 @@ export default defineConfig({
         short_name: 'Arca de Cristo',
         description:
           'Portal educativo del Centro Educativo Evangélico Arca de Cristo: planificación, clases, asistencia, aulas virtuales y encuentros. Impulsada por Microsoft 365.',
-        theme_color: '#103F7E',
+        theme_color: '#0095C8',
         background_color: '#F3F5F8',
         display: 'standalone',
         orientation: 'portrait',

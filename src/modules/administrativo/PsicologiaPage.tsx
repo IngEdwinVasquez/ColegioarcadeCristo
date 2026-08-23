@@ -140,7 +140,7 @@ export function PsicologiaPage() {
                     <TableCell>{gradeById(studentById(c.studentId)?.gradeId ?? '')?.name ?? '—'}</TableCell>
                     <TableCell>{c.porcentaje}%</TableCell>
                     <TableCell>
-                      <span style={{ padding: '2px 10px', borderRadius: '999px', fontSize: '12px', fontWeight: 600, background: c.porcentaje < 60 ? '#C62828' : '#EF6C00', color: '#fff' }}>
+                      <span style={{ padding: '2px 10px', borderRadius: '999px', fontSize: '12px', fontWeight: 600, background: c.porcentaje < 60 ? '#C8102E' : '#EF6C00', color: '#fff' }}>
                         {c.porcentaje < 60 ? 'Alta' : 'Media'}
                       </span>
                     </TableCell>

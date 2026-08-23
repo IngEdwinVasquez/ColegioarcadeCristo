@@ -117,7 +117,7 @@ export function CatalogosPage() {
           columns={subjectColumns}
           searchText={(s) => `${s.name} ${s.shortName}`}
           newLabel="Nueva asignatura"
-          createDefault={() => ({ id: genId('subj'), name: '', shortName: '', color: '#103F7E' })}
+          createDefault={() => ({ id: genId('subj'), name: '', shortName: '', color: '#0095C8' })}
           renderForm={(s, set) => (
             <div>
               <FieldRow>
@@ -132,7 +132,7 @@ export function CatalogosPage() {
                 <input
                   name="color"
                   type="color"
-                  value={s.color ?? '#103F7E'}
+                  value={s.color ?? '#0095C8'}
                   onChange={(e) => set({ ...s, color: e.target.value })}
                   style={{ width: '80px', height: '36px', borderRadius: '8px', border: '1px solid var(--borde)', background: 'none' }}
                 />

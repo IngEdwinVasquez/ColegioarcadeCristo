@@ -109,7 +109,7 @@ export function StudentAulaView({ studentId }: { studentId: string }) {
                   <TableCell>{a.points}</TableCell>
                   <TableCell>
                     {s ? (
-                      <Text weight="semibold" style={{ color: s.score / a.points >= 0.7 ? '#2E7D32' : '#C62828' }}>{s.score} / {a.points}</Text>
+                      <Text weight="semibold" style={{ color: s.score / a.points >= 0.7 ? '#2E7D32' : '#C8102E' }}>{s.score} / {a.points}</Text>
                     ) : (
                       <StatusBadge status="pendiente">Pendiente</StatusBadge>
                     )}

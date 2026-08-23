@@ -54,7 +54,7 @@ export function AdmisionesPage() {
   const chartData = useMemo(() => [
     { name: 'Pendientes', value: stats.pendientes, fill: '#EF6C00' },
     { name: 'Aprobadas', value: stats.aprobadas, fill: '#15803D' },
-    { name: 'Rechazadas', value: stats.rechazadas, fill: '#C62828' },
+    { name: 'Rechazadas', value: stats.rechazadas, fill: '#C8102E' },
   ], [stats])
 
   const register = async () => {
@@ -127,10 +127,10 @@ export function AdmisionesPage() {
       {tab === 'dashboard' && (
         <div>
           <div className={styles.kpis}>
-            <StatCard title="Total solicitudes" value={stats.total} icon={<EditRegular />} color="#103F7E" gradient={gradientes.azul} />
+            <StatCard title="Total solicitudes" value={stats.total} icon={<EditRegular />} color="#0095C8" gradient={gradientes.azul} />
             <StatCard title="Pendientes" value={stats.pendientes} icon={<ArrowSyncRegular />} color="#EF6C00" gradient={gradientes.naranja} sub="Por revisar" />
             <StatCard title="Aprobadas" value={stats.aprobadas} icon={<CheckmarkCircleRegular />} color="#15803D" gradient={gradientes.verde} sub="Estudiantes matriculados" />
-            <StatCard title="Rechazadas" value={stats.rechazadas} icon={<DismissCircleRegular />} color="#C62828" gradient={gradientes.rojo} />
+            <StatCard title="Rechazadas" value={stats.rechazadas} icon={<DismissCircleRegular />} color="#C8102E" gradient={gradientes.rojo} />
           </div>
           {chartData.some((d) => d.value > 0) && (
             <div className={styles.chartCard}>
@@ -140,7 +140,7 @@ export function AdmisionesPage() {
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="name" fontSize={11} />
                   <RTooltip />
-                  <Bar dataKey="value" fill="#103F7E" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="value" fill="#0095C8" radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </div>

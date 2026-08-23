@@ -82,7 +82,7 @@ export function DocenteDashboard() {
       />
 
       <div className={styles.kpis}>
-        <StatCard title="Clases de hoy" value={todayCount} icon={<CalendarTodayRegular />} color="#103F7E" gradient={gradientes.azul} sub={`${upcoming.filter((p) => p.date === todayIso()).length} por impartir hoy`} />
+        <StatCard title="Clases de hoy" value={todayCount} icon={<CalendarTodayRegular />} color="#0095C8" gradient={gradientes.azul} sub={`${upcoming.filter((p) => p.date === todayIso()).length} por impartir hoy`} />
         <StatCard title="Clases completadas" value={myClasses.filter((c) => c.status === 'completada').length} icon={<CheckmarkCircleRegular />} color="#15803D" gradient={gradientes.verde} sub="Con registro antes / durante / después" />
         <StatCard title="Clases planificadas" value={myPlans.length} icon={<NotebookRegular />} color="#0EA5E9" gradient={gradientes.celeste} sub="Planificación anual" />
         <StatCard title="Actividades publicadas" value={myActivities.length} icon={<ClipboardTaskRegular />} color="#EA580C" gradient={gradientes.naranja} sub="En las aulas virtuales" />

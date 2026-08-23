@@ -8,7 +8,7 @@ const useStyles = makeStyles({
     overflow: 'hidden',
     borderRadius: '18px',
     padding: '28px',
-    background: 'linear-gradient(120deg, #081F3E 0%, #0A274E 45%, #103F7E 100%)',
+    background: 'linear-gradient(120deg, #0A1F2B 0%, #0B2E3F 45%, #0095C8 100%)',
     color: '#fff',
     display: 'flex',
     alignItems: 'center',

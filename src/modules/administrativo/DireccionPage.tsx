@@ -124,8 +124,8 @@ export function DireccionPage() {
   }, [meetingsCol.items])
 
   const pieCumplimiento = [
-    { name: 'Impartidas', value: completed.length, color: '#002D62' },
-    { name: 'Pendientes', value: Math.max(planned.length - completed.length, 0), color: '#CE1126' },
+    { name: 'Impartidas', value: completed.length, color: '#004D6B' },
+    { name: 'Pendientes', value: Math.max(planned.length - completed.length, 0), color: '#E30613' },
   ].filter((d) => d.value > 0)
 
   return (
@@ -145,12 +145,12 @@ export function DireccionPage() {
       </div>
 
       <div className={styles.kpis}>
-        <StatCard title="Estudiantes" value={students.length} icon={<PeopleRegular />} color="#002D62" sub="Matrícula registrada" />
+        <StatCard title="Estudiantes" value={students.length} icon={<PeopleRegular />} color="#004D6B" sub="Matrícula registrada" />
         <StatCard title="Docentes" value={teachers.length} icon={<PersonSupportRegular />} color="#2E7D32" sub="Cuerpo docente" />
         <StatCard title="Cumplimiento de planificación" value={`${cumplimiento}%`} icon={<CalendarCheckmarkRegular />} color="#EF6C00" sub={`${completed.length} clases impartidas de ${planned.length} planificadas`} />
-        <StatCard title="Asistencia promedio" value={`${avgAttendance}%`} icon={<NotebookRegular />} color="#1565C0" sub="Basado en el registro por asignatura" />
+        <StatCard title="Asistencia promedio" value={`${avgAttendance}%`} icon={<NotebookRegular />} color="#0084B3" sub="Basado en el registro por asignatura" />
         <StatCard title="Rendimiento académico" value={`${avgAcademic}/100`} icon={<StarRegular />} color="#AD1457" sub="Promedio normalizado de actividades" />
-        <StatCard title="Acuerdos pendientes" value={pendingAgreements} icon={<CalendarCheckmarkRegular />} color="#4E342E" sub="Derivados de encuentros virtuales" />
+        <StatCard title="Acuerdos pendientes" value={pendingAgreements} icon={<CalendarCheckmarkRegular />} color="#7D1D24" sub="Derivados de encuentros virtuales" />
       </div>
 
       <div className={styles.grid}>
@@ -163,8 +163,8 @@ export function DireccionPage() {
               <YAxis allowDecimals={false} fontSize={11} />
               <RTooltip />
               <Legend />
-              <Bar dataKey="Planificadas" fill="#002D62" radius={[4, 4, 0, 0]} />
-              <Bar dataKey="Impartidas" fill="#CE1126" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="Planificadas" fill="#004D6B" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="Impartidas" fill="#E30613" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </Card>
@@ -177,7 +177,7 @@ export function DireccionPage() {
               <XAxis dataKey="name" fontSize={11} />
               <YAxis domain={[0, 100]} fontSize={11} />
               <RTooltip formatter={(v) => [`${v}`, 'Promedio']} />
-              <Bar dataKey="promedio" fill="#1565C0" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="promedio" fill="#0084B3" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </Card>
@@ -205,7 +205,7 @@ export function DireccionPage() {
               <XAxis dataKey="date" tickFormatter={(v) => formatDate(v)} fontSize={11} minTickGap={16} />
               <YAxis domain={[0, 100]} fontSize={11} />
               <RTooltip formatter={(v) => [`${v}%`, 'Asistencia']} labelFormatter={(v) => formatDate(String(v))} />
-              <Line type="monotone" dataKey="asistencia" stroke="#002D62" strokeWidth={3} dot={{ r: 3 }} />
+              <Line type="monotone" dataKey="asistencia" stroke="#004D6B" strokeWidth={3} dot={{ r: 3 }} />
             </LineChart>
           </ResponsiveContainer>
         </Card>
@@ -234,7 +234,7 @@ export function DireccionPage() {
                         borderRadius: '999px',
                         fontSize: '12px',
                         fontWeight: 600,
-                        background: pct(v.hecho, v.plan) >= 90 ? '#2E7D32' : pct(v.hecho, v.plan) >= 60 ? '#EF6C00' : '#C62828',
+                        background: pct(v.hecho, v.plan) >= 90 ? '#2E7D32' : pct(v.hecho, v.plan) >= 60 ? '#EF6C00' : '#C8102E',
                         color: '#fff',
                       }}
                     >

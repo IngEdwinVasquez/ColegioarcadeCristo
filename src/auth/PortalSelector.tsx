@@ -13,7 +13,7 @@ const useStyles = makeStyles({
   hero: {
     position: 'relative',
     overflow: 'hidden',
-    background: 'linear-gradient(135deg, #081F3E 0%, #0A274E 45%, #103F7E 100%)',
+    background: 'linear-gradient(135deg, #0A1F2B 0%, #0B2E3F 45%, #0095C8 100%)',
     padding: '64px 24px 72px',
     color: '#fff',
     textAlign: 'center',
