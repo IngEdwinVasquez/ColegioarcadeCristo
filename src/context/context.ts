@@ -1,21 +1,30 @@
 import { createContext } from 'react'
-import type { GradeSection, Period, Student, Subject, Teacher, User } from '../types'
+import type { GradeSection, Period, Student, StudentGuardian, Subject, Teacher, User } from '../types'
 import type { Role } from '../types/roles'
 
+export type AuthState = 'anonymous' | 'loading' | 'ready' | 'no-access' | 'error'
+
+export interface SetupIssue {
+  title: string
+  message: string
+  hint?: string
+}
+
 export interface AppContextValue {
-  mode: 'demo' | 'm365'
-  ready: boolean
+  authState: AuthState
+  setupIssue: SetupIssue | null
   user: User | null
   role: Role | null
   setRole: (role: Role) => void
-  loginAsDemo: (user: User) => void
-  setCurrentUser: (user: User) => void
-  logout: () => void
+  signIn: () => Promise<void>
+  logout: () => Promise<void>
+  retry: () => void
   subjects: Subject[]
   grades: GradeSection[]
   periods: Period[]
   teachers: Teacher[]
   students: Student[]
+  guardians: StudentGuardian[]
   users: User[]
   refreshCatalogs: () => Promise<void>
   subjectById: (id?: string) => Subject | undefined

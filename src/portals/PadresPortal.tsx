@@ -5,6 +5,7 @@ import { PadresDashboard } from '../modules/dashboard/PadresDashboard'
 import { StudentAulaView, StudentAsistenciaView, StudentPicker } from '../modules/dashboard/StudentViews'
 import { Comunicados } from '../modules/dashboard/Comunicados'
 import { ChatPage } from '../modules/chat/ChatPage'
+import { CopilotPage } from '../modules/copilot/CopilotPage'
 import { PageHeader } from '../components/shared/PageHeader'
 import {
   HomeRegular,
@@ -12,6 +13,7 @@ import {
   CalendarCheckmarkRegular,
   MegaphoneRegular,
   ChatRegular,
+  SparkleRegular,
 } from '@fluentui/react-icons'
 
 function ChildView({ render, title, subtitle }: { render: (childId: string) => ReactNode; title: string; subtitle: string }) {
@@ -34,6 +36,7 @@ export function PadresPortal() {
     { to: '/padres/asistencia', label: 'Asistencia', icon: <CalendarCheckmarkRegular />, group: 'Académico' },
     { to: '/padres/comunicados', label: 'Comunicaciones', icon: <MegaphoneRegular />, group: 'Comunidad' },
     { to: '/padres/chat', label: 'Mensajería', icon: <ChatRegular />, group: 'Comunidad' },
+    { to: '/padres/copilot', label: 'Copilot', icon: <SparkleRegular />, group: 'Herramientas' },
   ]
 
   return (
@@ -62,6 +65,7 @@ export function PadresPortal() {
         />
         <Route path="comunicados" element={<Comunicados />} />
         <Route path="chat" element={<ChatPage />} />
+        <Route path="copilot" element={<CopilotPage />} />
       </Route>
     </Routes>
   )

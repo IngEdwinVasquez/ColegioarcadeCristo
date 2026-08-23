@@ -3,8 +3,11 @@ import { Button, Card, Input, Select, Tab, TabList, Table, TableBody, TableCell,
 import { DocumentArrowRightRegular, PersonAddRegular, QuestionCircleRegular, SendRegular } from '@fluentui/react-icons'
 import { PageHeader } from '../../components/shared/PageHeader'
 import { FormField, FieldRow } from '../../components/shared/form'
-import { useLocalList } from '../../hooks/useLocalList'
-import { formatDate } from '../../utils/helpers'
+import { useApp } from '../../context/useApp'
+import { dataService } from '../../services/dataService'
+import { useCollection } from '../../hooks/useCollection'
+import { formatDate, genId } from '../../utils/helpers'
+import type { AdmissionRequest, DocumentRequest } from '../../types'
 
 const useStyles = makeStyles({
   grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 360px), 1fr))', gap: '20px', marginTop: '16px' },
@@ -23,8 +26,9 @@ export function AdministracionPage() {
   const toaster = useToastController()
   const [tab, setTab] = useState('admisiones')
 
-  const admisiones = useLocalList<{ id: string; estudiante: string; grado: string; contacto: string; fecha: string }>('arca_admisiones')
-  const documentos = useLocalList<{ id: string; tipo: string; estudiante: string; detalle: string; fecha: string }>('arca_documentos')
+  const { grades, user } = useApp()
+  const admisiones = useCollection<AdmissionRequest>(dataService.getAdmissions, dataService.saveAdmission, dataService.deleteAdmission)
+  const documentos = useCollection<DocumentRequest>(dataService.getDocumentRequests, dataService.saveDocumentRequest, dataService.deleteDocumentRequest)
 
   const [nuevoEstudiante, setNuevoEstudiante] = useState('')
   const [nuevoGrado, setNuevoGrado] = useState('')
@@ -33,27 +37,40 @@ export function AdministracionPage() {
   const [docEstudiante, setDocEstudiante] = useState('')
   const [docDetalle, setDocDetalle] = useState('')
 
-  const registrarAdmision = () => {
+  const registrarAdmision = async () => {
     if (!nuevoEstudiante || !nuevoGrado) {
       window.alert('Complete el nombre y el grado del aspirante.')
       return
     }
-    admisiones.add({ estudiante: nuevoEstudiante, grado: nuevoGrado, contacto: nuevoContacto, fecha: new Date().toISOString() })
-    toaster.dispatchToast("Solicitud de admisión registrada", { intent: "success" })
-    setNuevoEstudiante('')
-    setNuevoGrado('')
-    setNuevoContacto('')
+    try {
+      await admisiones.save({ id: genId('adm'), estudiante: nuevoEstudiante, grado: nuevoGrado, contacto: nuevoContacto, fecha: new Date().toISOString(), estado: 'pendiente' })
+      toaster.dispatchToast('Solicitud de admisión registrada', { intent: 'success' })
+      setNuevoEstudiante('')
+      setNuevoGrado('')
+      setNuevoContacto('')
+    } catch (error) {
+      toaster.dispatchToast(`No se pudo registrar: ${error instanceof Error ? error.message : 'error'}`, { intent: 'error' })
+    }
   }
 
-  const solicitarDocumento = () => {
+  const solicitarDocumento = async () => {
     if (!docEstudiante) {
       window.alert('Indique el estudiante.')
       return
     }
-    documentos.add({ tipo: docTipo, estudiante: docEstudiante, detalle: docDetalle, fecha: new Date().toISOString() })
-    toaster.dispatchToast("Solicitud de documento enviada", { intent: "success" })
-    setDocEstudiante('')
-    setDocDetalle('')
+    try {
+      await documentos.save({ id: genId('doc'), tipo: docTipo, estudiante: docEstudiante, detalle: docDetalle, fecha: new Date().toISOString(), solicitante: user?.displayName, estado: 'pendiente' })
+      toaster.dispatchToast('Solicitud de documento enviada', { intent: 'success' })
+      setDocEstudiante('')
+      setDocDetalle('')
+    } catch (error) {
+      toaster.dispatchToast(`No se pudo enviar: ${error instanceof Error ? error.message : 'error'}`, { intent: 'error' })
+    }
+  }
+
+  const avanzarDocumento = async (d: DocumentRequest) => {
+    const siguiente: DocumentRequest['estado'] = d.estado === 'pendiente' ? 'en_proceso' : 'entregado'
+    await documentos.save({ ...d, estado: siguiente })
   }
 
   return (
@@ -81,8 +98,8 @@ export function AdministracionPage() {
                 <FormField label="Grado a ingresar">
                   <Select value={nuevoGrado} onChange={(_, d) => setNuevoGrado(d.value)}>
                     <option value="">— Seleccionar —</option>
-                    {['1ro', '2do', '3ro', '4to', '5to', '6to'].map((g) => (
-                      <option key={g} value={`${g} A`}>{g} A</option>
+                    {grades.map((g) => (
+                      <option key={g.id} value={g.name}>{g.name}</option>
                     ))}
                   </Select>
                 </FormField>
@@ -90,7 +107,7 @@ export function AdministracionPage() {
                   <Input value={nuevoContacto} onChange={(_, d) => setNuevoContacto(d.value)} placeholder="Teléfono o correo" />
                 </FormField>
               </FieldRow>
-              <Button appearance="primary" icon={<PersonAddRegular />} onClick={registrarAdmision}>Registrar admisión</Button>
+              <Button appearance="primary" icon={<PersonAddRegular />} onClick={() => void registrarAdmision()}>Registrar admisión</Button>
             </div>
           </Card>
           <Card className={styles.card}>
@@ -104,15 +121,17 @@ export function AdministracionPage() {
                     <TableHeaderCell>Aspirante</TableHeaderCell>
                     <TableHeaderCell>Grado</TableHeaderCell>
                     <TableHeaderCell>Contacto</TableHeaderCell>
+                    <TableHeaderCell>Estado</TableHeaderCell>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {admisiones.items.map((a) => (
+                  {admisiones.items.slice().sort((x, y) => (x.fecha < y.fecha ? 1 : -1)).map((a) => (
                     <TableRow key={a.id}>
                       <TableCell>{formatDate(a.fecha)}</TableCell>
                       <TableCell>{a.estudiante}</TableCell>
                       <TableCell>{a.grado}</TableCell>
                       <TableCell>{a.contacto}</TableCell>
+                      <TableCell>{a.estado ?? 'pendiente'}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -143,7 +162,7 @@ export function AdministracionPage() {
               <FormField label="Detalle / propósito">
                 <Textarea value={docDetalle} onChange={(_, d) => setDocDetalle(d.value)} resize="vertical" placeholder="Ej. Para fines de inscripción en otra institución…" />
               </FormField>
-              <Button appearance="primary" icon={<SendRegular />} onClick={solicitarDocumento}>Enviar solicitud</Button>
+              <Button appearance="primary" icon={<SendRegular />} onClick={() => void solicitarDocumento()}>Enviar solicitud</Button>
             </div>
           </Card>
           <Card className={styles.card}>
@@ -156,14 +175,24 @@ export function AdministracionPage() {
                     <TableHeaderCell>Fecha</TableHeaderCell>
                     <TableHeaderCell>Documento</TableHeaderCell>
                     <TableHeaderCell>Estudiante</TableHeaderCell>
+                    <TableHeaderCell>Estado</TableHeaderCell>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {documentos.items.map((d) => (
+                  {documentos.items.slice().sort((x, y) => (x.fecha < y.fecha ? 1 : -1)).map((d) => (
                     <TableRow key={d.id}>
                       <TableCell>{formatDate(d.fecha)}</TableCell>
                       <TableCell>{d.tipo}</TableCell>
                       <TableCell>{d.estudiante}</TableCell>
+                      <TableCell>
+                        {d.estado === 'entregado' ? (
+                          'Entregado'
+                        ) : (
+                          <Button size="small" appearance="subtle" onClick={() => void avanzarDocumento(d)}>
+                            {d.estado === 'en_proceso' ? 'Marcar entregado' : 'Iniciar proceso'}
+                          </Button>
+                        )}
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>

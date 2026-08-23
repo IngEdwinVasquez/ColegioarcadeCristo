@@ -29,3 +29,6 @@ dist-ssr
 dev-server.log
 
 dev-dist
+
+# Claude Code (local)
+.claude/

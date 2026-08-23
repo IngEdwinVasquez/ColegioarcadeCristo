@@ -1,67 +1,108 @@
-# Configuración de Microsoft Entra ID (Login con Microsoft)
+# Configuración de Microsoft 365 (Entra ID, SharePoint, OneDrive, Teams)
 
-La intranet usa **MSAL (Microsoft Authentication Library)** con el flujo de autorización de código PKCE para usuarios (permisos delegados). Siga estos pasos en el **Azure Portal**.
+La intranet es una **SPA** que se autentica con **Microsoft Entra ID** mediante MSAL (flujo de código de autorización con PKCE) y accede a Microsoft 365 con **permisos delegados** del usuario conectado (Microsoft Graph). No existe backend propio ni datos de demostración: todo vive en el tenant del colegio.
 
-## 1. Registrar la aplicación
-
-1. Vaya a **Azure Portal → Microsoft Entra ID → Registros de aplicaciones → Nuevo registro**.
-2. **Nombre:** `Intranet Arca de Cristo`.
-3. **Tipos de cuenta admitidos:** *Solo las cuentas en este directorio organizativo* (single-tenant) recomendado.
-4. **URI de redirección (SPA):** `http://localhost:5173` (desarrollo) y la URL pública de producción cuando se despliegue.
-5. Clic en **Registrar** y anote el **Id. de aplicación (cliente)**.
-
-## 2. Plataforma SPA y autenticación implícita
-
-En **Autenticación**:
-
-- Agregue la plataforma **SPA (aplicación de página única)**.
-- Active el flujo con códigos de autorización (PKCE). MSAL v5 lo utiliza por defecto; **no es necesario** activar la concesión implícita.
-
-## 3. Permisos de API (Microsoft Graph)
-
-En **Permisos de API → Agregar un permiso → Microsoft Graph → Permisos delegados**, agregue:
-
-| Permiso | Propósito |
+| Servicio | Uso en la intranet |
 | --- | --- |
-| `User.Read` | Datos básicos del usuario conectado |
-| `Mail.Send` | Envío de correos institucionales (notificaciones) |
-| `Calendars.ReadWrite` | Creación de reuniones / encuentros virtuales |
-| `Sites.ReadWrite.All` | Lectura/escritura de listas de SharePoint Online (base de datos) |
-| `Files.ReadWrite.All` | Repositorio de documentos en OneDrive |
-| `Directory.Read.All` | (Opcional) resolución de grupos/docentes |
+| **Microsoft Entra ID** | Inicio de sesión único y directorio de usuarios |
+| **SharePoint Online** | Base de datos (listas `ARC_*` del sitio `IntranetArca`) |
+| **OneDrive** | Repositorio documental (material de aulas virtuales) |
+| **Microsoft Teams / Outlook** | Encuentros virtuales (reuniones de Teams con invitación de calendario) |
+| **Power Automate** | Envío de correos institucionales (circulares, admisiones, alertas) |
+| **Microsoft 365 Copilot** | Asistente de IA integrado en cada portal |
 
-En **Conceder consentimiento de administrador** presione el botón para aceptar los permisos en nombre de la organización.
+## Registro de aplicación (ya creado)
 
-> **Importante:** para SPA con MSAL v5 no se generan secretos; el flujo es público (PKCE). No almacene secretos en el frontend.
+| Dato | Valor |
+| --- | --- |
+| Id. de aplicación (cliente) | `c69b1c39-4357-4b88-8634-01cde6235549` |
+| Id. de directorio (inquilino) | `b5fed600-8da6-43f1-8018-e741824c0e28` |
+| Authority | `https://login.microsoftonline.com/b5fed600-8da6-43f1-8018-e741824c0e28` |
 
-## 4. Usuarios permitidos
+> **Sobre el secreto de cliente:** una SPA **no usa** client secret (el flujo PKCE es público y el código se ejecuta en el navegador). Si se generó un secreto para este registro, **no lo coloque en el proyecto** y, si se compartió por un canal inseguro, **elimínelo/rotélo** en *Certificados y secretos*. El secreto solo tendría sentido en un backend o en una conexión de Power Automate con permisos de aplicación.
 
-En **Exposición de API / Azure AD B2C** no aplica. Para restringir acceso, asigne usuarios en **Aplicaciones empresariales → Intranet Arca de Cristo → Usuarios y grupos** o configure **Acceso condicional**.
+## Lista de verificación en el portal de Entra
 
-## 5. Variables de entorno del frontend
+Acceda a [entra.microsoft.com](https://entra.microsoft.com) → **Aplicaciones** → **Registros de aplicaciones** → *Intranet Arca de Cristo* (`c69b1c39-…`).
 
-Copie `.env.example` a `.env`:
+### 1. Autenticación
+
+- Plataforma **Aplicación de página única (SPA)** con estas **URI de redirección**:
+  - `http://localhost:5173` (desarrollo)
+  - `https://<nombre>.azurestaticapps.net` (producción, la URL que asigne Static Web Apps)
+  - El dominio personalizado cuando se configure (p. ej. `https://intranet.arcadecristo.edu.do`)
+- **Tipos de cuenta admitidos:** *Solo las cuentas de este directorio organizativo* (inquilino único).
+- No active la concesión implícita (no es necesaria con MSAL v3+/PKCE).
+
+### 2. Permisos de API → Microsoft Graph → Permisos **delegados**
+
+| Permiso | Para qué |
+| --- | --- |
+| `User.Read` | Perfil y foto del usuario conectado |
+| `User.ReadBasic.All` | Leer el directorio en "Usuarios y roles" |
+| `Directory.Read.All` | (Opcional) detalles ampliados del directorio |
+| `Sites.ReadWrite.All` | Leer/escribir los elementos de las listas de SharePoint |
+| `Sites.Manage.All` | Crear las listas y columnas `ARC_*` automáticamente (aprovisionamiento) |
+| `Files.ReadWrite.All` | Subir material a OneDrive y crear enlaces compartidos |
+| `Calendars.ReadWrite` | Crear reuniones de Teams para los encuentros virtuales |
+| `Mail.Send` | Envío de correo de respaldo cuando no hay flujo de Power Automate |
+
+Pulse **Conceder consentimiento de administrador para <tenant>** y compruebe que todos aparecen en verde.
+
+### 3. Asignación de usuarios (recomendado)
+
+**Aplicaciones empresariales** → *Intranet Arca de Cristo* → **Propiedades** → *¿Asignación requerida?* = **Sí**, y en **Usuarios y grupos** agregue los grupos de docentes, estudiantes, familias y dirección. Así solo las cuentas autorizadas pueden iniciar sesión.
+
+## Sitio de SharePoint
+
+1. Centro de administración de SharePoint → **Sitios activos** → **Crear** → *Sitio de grupo* → nombre **IntranetArca** (URL `/sites/IntranetArca`).
+2. Agregue como **miembros** (permiso de edición) a los grupos de docentes, familias, estudiantes y dirección: la app escribe en las listas con la identidad del usuario.
+3. **No hace falta crear las listas manualmente**: la primera persona que inicie sesión con permiso de edición las crea automáticamente (ver [SPO_PROVISIONING.md](SPO_PROVISIONING.md)).
+
+Si el sitio tiene otro nombre o ruta, ajuste `VITE_SPO_SITE_PATH`. El hostname (`<tenant>.sharepoint.com`) se detecta solo; puede fijarlo con `VITE_SPO_HOSTNAME`.
+
+## Roles de acceso
+
+Al iniciar sesión, la intranet determina los roles del usuario en este orden:
+
+1. Roles guardados en la lista **`ARC_Users`** (módulo *Usuarios y roles* del portal administrativo).
+2. Correos listados en `VITE_ADMIN_EMAILS` → rol **Administrativo** (arranque inicial).
+3. Inferencia automática: correo presente en *Personas → Docentes* → **Docente**; en *Personas → Padres* → **Padre / Tutor**.
+4. Si la lista `ARC_Users` está vacía (primer uso), la primera cuenta que entra recibe el rol **Administrativo**.
+
+Un usuario sin rol ve la pantalla *"Acceso pendiente de asignación"* hasta que Dirección le asigne uno.
+
+## Variables de entorno
+
+`.env.production` (valores públicos, se incluye en el repositorio):
 
 ```env
-VITE_M365_ENABLED=true
-VITE_MSAL_CLIENT_ID=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
-VITE_MSAL_AUTHORITY=https://login.microsoftonline.com/SU-TENANT.onmicrosoft.com
-VITE_MSAL_REDIRECT_URI=http://localhost:5173
-VITE_SPO_HOSTNAME=SU-TENANT.sharepoint.com
+VITE_MSAL_CLIENT_ID=c69b1c39-4357-4b88-8634-01cde6235549
+VITE_MSAL_TENANT_ID=b5fed600-8da6-43f1-8018-e741824c0e28
+VITE_SPO_HOSTNAME=
 VITE_SPO_SITE_PATH=/sites/IntranetArca
+VITE_ONEDRIVE_ROOT_FOLDER=ArcaDeCristo
+VITE_ADMIN_EMAILS=direccion@arcadecristo.edu.do
+VITE_POWER_AUTOMATE_MAIL_URL=
+VITE_COPILOT_EMBED_URL=
 ```
 
-## 6. Prueba
+Para desarrollo local copie `.env.example` a `.env`.
 
-1. `npm run dev`
-2. Abra `http://localhost:5173` → se mostrará el botón **"Iniciar sesión con Microsoft"**.
-3. Inicie sesión con una cuenta institucional. Tras autenticarse podrá elegir el portal.
+## Prueba
+
+1. `npm run dev` → `http://localhost:5173` → **Iniciar sesión con Microsoft**.
+2. Tras autenticarse verá *"Conectando con Microsoft 365"*: se crea lo que falte en SharePoint y se cargan los catálogos.
+3. Elija el portal. Con el rol Administrativo, vaya a **Catálogos** para crear grados, asignaturas y períodos, y a **Personas** / **Usuarios y roles** para dar acceso a los demás.
 
 ## Solución de problemas
 
 | Error | Causa | Solución |
 | --- | --- | --- |
-| `AADSTS50011` | URI de redirección no registrada | Agregue exactamente la URI en la plataforma SPA |
-| `AADSTS65001` | No se concedió consentimiento | Acepte el consentimiento de administrador de los permisos |
-| Token 401 en Graph | Faltan permisos delegados | Verifique `Mail.Send`, `Sites.ReadWrite.All`, etc. |
-| `Sites.ReadWrite.All` requiere consentimiento admin | Permiso de alto privilegio | Conceder consentimiento de administrador |
+| `AADSTS50011` | URI de redirección no registrada | Agregue exactamente la URL (sin barra final) en la plataforma **SPA** |
+| `AADSTS65001` / `AADSTS650**` | Falta consentimiento | Conceda el consentimiento de administrador a los permisos |
+| `AADSTS50105` | Usuario no asignado a la aplicación | Agréguelo en *Aplicaciones empresariales → Usuarios y grupos* |
+| "SharePoint no está listo" | No existe el sitio `/sites/IntranetArca` o el usuario no tiene acceso | Cree el sitio o ajuste `VITE_SPO_SITE_PATH`; dé permisos de edición |
+| 403 al guardar | El usuario solo tiene lectura en el sitio | Conviértalo en miembro (edición) del sitio |
+| 403 al crear la lista `ARC_Users` | Falta `Sites.Manage.All` | Agregue el permiso delegado, conceda consentimiento de administrador, cierre sesión y vuelva a entrar |
+| Reunión de Teams no se crea | Falta `Calendars.ReadWrite` o el usuario no tiene licencia de Teams/Exchange | Revise permisos y licencias |

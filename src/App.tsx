@@ -1,11 +1,13 @@
 import { lazy, Suspense, type ReactNode } from 'react'
 import { FluentProvider, Spinner, Toaster, makeStyles } from '@fluentui/react-components'
 import { HashRouter, Navigate, Route, Routes } from 'react-router-dom'
+import { MsalProvider } from '@azure/msal-react'
 import { AppProvider } from './context/AppContext'
 import { useApp } from './context/useApp'
 import { lightTheme } from './theme'
-import { DemoLogin } from './auth/DemoLogin'
+import { msalInstance } from './services/msal'
 import { M365Login } from './auth/M365Login'
+import { AccessPending, AuthLoading, SetupError } from './auth/AuthStatus'
 import { PortalSelector } from './auth/PortalSelector'
 import './index.css'
 
@@ -30,11 +32,12 @@ function RequireRole({ children }: { children: ReactNode }) {
 }
 
 function AppRoutes() {
-  const { user, mode } = useApp()
+  const { authState } = useApp()
 
-  if (!user) {
-    return mode === 'demo' ? <DemoLogin /> : <M365Login />
-  }
+  if (authState === 'anonymous') return <M365Login />
+  if (authState === 'loading') return <AuthLoading />
+  if (authState === 'error') return <SetupError />
+  if (authState === 'no-access') return <AccessPending />
 
   return (
     <HashRouter>
@@ -52,11 +55,13 @@ function AppRoutes() {
 
 export default function App() {
   return (
-    <FluentProvider theme={lightTheme}>
-      <AppProvider>
-        <AppRoutes />
-        <Toaster position="top-end" />
-      </AppProvider>
-    </FluentProvider>
+    <MsalProvider instance={msalInstance}>
+      <FluentProvider theme={lightTheme}>
+        <AppProvider>
+          <AppRoutes />
+          <Toaster position="top-end" />
+        </AppProvider>
+      </FluentProvider>
+    </MsalProvider>
   )
 }

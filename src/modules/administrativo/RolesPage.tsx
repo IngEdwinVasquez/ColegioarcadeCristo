@@ -8,13 +8,9 @@ import { useApp } from '../../context/useApp'
 import { PORTALS } from '../../portals/portals'
 import { ROLE_LABELS } from '../../types/roles'
 import type { Role } from '../../types/roles'
-import { useLocalList } from '../../hooks/useLocalList'
-
-interface RoleMeta {
-  id: string
-  label?: string
-  description?: string
-}
+import { dataService } from '../../services/dataService'
+import { useCollection } from '../../hooks/useCollection'
+import type { RoleMeta } from '../../types'
 
 const DEFAULT_DESCRIPTIONS: Record<Role, string> = {
   docente: 'Acceso al portal docente: planificación, clases, asistencia, aulas y encuentros.',
@@ -34,7 +30,7 @@ export function RolesPage() {
   const styles = useStyles()
   const toaster = useToastController()
   const { users } = useApp()
-  const meta = useLocalList<RoleMeta>('arca_role_meta')
+  const meta = useCollection<RoleMeta>(dataService.getRoleMeta, dataService.saveRoleMeta)
 
   const [editing, setEditing] = useState<Role | null>(null)
   const [label, setLabel] = useState('')
@@ -51,7 +47,6 @@ export function RolesPage() {
         if (list && !list.includes(u.displayName)) list.push(u.displayName)
       }
     }
-    // En modo demo, estudiantes cuentan como usuarios del portal de estudiantes
     return map
   }, [users, roles])
 
@@ -62,11 +57,15 @@ export function RolesPage() {
     setDescription(m?.description ?? DEFAULT_DESCRIPTIONS[r])
   }
 
-  const save = () => {
+  const save = async () => {
     if (!editing) return
-    meta.add({ id: editing, label: label.trim() || ROLE_LABELS[editing], description })
-    toaster.dispatchToast('Rol actualizado', { intent: 'success' })
-    setEditing(null)
+    try {
+      await meta.save({ id: editing, label: label.trim() || ROLE_LABELS[editing], description })
+      toaster.dispatchToast('Rol actualizado', { intent: 'success' })
+      setEditing(null)
+    } catch (error) {
+      toaster.dispatchToast(`No se pudo guardar: ${error instanceof Error ? error.message : 'error'}`, { intent: 'error' })
+    }
   }
 
   return (
@@ -128,7 +127,7 @@ export function RolesPage() {
         actions={
           <>
             <Button appearance="secondary" onClick={() => setEditing(null)}>Cancelar</Button>
-            <Button appearance="primary" onClick={save}>Guardar</Button>
+            <Button appearance="primary" onClick={() => void save()}>Guardar</Button>
           </>
         }
       >

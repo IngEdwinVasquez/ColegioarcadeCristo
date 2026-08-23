@@ -30,38 +30,35 @@ La institución usa los **colores de la bandera dominicana** (azul `#002D62`, ro
 ## Requisitos
 
 - Node.js 20+ y npm.
-- Un tenant de Microsoft 365 con licencias para SharePoint Online, OneDrive, Exchange Online y Teams (según el uso).
+- Un tenant de Microsoft 365 con licencias para SharePoint Online, OneDrive, Exchange Online y Teams.
+- El registro de aplicación en Microsoft Entra ID con los permisos concedidos (ver [docs/M365_SETUP.md](docs/M365_SETUP.md)).
 
-## Puesta en marcha (modo demo)
+> La aplicación **no tiene modo de demostración**: todos los datos viven en el tenant del colegio y el acceso requiere una cuenta institucional.
 
-Sin ninguna configuración de Microsoft 365, la app funciona en **modo demostración** con datos de ejemplo persistidos en `localStorage`:
+## Puesta en marcha
 
 ```bash
 npm install
+cp .env.example .env      # ya contiene el Client ID y Tenant ID del colegio
 npm run dev
 ```
 
-Abra `http://localhost:5173`, seleccione un usuario de demostración (docente, estudiante, padre o dirección) y explore los portales.
+Abra `http://localhost:5173` → **Iniciar sesión con Microsoft**. La primera cuenta con permiso de edición en el sitio de SharePoint crea automáticamente las listas `ARC_*`.
 
-> Para probar el login real con Microsoft Entra ID siga la guía de [docs/M365_SETUP.md](docs/M365_SETUP.md) y defina las variables en `.env` (ver ejemplo en `.env.example`).
+## Integración con Microsoft 365
 
-## Configuración con Microsoft 365
+| Servicio | Uso | Documento |
+| --- | --- | --- |
+| **Entra ID** | Inicio de sesión único (MSAL + PKCE) y directorio de usuarios | [M365_SETUP.md](docs/M365_SETUP.md) |
+| **SharePoint Online** | Base de datos: listas `ARC_*` del sitio `IntranetArca` (aprovisionamiento automático) | [SPO_PROVISIONING.md](docs/SPO_PROVISIONING.md) |
+| **OneDrive** | Material de aulas virtuales con enlace compartido en la organización | [POWERAUTOMATE.md](docs/POWERAUTOMATE.md#6-onedrive) |
+| **Teams / Outlook** | Encuentros virtuales: reunión de Teams + invitaciones de calendario | [POWERAUTOMATE.md](docs/POWERAUTOMATE.md#5-microsoft-teams) |
+| **Power Automate** | Envío de circulares y notificaciones desde el buzón institucional | [POWERAUTOMATE.md](docs/POWERAUTOMATE.md) |
+| **Microsoft 365 Copilot** | Sección *Copilot* en cada portal (opcional: agente de Copilot Studio embebido) | [POWERAUTOMATE.md](docs/POWERAUTOMATE.md#7-copilot) |
 
-1. **Registre la aplicación en Entra ID** ([guía](docs/M365_SETUP.md)) y anote el `Client ID`.
-2. **Cree las listas en SharePoint Online** ([esquema](docs/SPO_PROVISIONING.md)) en el sitio `IntranetArca`.
-3. **Configure el archivo `.env`**:
+## Despliegue
 
-```env
-VITE_M365_ENABLED=true
-VITE_MSAL_CLIENT_ID=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
-VITE_MSAL_AUTHORITY=https://login.microsoftonline.com/yourtenant.onmicrosoft.com
-VITE_MSAL_REDIRECT_URI=http://localhost:5173
-VITE_SPO_HOSTNAME=yourtenant.sharepoint.com
-VITE_SPO_SITE_PATH=/sites/IntranetArca
-# Opcional: VITE_SPO_SITE_ID=<id-del-sitio>
-```
-
-4. **Automatizaciones** con Power Automate, envío de correos y notificaciones: [docs/POWERAUTOMATE.md](docs/POWERAUTOMATE.md).
+Azure Static Web Apps con GitHub Actions: [docs/DEPLOY.md](docs/DEPLOY.md). El token de implementación se guarda como secreto `AZURE_STATIC_WEB_APPS_API_TOKEN` del repositorio.
 
 ## Scripts
 
@@ -74,14 +71,14 @@ VITE_SPO_SITE_PATH=/sites/IntranetArca
 
 ## Progressive Web App (PWA)
 
-La aplicación es **instalable y funciona offline** (modo demo):
+La aplicación es **instalable** (PWA):
 
 - **Manifest** con nombre, colores institucionales e iconos de la bandera dominicana (`pwa-192x192`, `pwa-512x512`, `pwa-maskable`, `apple-touch-icon`).
 - **Service Worker** generado con Workbox (`vite-plugin-pwa`) que precachea el *app shell* y los recursos (JS/CSS/fuentes), con *fallback* de navegación offline.
 - **Botón "Instalar aplicación"** en el panel lateral (aparece automáticamente cuando el navegador lo permite).
 - En **desarrollo** el Service Worker está desactivado; se activa con `npm run build` y `npm run preview` (o al desplegar).
 
-> Nota: las llamadas a Microsoft Graph requieren conexión. La interfaz y los datos del modo demo (localStorage) funcionan completamente sin conexión.
+> Nota: las llamadas a Microsoft Graph requieren conexión; el *app shell* se sirve desde caché para arrancar rápido.
 
 ## Arquitectura
 
@@ -91,15 +88,15 @@ src/
   components/    → Layout (shell) y componentes compartidos
   config/        → Configuración de la app y de M365 (variables de entorno)
   context/       → Estado global (usuario, rol, catálogos)
-  hooks/         → useCollection, useLocalList
+  hooks/         → useCollection
   modules/       → anualPlan, clases, asistencia, aulas, encuentros, administrativo, dashboard
   portals/       → Rutas de cada portal
-  services/      → Graph API, SharePoint, OneDrive, Mail, dataService (demo ↔ M365)
+  services/      → Graph, MSAL, SharePoint, OneDrive, Teams, Power Automate (notifications), dataService
   theme/         → Tema Fluent con colores institucionales
   types/         → Modelo de datos
 ```
 
-La capa `src/services/dataService.ts` abstrae el origen de datos: en **modo demo** usa `localStorage` con datos de ejemplo; en **modo M365** usa las listas de SharePoint a través de Microsoft Graph.
+La capa `src/services/dataService.ts` expone colecciones tipadas sobre las listas de SharePoint (`src/services/sharepoint.ts`), que mantienen ids lógicos estables (`app_id`) y el registro completo en `json_payload`.
 
 ## Elaborado por
 
