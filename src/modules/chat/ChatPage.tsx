@@ -26,7 +26,7 @@ const useStyles = makeStyles({
   chatHdrInfo: { display: 'flex', flexDirection: 'column' },
   messages: { flex: 1, overflowY: 'auto', padding: '16px', display: 'flex', flexDirection: 'column', gap: '8px' },
   bubble: { maxWidth: '72%', padding: '10px 14px', borderRadius: '14px', lineHeight: 1.45, fontSize: '13.5px', wordBreak: 'break-word' },
-  bubbleMine: { alignSelf: 'flex-end', background: '#103F7E', color: '#fff', borderBottomRightRadius: '4px' },
+  bubbleMine: { alignSelf: 'flex-end', background: '#0095C8', color: '#fff', borderBottomRightRadius: '4px' },
   bubbleOther: { alignSelf: 'flex-start', background: '#f0f2f5', color: 'var(--texto)', borderBottomLeftRadius: '4px' },
   msgTime: { fontSize: '10px', marginTop: '3px', opacity: 0.7 },
   inputBar: { padding: '10px 14px', borderTop: '1px solid var(--borde)', display: 'flex', gap: '8px', alignItems: 'center' },
@@ -45,7 +45,7 @@ interface ContactSummary {
   unread: number
 }
 
-const ROLE_COLORS: Record<Role, string> = { docente: '#103F7E', estudiante: '#C62828', padre: '#15803D', admin: '#6B21A8' }
+const ROLE_COLORS: Record<Role, string> = { docente: '#0095C8', estudiante: '#C8102E', padre: '#15803D', admin: '#6B21A8' }
 
 function getContactId(a: string, b: string) { return a < b ? `${a}-${b}` : `${b}-${a}` }
 

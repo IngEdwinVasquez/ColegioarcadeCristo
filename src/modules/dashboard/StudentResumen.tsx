@@ -28,7 +28,7 @@ const useStyles = makeStyles({
   subtitle: { color: tokens.colorNeutralForeground2 },
 })
 
-const PIE_COLORS: Record<string, string> = { presente: '#2E7D32', ausente: '#C62828', tarde: '#EF6C00', justificado: '#1565C0' }
+const PIE_COLORS: Record<string, string> = { presente: '#2E7D32', ausente: '#C8102E', tarde: '#EF6C00', justificado: '#0084B3' }
 
 export function StudentResumen({ studentId }: { studentId: string }) {
   const styles = useStyles()
@@ -107,7 +107,7 @@ export function StudentResumen({ studentId }: { studentId: string }) {
             width: '48px',
             height: '48px',
             borderRadius: '50%',
-            background: 'linear-gradient(135deg,#103F7E,#1F538F)',
+            background: 'linear-gradient(135deg,#0095C8,#1AA3D2)',
             color: '#fff',
             display: 'flex',
             alignItems: 'center',
@@ -161,7 +161,7 @@ export function StudentResumen({ studentId }: { studentId: string }) {
                       <TableCell>{a.points}</TableCell>
                       <TableCell>
                         {score ? (
-                          <Text weight="semibold" style={{ color: score.score / a.points >= 0.7 ? '#2E7D32' : '#C62828' }}>
+                          <Text weight="semibold" style={{ color: score.score / a.points >= 0.7 ? '#2E7D32' : '#C8102E' }}>
                             {score.score} / {a.points}
                           </Text>
                         ) : (
@@ -197,7 +197,7 @@ export function StudentResumen({ studentId }: { studentId: string }) {
               <XAxis dataKey="name" fontSize={11} />
               <YAxis domain={[0, 100]} fontSize={11} />
               <RTooltip formatter={(v) => [`${v}`, 'Promedio']} />
-              <Bar dataKey="promedio" fill="#103F7E" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="promedio" fill="#0095C8" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>

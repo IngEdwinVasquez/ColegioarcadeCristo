@@ -26,7 +26,7 @@ export const PORTALS: PortalMeta[] = [
     description:
       'Bienvenido a su centro de trabajo docente. Acceda a la gestión académica, publicación de tareas, registro de evaluaciones, control de asistencia y seguimiento continuo a sus clases virtuales.',
     icon: <PersonSupportRegular />,
-    accent: '#0B3B60',
+    accent: '#0084B3',
   },
   {
     role: 'estudiante',
@@ -36,7 +36,7 @@ export const PORTALS: PortalMeta[] = [
     description:
       'Bienvenido a tu Campus Virtual. Encuentra tus asignaturas, consulta las guías de estudio, entrega tus tareas a tiempo y participa activamente en tus actividades escolares.',
     icon: <PersonRegular />,
-    accent: '#C62828',
+    accent: '#C8102E',
   },
   {
     role: 'padre',
@@ -46,7 +46,7 @@ export const PORTALS: PortalMeta[] = [
     description:
       'Bienvenido al Portal de Familias. Conéctese con el centro educativo, supervise el progreso académico de sus hijos, consulte reportes de asistencia y manténgase al día con las circulares oficiales.',
     icon: <PeopleTeamRegular />,
-    accent: '#00695C',
+    accent: '#0B6E4F',
   },
   {
     role: 'admin',
@@ -56,7 +56,7 @@ export const PORTALS: PortalMeta[] = [
     description:
       'Espacio ejecutivo para el monitoreo institucional, análisis de indicadores de rendimiento académico, supervisión docente y toma de decisiones estratégicas.',
     icon: <PremiumPersonRegular />,
-    accent: '#4E342E',
+    accent: '#7D1D24',
   },
 ]
 

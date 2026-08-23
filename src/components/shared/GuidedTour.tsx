@@ -41,7 +41,7 @@ const useStyles = makeStyles({
     width: '40px',
     height: '40px',
     borderRadius: '50%',
-    background: '#103F7E',
+    background: '#0095C8',
     color: '#fff',
     fontWeight: 800,
     fontSize: '16px',
@@ -52,7 +52,7 @@ const useStyles = makeStyles({
   actions: { display: 'flex', justifyContent: 'center', gap: '10px', marginTop: '6px', flexWrap: 'wrap' },
   dots: { display: 'flex', gap: '6px', justifyContent: 'center', marginBottom: '-6px' },
   dot: { width: '8px', height: '8px', borderRadius: '50%', background: '#d1d5db' },
-  dotActive: { background: '#103F7E', width: '22px', borderRadius: '10px' },
+  dotActive: { background: '#0095C8', width: '22px', borderRadius: '10px' },
 })
 
 interface GuidedTourProps {
@@ -105,7 +105,7 @@ export function GuidedTour({ steps, startLabel = 'Iniciar tour', children }: Gui
     if (target) {
       target.scrollIntoView({ behavior: 'smooth', block: 'center' })
       target.style.transition = 'box-shadow 0.3s, outline 0.3s'
-      target.style.outline = '3px solid #103F7E'
+      target.style.outline = '3px solid #0095C8'
       target.style.outlineOffset = '4px'
       target.style.borderRadius = '10px'
     }

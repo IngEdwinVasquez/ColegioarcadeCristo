@@ -35,9 +35,9 @@ const useStyles = makeStyles({
 
 const PIE_COLORS: Record<string, string> = {
   presente: '#2E7D32',
-  ausente: '#C62828',
+  ausente: '#C8102E',
   tarde: '#EF6C00',
-  justificado: '#1565C0',
+  justificado: '#0084B3',
 }
 
 const PIE_LABELS: Record<string, string> = {
@@ -147,7 +147,7 @@ export function AsistenciaReportes() {
                 <XAxis dataKey="date" tickFormatter={(v) => formatDate(v)} fontSize={11} minTickGap={16} />
                 <YAxis domain={[0, 100]} fontSize={11} />
                 <RTooltip formatter={(v) => [`${v}%`, 'Presentes']} labelFormatter={(v) => formatDate(String(v))} />
-                <Bar dataKey="porcentaje" name="% presentes" fill="#002D62" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="porcentaje" name="% presentes" fill="#004D6B" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </Card>
@@ -161,7 +161,7 @@ export function AsistenciaReportes() {
                 <XAxis dataKey="date" tickFormatter={(v) => formatDate(v)} fontSize={11} minTickGap={16} />
                 <YAxis domain={[0, 100]} fontSize={11} />
                 <RTooltip formatter={(v) => [`${v}%`, 'Presentes']} labelFormatter={(v) => formatDate(String(v))} />
-                <Line type="monotone" dataKey="porcentaje" name="% presentes" stroke="#CE1126" strokeWidth={3} dot={{ r: 3 }} />
+                <Line type="monotone" dataKey="porcentaje" name="% presentes" stroke="#E30613" strokeWidth={3} dot={{ r: 3 }} />
               </LineChart>
             </ResponsiveContainer>
           </Card>
@@ -198,7 +198,7 @@ export function AsistenciaReportes() {
                               borderRadius: '999px',
                               fontSize: '12px',
                               fontWeight: 600,
-                              background: s.porcentaje >= 90 ? '#2E7D32' : s.porcentaje >= 75 ? '#EF6C00' : '#C62828',
+                              background: s.porcentaje >= 90 ? '#2E7D32' : s.porcentaje >= 75 ? '#EF6C00' : '#C8102E',
                               color: '#fff',
                             }}
                           >

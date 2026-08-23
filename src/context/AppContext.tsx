@@ -43,7 +43,7 @@ const sameEmail = (a?: string | null, b?: string | null) => !!a && !!b && a.trim
 /**
  * Determina el usuario del sistema a partir de la identidad de Entra ID:
  *  1. Roles asignados en la lista ARC_Users (módulo "Usuarios y roles").
- *  2. Correos administradores de arranque (VITE_ADMIN_EMAILS).
+ *  2. Correos superadministradores (VITE_ADMIN_EMAILS): todos los portales.
  *  3. Inferencia: correo presente en ARC_Teachers → docente; en ARC_Guardians → padre.
  *  4. Primer inicio de sesión del sistema sin ningún usuario registrado → administrador.
  */
@@ -53,7 +53,10 @@ function resolveUser(profile: { id: string; displayName: string; email: string; 
   let teacherId = existing?.teacherId
   let studentId = existing?.studentId
 
-  if (appConfig.m365.adminEmails.includes(profile.email)) roles.add('admin')
+  // Superadministradores (VITE_ADMIN_EMAILS): acceso a los cuatro portales.
+  if (appConfig.m365.adminEmails.includes(profile.email)) {
+    for (const r of ['admin', 'docente', 'estudiante', 'padre'] as Role[]) roles.add(r)
+  }
 
   const teacher = catalogs.teachers.find((t) => t.userId === profile.id) ?? catalogs.teachers.find((t) => sameEmail(t.email, profile.email))
   if (teacher) {

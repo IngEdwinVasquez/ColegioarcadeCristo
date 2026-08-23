@@ -20,8 +20,8 @@ const DEFAULT_DESCRIPTIONS: Record<Role, string> = {
 }
 
 const ROLE_COLORS: Record<Role, string> = {
-  docente: '#103F7E',
-  estudiante: '#C62828',
+  docente: '#0095C8',
+  estudiante: '#C8102E',
   padre: '#15803D',
   admin: '#6B21A8',
 }

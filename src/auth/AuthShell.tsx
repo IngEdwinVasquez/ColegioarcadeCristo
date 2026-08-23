@@ -77,7 +77,7 @@ export function AuthShell({ children, title, subtitle }: AuthShellProps) {
           <BrandLogo size={64} />
           <div>
             <div className={styles.brandName}>{appConfig.appName}</div>
-            <div className={styles.brandInstitution}>{appConfig.city}</div>
+            <div className={styles.brandInstitution}>{appConfig.motto} · desde {appConfig.founded} · {appConfig.city}</div>
           </div>
         </div>
 

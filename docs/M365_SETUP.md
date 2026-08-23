@@ -66,7 +66,7 @@ Si el sitio tiene otro nombre o ruta, ajuste `VITE_SPO_SITE_PATH`. El hostname (
 Al iniciar sesión, la intranet determina los roles del usuario en este orden:
 
 1. Roles guardados en la lista **`ARC_Users`** (módulo *Usuarios y roles* del portal administrativo).
-2. Correos listados en `VITE_ADMIN_EMAILS` → rol **Administrativo** (arranque inicial).
+2. Correos listados en `VITE_ADMIN_EMAILS` → **superadministrador**: los cuatro roles/portales (arranque inicial y cuenta de TIC/Dirección).
 3. Inferencia automática: correo presente en *Personas → Docentes* → **Docente**; en *Personas → Padres* → **Padre / Tutor**.
 4. Si la lista `ARC_Users` está vacía (primer uso), la primera cuenta que entra recibe el rol **Administrativo**.
 
@@ -82,7 +82,7 @@ VITE_MSAL_TENANT_ID=b5fed600-8da6-43f1-8018-e741824c0e28
 VITE_SPO_HOSTNAME=
 VITE_SPO_SITE_PATH=/sites/IntranetArca
 VITE_ONEDRIVE_ROOT_FOLDER=ArcaDeCristo
-VITE_ADMIN_EMAILS=direccion@arcadecristo.edu.do
+VITE_ADMIN_EMAILS=leoncio.vasquez@arcadecristo.edu.do,direccion@arcadecristo.edu.do
 VITE_POWER_AUTOMATE_MAIL_URL=
 VITE_COPILOT_EMBED_URL=
 ```

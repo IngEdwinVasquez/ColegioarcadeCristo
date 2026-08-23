@@ -108,8 +108,8 @@ export function ClaseDetail() {
     const grade = gradeById(clase.gradeId)?.name ?? clase.gradeId
     const html = `<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><title>Informe de clase</title>
 <style>body{font-family:'Segoe UI',Arial,sans-serif;color:#1a1a1a;padding:40px;max-width:800px;margin:auto}
-h1{color:#002D62;border-bottom:3px solid #CE1126;padding-bottom:8px}
-h3{color:#002D62}table{width:100%;border-collapse:collapse;margin:12px 0}
+h1{color:#004D6B;border-bottom:3px solid #E30613;padding-bottom:8px}
+h3{color:#004D6B}table{width:100%;border-collapse:collapse;margin:12px 0}
 td,th{border:1px solid #ccc;padding:8px;text-align:left;vertical-align:top}
 .section{margin:24px 0}</style></head><body>
 <h1>Informe de Clase — Colegio Arca de Cristo</h1>
