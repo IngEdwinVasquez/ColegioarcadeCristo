@@ -55,7 +55,7 @@ function resolveUser(profile: { id: string; displayName: string; email: string; 
 
   // Superadministradores (VITE_ADMIN_EMAILS): acceso a los cuatro portales.
   if (appConfig.m365.adminEmails.includes(profile.email)) {
-    for (const r of ['admin', 'docente', 'estudiante', 'padre'] as Role[]) roles.add(r)
+    for (const r of ['admin', 'docente', 'estudiante', 'padre', 'psicologia', 'tecnologia'] as Role[]) roles.add(r)
   }
 
   const teacher = catalogs.teachers.find((t) => t.userId === profile.id) ?? catalogs.teachers.find((t) => sameEmail(t.email, profile.email))

@@ -10,7 +10,7 @@ import { useCollection } from '../../hooks/useCollection'
 import type { Student, StudentGuardian, Teacher } from '../../types'
 import { genId } from '../../utils/helpers'
 import { EntraUserPicker } from '../../components/shared/EntraUserPicker'
-import { entraEmail, getDirectoryUsers, linkUserRole, unlinkUserRole } from '../../services/userLinks'
+import { entraEmail, getDirectoryUsers, linkUserRole, syncTeacherAssignments, unlinkUserRole } from '../../services/userLinks'
 import { graphErrorMessage } from '../../services/graph'
 
 const useStyles = makeStyles({
@@ -20,7 +20,7 @@ const useStyles = makeStyles({
 export function PersonasPage() {
   const styles = useStyles()
   const toaster = useToastController()
-  const { grades, subjects, students, teachers } = useApp()
+  const { grades, subjects, students, teachers, periods } = useApp()
   const studentsCol = useCollection<Student>(dataService.getStudents, dataService.saveStudent, dataService.deleteStudent)
   const teachersCol = useCollection<Teacher>(dataService.getTeachers, dataService.saveTeacher, dataService.deleteTeacher)
   const guardiansCol = useCollection<StudentGuardian>(dataService.getGuardians, dataService.saveGuardian, dataService.deleteGuardian)
@@ -96,7 +96,11 @@ export function PersonasPage() {
       if (previous?.userId && previous.userId !== account.id) await unlinkUserRole(previous.userId, 'docente', { teacherId: t.id })
       await linkUserRole(account, 'docente', { teacherId: t.id })
       await teachersCol.save({ ...t, email: entraEmail(account) })
-      toaster.dispatchToast(`Docente guardado y cuenta ${entraEmail(account)} vinculada con rol Docente`, { intent: 'success' })
+      const sync = await syncTeacherAssignments({ ...t, email: entraEmail(account) }, periods)
+      const detail = sync.period
+        ? ` · ${sync.created} asignación(es) creada(s)${sync.removed ? `, ${sync.removed} retirada(s)` : ''} en ${sync.period.name}`
+        : ' · sin período escolar: cree uno en Catálogos para generar las asignaciones'
+      toaster.dispatchToast(`Docente guardado y cuenta ${entraEmail(account)} vinculada con rol Docente${detail}`, { intent: 'success' })
     } catch (error) {
       failed(error)
     }
@@ -236,6 +240,9 @@ export function PersonasPage() {
                 onChange={(u) => set({ ...t, userId: u?.id, email: u ? entraEmail(u) : '', fullName: t.fullName || (u?.displayName ?? '') })}
                 hint="Obligatorio. La cuenta recibirá el rol Docente; el correo institucional se toma de la cuenta."
               />
+              <Text size={200} block style={{ color: 'var(--texto-suave)', margin: '4px 0 10px' }}>
+                Marque las asignaturas y los grados: al guardar se crean automáticamente las asignaciones (grado × asignatura) del período escolar activo.
+              </Text>
               <FormField label="Asignaturas que imparte">
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
                   {subjects.map((sub) => (

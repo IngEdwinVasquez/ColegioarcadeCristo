@@ -45,7 +45,7 @@ interface ContactSummary {
   unread: number
 }
 
-const ROLE_COLORS: Record<Role, string> = { docente: '#0095C8', estudiante: '#C8102E', padre: '#15803D', admin: '#6B21A8' }
+const ROLE_COLORS: Record<Role, string> = { docente: '#0095C8', estudiante: '#C8102E', padre: '#15803D', admin: '#6B21A8', psicologia: '#AD1457', tecnologia: '#161616' }
 
 function getContactId(a: string, b: string) { return a < b ? `${a}-${b}` : `${b}-${a}` }
 
@@ -77,7 +77,7 @@ export function ChatPage() {
 
     const addByIds = (ids: string[]) => ids.forEach((id) => { const u = users.find((x) => x.id === id); if (u && u.id !== user.id) contactsMap.set(u.id, u) })
 
-    if (role === 'admin') {
+    if (role === 'admin' || role === 'psicologia' || role === 'tecnologia') {
       for (const u of users) if (u.id !== user.id) contactsMap.set(u.id, u)
     } else if (role === 'docente') {
       addByIds(users.filter((u) => u.roles.includes('admin')).map((u) => u.id))

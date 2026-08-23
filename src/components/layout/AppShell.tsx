@@ -211,10 +211,20 @@ export function AppShell({ nav }: AppShellProps) {
       { target: '[data-tour="nav-lateral"]', title: 'Navegación', description: 'En el menú: Progreso Académico, Asistencia, Comunicaciones (circulares oficiales) y Mensajería para contactar a los docentes de tu hijo(a).' },
       { target: '[data-tour="cabecera-pagina"]', title: 'Seguimiento', description: 'Cada sección filtra los datos del estudiante que selecciones. Mantente al día con las circulares y comunícate directamente con los docentes.' },
     ]
+    if (role === 'psicologia') return [
+      { target: '[data-tour="hero-bienvenida"]', title: 'Psicología y Orientación', description: 'Ventanilla virtual de atención, casos de seguimiento generados desde la asistencia y programa de talleres y guías de crianza.' },
+      { target: '[data-tour="nav-lateral"]', title: 'Navegación', description: 'Además de la unidad psicopedagógica, puedes publicar comunicados, usar la mensajería con docentes y familias y apoyarte en Copilot.' },
+      { target: '[data-tour="cabecera-pagina"]', title: 'Seguimiento', description: 'Atiende las solicitudes, cambia su estado (pendiente → en atención → cerrado) y prioriza los casos con baja asistencia.' },
+    ]
+    if (role === 'tecnologia') return [
+      { target: '[data-tour="hero-bienvenida"]', title: 'Panel de Tecnología', description: 'Estado de la plataforma: usuarios con acceso, fichas sin cuenta de Microsoft 365, cuentas sin rol y configuración de la integración.' },
+      { target: '[data-tour="nav-lateral"]', title: 'Personas y accesos', description: 'Personas (estudiantes, docentes y tutores vinculados a su cuenta M365), Usuarios y roles (directorio de Entra ID) y mantenimiento de Roles.' },
+      { target: '[data-tour="cabecera-pagina"]', title: 'Administración técnica', description: 'Cada ficha exige una cuenta de Entra ID; al guardarla se asigna el rol y el acceso al portal correspondiente.' },
+    ]
     return [
       { target: '[data-tour="hero-bienvenida"]', title: 'Panel Directivo', description: 'Dashboard con KPIs: matrícula, cumplimiento de planificación, asistencia promedio y rendimiento académico. Gráficos y tabla de cumplimiento por docente.' },
-      { target: '[data-tour="nav-lateral"]', title: 'Gestión del colegio', description: 'Menú agrupado: Gestión (Psicología y Admisiones), Académico (planificación, clases, asistencia, catálogos, promoción), Personas (estudiantes, docentes, tutores, usuarios y roles).' },
-      { target: '[data-tour="cabecera-pagina"]', title: 'Administración', description: 'Desde aquí gestionas matrícula, creas cursos y asignaturas, apruebas admisiones, asignas docentes y administras usuarios y roles. También publicas comunicados y usas la mensajería.' },
+      { target: '[data-tour="nav-lateral"]', title: 'Gestión del colegio', description: 'Menú agrupado: Gestión (Admisiones), Académico (promoción, asignaciones, catálogos, planificación, clases, asistencia, aulas y encuentros) y Comunidad (comunicados y mensajería).' },
+      { target: '[data-tour="cabecera-pagina"]', title: 'Administración', description: 'Desde aquí creas cursos y asignaturas, apruebas admisiones, asignas docentes y supervisas la actividad académica. Las personas y los accesos se administran en el portal de Tecnología.' },
     ]
   }, [portal])
 

@@ -1,7 +1,8 @@
-import type { User } from '../types'
+import type { Period, Teacher, TeacherAssignment, User } from '../types'
 import type { Role } from '../types/roles'
 import { dataService } from './dataService'
 import { listEntraUsers, type EntraUser } from './entraUsers'
+import { genId } from '../utils/helpers'
 
 /** Caché de usuarios del directorio (se comparte entre selectores durante la sesión). */
 let directoryCache: Promise<EntraUser[]> | null = null
@@ -69,4 +70,36 @@ export async function unlinkUserRole(userId: string | undefined, role: Role, lin
     updatedAt: new Date().toISOString(),
   }
   await dataService.saveUser(next)
+}
+
+/**
+ * Sincroniza las asignaciones docentes del período activo con las combinaciones
+ * grado × asignatura marcadas en la ficha del docente: crea las que falten y retira,
+ * solo dentro de ese período, las que ya no correspondan.
+ */
+export async function syncTeacherAssignments(teacher: Teacher, periods: Period[]): Promise<{ created: number; removed: number; period?: Period }> {
+  const period = periods.find((p) => p.isActive) ?? periods[0]
+  if (!period) return { created: 0, removed: 0 }
+  const all = await dataService.getTeacherAssignments()
+  const mine = all.filter((a) => a.teacherId === teacher.id && a.periodId === period.id)
+  const wanted = new Set<string>()
+  for (const gradeId of teacher.grades) for (const subjectId of teacher.subjects) wanted.add(`${gradeId}|${subjectId}`)
+
+  let created = 0
+  let removed = 0
+  for (const key of wanted) {
+    const [gradeId, subjectId] = key.split('|')
+    if (!mine.some((a) => a.gradeId === gradeId && a.subjectId === subjectId)) {
+      const assignment: TeacherAssignment = { id: genId('ta'), teacherId: teacher.id, gradeId, subjectId, periodId: period.id }
+      await dataService.saveTeacherAssignment(assignment)
+      created++
+    }
+  }
+  for (const a of mine) {
+    if (!wanted.has(`${a.gradeId}|${a.subjectId}`)) {
+      await dataService.deleteTeacherAssignment(a.id)
+      removed++
+    }
+  }
+  return { created, removed, period }
 }

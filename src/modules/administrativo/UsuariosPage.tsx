@@ -28,6 +28,8 @@ const ROLE_COLORS: Record<Role, string> = {
   estudiante: '#C8102E',
   padre: '#15803D',
   admin: '#6B21A8',
+  psicologia: '#AD1457',
+  tecnologia: '#161616',
 }
 
 const sameEmail = (a?: string | null, b?: string | null) => !!a && !!b && a.trim().toLowerCase() === b.trim().toLowerCase()

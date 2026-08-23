@@ -1,13 +1,9 @@
 import { Route, Routes } from 'react-router-dom'
 import { AppShell, type NavItem } from '../components/layout/AppShell'
 import { DireccionPage } from '../modules/administrativo/DireccionPage'
-import { PsicologiaPage } from '../modules/administrativo/PsicologiaPage'
 import { AdmisionesPage } from '../modules/administrativo/AdmisionesPage'
 import { PromocionPage } from '../modules/administrativo/PromocionPage'
-import { PersonasPage } from '../modules/administrativo/PersonasPage'
 import { CatalogosPage } from '../modules/administrativo/CatalogosPage'
-import { UsuariosPage } from '../modules/administrativo/UsuariosPage'
-import { RolesPage } from '../modules/administrativo/RolesPage'
 import { AsignacionesPage } from '../modules/administrativo/AsignacionesPage'
 import { AnualPlanPage } from '../modules/anualPlan/AnualPlanPage'
 import { ClasesPage } from '../modules/clases/ClasesPage'
@@ -21,7 +17,6 @@ import { ChatPage } from '../modules/chat/ChatPage'
 import { CopilotPage } from '../modules/copilot/CopilotPage'
 import {
   PremiumPersonRegular,
-  PeopleCheckmarkRegular,
   PersonAddRegular,
   CalendarTodayRegular,
   NotebookRegular,
@@ -31,9 +26,6 @@ import {
   LinkSquareRegular,
   DatabaseRegular,
   ArrowUpRegular,
-  PeopleTeamRegular,
-  ShieldPersonRegular,
-  ShieldCheckmarkRegular,
   MegaphoneRegular,
   ChatRegular,
   SparkleRegular,
@@ -41,7 +33,6 @@ import {
 
 const NAV: NavItem[] = [
   { to: '/administrativo', label: 'Panel Directivo', icon: <PremiumPersonRegular />, end: true, group: 'General' },
-  { to: '/administrativo/psicologia', label: 'Psicología y Orientación', icon: <PeopleCheckmarkRegular />, group: 'Gestión' },
   { to: '/administrativo/admisiones', label: 'Admisiones', icon: <PersonAddRegular />, group: 'Gestión' },
   { to: '/administrativo/promocion', label: 'Promoción', icon: <ArrowUpRegular />, group: 'Académico' },
   { to: '/administrativo/asignaciones', label: 'Asignaciones', icon: <LinkSquareRegular />, group: 'Académico' },
@@ -51,9 +42,6 @@ const NAV: NavItem[] = [
   { to: '/administrativo/asistencia', label: 'Asistencia', icon: <CalendarCheckmarkRegular />, group: 'Académico' },
   { to: '/administrativo/aulas', label: 'Aulas Virtuales', icon: <VideoRegular />, group: 'Académico' },
   { to: '/administrativo/encuentros', label: 'Encuentros', icon: <VideoPersonRegular />, group: 'Académico' },
-  { to: '/administrativo/personas', label: 'Personas', icon: <PeopleTeamRegular />, group: 'Personas' },
-  { to: '/administrativo/usuarios', label: 'Usuarios y roles', icon: <ShieldPersonRegular />, group: 'Personas' },
-  { to: '/administrativo/roles', label: 'Roles', icon: <ShieldCheckmarkRegular />, group: 'Personas' },
   { to: '/administrativo/comunicados', label: 'Comunicados', icon: <MegaphoneRegular />, group: 'Comunidad' },
   { to: '/administrativo/chat', label: 'Mensajería', icon: <ChatRegular />, group: 'Comunidad' },
   { to: '/administrativo/copilot', label: 'Copilot', icon: <SparkleRegular />, group: 'Herramientas' },
@@ -64,14 +52,10 @@ export function AdminPortal() {
     <Routes>
       <Route element={<AppShell nav={NAV} />}>
         <Route index element={<DireccionPage />} />
-        <Route path="psicologia" element={<PsicologiaPage />} />
         <Route path="admisiones" element={<AdmisionesPage />} />
         <Route path="promocion" element={<PromocionPage />} />
         <Route path="asignaciones" element={<AsignacionesPage />} />
         <Route path="catalogos" element={<CatalogosPage />} />
-        <Route path="personas" element={<PersonasPage />} />
-        <Route path="usuarios" element={<UsuariosPage />} />
-        <Route path="roles" element={<RolesPage />} />
         <Route path="planificacion" element={<AnualPlanPage />} />
         <Route path="clases" element={<ClasesPage />} />
         <Route path="clases/:id" element={<ClaseDetail />} />

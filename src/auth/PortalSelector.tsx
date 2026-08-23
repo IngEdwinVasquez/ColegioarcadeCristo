@@ -5,7 +5,7 @@ import { ArrowRightRegular } from '@fluentui/react-icons'
 import { PORTALS } from '../portals/portals'
 import { useApp } from '../context/useApp'
 import { appConfig } from '../config/appConfig'
-import { ROLE_LABELS } from '../types/roles'
+import { ROLE_LABELS, ROLE_PATHS } from '../types/roles'
 import { BrandLogo } from '../components/shared/BrandLogo'
 
 const useStyles = makeStyles({
@@ -51,7 +51,7 @@ const useStyles = makeStyles({
     gridTemplateColumns: '1fr',
     gap: '18px',
     '@media (min-width: 481px)': { gridTemplateColumns: 'repeat(2, 1fr)' },
-    '@media (min-width: 1025px)': { gridTemplateColumns: 'repeat(4, 1fr)' },
+    '@media (min-width: 1025px)': { gridTemplateColumns: 'repeat(3, 1fr)' },
   },
   card: {
     background: '#fff',
@@ -115,8 +115,7 @@ export function PortalSelector() {
     navigate(path)
   }
 
-  const pathOfRole = (r: typeof role) =>
-    r === 'padre' ? '/padres' : r === 'admin' ? '/administrativo' : r === 'estudiante' ? '/estudiantes' : '/docentes'
+  const pathOfRole = (r: NonNullable<typeof role>) => ROLE_PATHS[r]
 
   return (
     <div className={styles.root}>

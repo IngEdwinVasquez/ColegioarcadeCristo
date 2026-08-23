@@ -13,7 +13,9 @@ La institución usa los **colores de la bandera dominicana** (azul `#002D62`, ro
 | **Portal de Docentes** | Cuerpo docente | Planificación anual, repositorio de clases (antes/durante/después), control de asistencia con informes, aulas virtuales con calificaciones, encuentros virtuales con actas. |
 | **Campus Virtual de Estudiantes** | Alumnado | Mis clases, aula virtual (actividades y calificaciones), mi asistencia, comunicados. |
 | **Portal de Padres y Tutores** | Familias | Progreso académico, reporte de asistencia y comunicaciones por hijo(a). |
-| **Portal Administrativo** | Dirección y coordinación | **Dirección y Coordinación Pedagógica** (KPIs, cumplimiento docente, indicadores), **Psicología y Orientación** (ventanilla, casos de seguimiento, talleres), **Administración** (admisiones, solicitudes de documentos, FAQ). |
+| **Portal Administrativo** | Dirección y coordinación | **Dirección y Coordinación Pedagógica** (KPIs, cumplimiento docente, indicadores), admisiones, promoción, asignaciones, catálogos y supervisión académica. |
+| **Psicología y Orientación** | Unidad psicopedagógica | Ventanilla virtual de atención, casos de seguimiento (desde asistencia), talleres y guías de crianza, comunicados y mensajería. |
+| **Tecnología e Innovación** | Coordinación TIC | Personas (estudiantes, docentes y tutores vinculados a su cuenta de Microsoft 365), usuarios y roles (directorio de Entra ID), mantenimiento de roles y estado de la plataforma. |
 
 ## Módulos núcleo
 
