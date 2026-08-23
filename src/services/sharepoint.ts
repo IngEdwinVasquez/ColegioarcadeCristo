@@ -143,7 +143,19 @@ const APP_ID_COLUMN = { name: APP_ID_FIELD, indexed: true, text: {} }
  * Crea las listas ARC_* que falten y garantiza las columnas `json_payload` y `app_id`.
  * Requiere Sites.ReadWrite.All (delegado) y permiso de edición en el sitio.
  */
-export async function ensureProvisioned(force = false): Promise<{ created: string[]; updated: string[] }> {
+let provisioning: Promise<{ created: string[]; updated: string[] }> | null = null
+
+export function ensureProvisioned(force = false): Promise<{ created: string[]; updated: string[] }> {
+  // Una sola ejecución en vuelo: evita carreras (p. ej. doble efecto de React en desarrollo).
+  if (!provisioning) {
+    provisioning = provisionLists(force).finally(() => {
+      provisioning = null
+    })
+  }
+  return provisioning
+}
+
+async function provisionLists(force: boolean): Promise<{ created: string[]; updated: string[] }> {
   const created: string[] = []
   const updated: string[] = []
   if (!force && sessionStorage.getItem(PROVISION_KEY) === '1') return { created, updated }
@@ -165,6 +177,11 @@ export async function ensureProvisioned(force = false): Promise<{ created: strin
         created.push(listName)
       } catch (error) {
         const status = (error as { statusCode?: number }).statusCode
+        if (status === 409) {
+          // Creada por otra ejecución concurrente o por un intento anterior: se reutiliza.
+          const refreshed = await fetchLists(siteId)
+          if (refreshed.get(listName)) continue
+        }
         throw new ListProvisioningError(
           `No se pudo crear la lista ${listName} en SharePoint (${status ?? 'error'}): ${graphErrorMessage(error)}`,
           status === 403
