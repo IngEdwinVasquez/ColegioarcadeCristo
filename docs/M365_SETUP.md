@@ -41,7 +41,8 @@ Acceda a [entra.microsoft.com](https://entra.microsoft.com) → **Aplicaciones**
 | `User.Read` | Perfil y foto del usuario conectado |
 | `User.ReadBasic.All` | Leer el directorio en "Usuarios y roles" |
 | `Directory.Read.All` | (Opcional) detalles ampliados del directorio |
-| `Sites.ReadWrite.All` | Leer/escribir las listas de SharePoint y crearlas automáticamente |
+| `Sites.ReadWrite.All` | Leer/escribir los elementos de las listas de SharePoint |
+| `Sites.Manage.All` | Crear las listas y columnas `ARC_*` automáticamente (aprovisionamiento) |
 | `Files.ReadWrite.All` | Subir material a OneDrive y crear enlaces compartidos |
 | `Calendars.ReadWrite` | Crear reuniones de Teams para los encuentros virtuales |
 | `Mail.Send` | Envío de correo de respaldo cuando no hay flujo de Power Automate |
@@ -103,4 +104,5 @@ Para desarrollo local copie `.env.example` a `.env`.
 | `AADSTS50105` | Usuario no asignado a la aplicación | Agréguelo en *Aplicaciones empresariales → Usuarios y grupos* |
 | "SharePoint no está listo" | No existe el sitio `/sites/IntranetArca` o el usuario no tiene acceso | Cree el sitio o ajuste `VITE_SPO_SITE_PATH`; dé permisos de edición |
 | 403 al guardar | El usuario solo tiene lectura en el sitio | Conviértalo en miembro (edición) del sitio |
+| 403 al crear la lista `ARC_Users` | Falta `Sites.Manage.All` | Agregue el permiso delegado, conceda consentimiento de administrador, cierre sesión y vuelva a entrar |
 | Reunión de Teams no se crea | Falta `Calendars.ReadWrite` o el usuario no tiene licencia de Teams/Exchange | Revise permisos y licencias |

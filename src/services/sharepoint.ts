@@ -1,4 +1,4 @@
-import { graphGetAll, graphRequest } from './graph'
+import { graphErrorMessage, graphGetAll, graphRequest } from './graph'
 import { appConfig } from '../config/appConfig'
 
 /**
@@ -166,10 +166,10 @@ export async function ensureProvisioned(force = false): Promise<{ created: strin
       } catch (error) {
         const status = (error as { statusCode?: number }).statusCode
         throw new ListProvisioningError(
-          `No se pudo crear la lista ${listName} en SharePoint (${status ?? 'error'}).`,
+          `No se pudo crear la lista ${listName} en SharePoint (${status ?? 'error'}): ${graphErrorMessage(error)}`,
           status === 403
-            ? 'Su cuenta no tiene permiso de edición en el sitio. Pida a un propietario del sitio que inicie sesión una vez, o que lo agregue como miembro.'
-            : 'Compruebe que el permiso Sites.ReadWrite.All tiene consentimiento de administrador y reintente.',
+            ? 'Crear listas requiere el permiso delegado Sites.Manage.All con consentimiento de administrador (Entra → Registros de aplicaciones → Permisos de API) y que su cuenta sea miembro o propietaria del sitio. Tras concederlo, cierre sesión y vuelva a entrar.'
+            : 'Compruebe los permisos de la aplicación (Sites.ReadWrite.All y Sites.Manage.All) y reintente.',
         )
       }
       continue

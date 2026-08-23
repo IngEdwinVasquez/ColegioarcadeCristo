@@ -53,6 +53,7 @@ export const appConfig = {
       'Mail.Send',
       'Calendars.ReadWrite',
       'Sites.ReadWrite.All',
+      'Sites.Manage.All',
       'Files.ReadWrite.All',
       'Directory.Read.All',
     ],
