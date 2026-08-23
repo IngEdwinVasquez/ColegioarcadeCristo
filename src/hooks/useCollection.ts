@@ -1,5 +1,9 @@
 import { useCallback, useEffect, useState } from 'react'
 
+/** Evento global emitido tras guardar/eliminar; el contexto refresca los catálogos al recibirlo. */
+export const DATA_CHANGED_EVENT = 'arca:data-changed'
+const emitDataChanged = () => window.dispatchEvent(new Event(DATA_CHANGED_EVENT))
+
 export interface UseCollectionResult<T> {
   items: T[]
   loading: boolean
@@ -45,6 +49,7 @@ export function useCollection<T>(
       try {
         await saver(item)
         await refresh()
+        emitDataChanged()
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Error al guardar')
         throw err
@@ -63,6 +68,7 @@ export function useCollection<T>(
       try {
         await remover(id)
         await refresh()
+        emitDataChanged()
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Error al eliminar')
         throw err

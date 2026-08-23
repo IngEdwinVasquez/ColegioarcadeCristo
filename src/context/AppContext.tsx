@@ -9,6 +9,7 @@ import { ListProvisioningError, SharePointSetupError, ensureProvisioned } from '
 import { graphErrorMessage } from '../services/graph'
 import { appConfig } from '../config/appConfig'
 import { AppContext, type AppContextValue, type AuthState, type SetupIssue } from './context'
+import { DATA_CHANGED_EVENT } from '../hooks/useCollection'
 
 const ROLE_KEY = 'arca_role'
 
@@ -105,6 +106,21 @@ export function AppProvider({ children }: { children: ReactNode }) {
       console.error('No se pudieron cargar los catálogos', error)
     }
   }, [])
+
+  // Refresca los catálogos globales cuando cualquier módulo guarda o elimina datos.
+  useEffect(() => {
+    if (authState !== 'ready') return
+    let timer: number | undefined
+    const onChange = () => {
+      window.clearTimeout(timer)
+      timer = window.setTimeout(() => void refreshCatalogs(), 300)
+    }
+    window.addEventListener(DATA_CHANGED_EVENT, onChange)
+    return () => {
+      window.removeEventListener(DATA_CHANGED_EVENT, onChange)
+      window.clearTimeout(timer)
+    }
+  }, [authState, refreshCatalogs])
 
   useEffect(() => {
     if (!isAuthenticated) {
