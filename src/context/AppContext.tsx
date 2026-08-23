@@ -5,7 +5,7 @@ import type { Role } from '../types/roles'
 import { dataService } from '../services/dataService'
 import { signIn as msalSignIn, signOut as msalSignOut } from '../services/msal'
 import { getMyProfile, getMyPhoto } from '../services/entraUsers'
-import { SharePointSetupError, ensureProvisioned } from '../services/sharepoint'
+import { ListProvisioningError, SharePointSetupError, ensureProvisioned } from '../services/sharepoint'
 import { graphErrorMessage } from '../services/graph'
 import { appConfig } from '../config/appConfig'
 import { AppContext, type AppContextValue, type AuthState, type SetupIssue } from './context'
@@ -120,15 +120,33 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const bootstrap = async () => {
       const profile = await getMyProfile()
 
+      let provisioningError: unknown = null
       try {
-        await ensureProvisioned()
+        const result = await ensureProvisioned()
+        if (result.created.length > 0) console.info('Listas creadas en SharePoint:', result.created.join(', '))
       } catch (error) {
         if (error instanceof SharePointSetupError) throw error
-        // Usuarios sin permiso de creación de listas: se continúa; si faltan listas, fallará la carga.
-        console.warn('Aprovisionamiento de listas omitido:', graphErrorMessage(error))
+        // Puede fallar por falta de permisos del usuario; si además faltan listas, se informa abajo.
+        provisioningError = error
+        console.warn('Aprovisionamiento de listas incompleto:', graphErrorMessage(error))
       }
 
-      const loaded = await loadCatalogs()
+      let loaded: Catalogs
+      try {
+        loaded = await loadCatalogs()
+      } catch (error) {
+        const message = graphErrorMessage(error)
+        if (/list.*not found|not found.*list/i.test(message)) {
+          const cause = provisioningError ? graphErrorMessage(provisioningError) : message
+          throw new SharePointSetupError(
+            `Faltan listas de datos en el sitio de SharePoint: ${cause}`,
+            provisioningError instanceof ListProvisioningError
+              ? provisioningError.hint
+              : 'Inicie sesión con una cuenta que sea miembro (edición) o propietaria del sitio para que la intranet cree las listas automáticamente.',
+          )
+        }
+        throw error
+      }
       const resolved = resolveUser(profile, loaded)
       if (resolved.changed) {
         try {
@@ -183,7 +201,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const retry = useCallback(() => {
-    sessionStorage.removeItem('arca_spo_provisioned_v1')
+    sessionStorage.removeItem('arca_spo_provisioned_v2')
     setAttempt((n) => n + 1)
   }, [])
 

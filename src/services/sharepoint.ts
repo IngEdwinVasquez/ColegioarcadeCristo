@@ -101,7 +101,43 @@ interface GraphColumn {
   name: string
 }
 
-const PROVISION_KEY = 'arca_spo_provisioned_v1'
+const PROVISION_KEY = 'arca_spo_provisioned_v2'
+
+/** Nombre de lista → id de SharePoint (se rellena al aprovisionar o a demanda). */
+const listIds = new Map<string, string>()
+
+export class ListProvisioningError extends Error {
+  readonly hint: string
+  constructor(message: string, hint: string) {
+    super(message)
+    this.name = 'ListProvisioningError'
+    this.hint = hint
+  }
+}
+
+async function fetchLists(siteId: string): Promise<Map<string, GraphList>> {
+  const existing = await graphGetAll<GraphList>(`/sites/${siteId}/lists?$select=id,name,displayName`)
+  const byName = new Map<string, GraphList>()
+  for (const list of existing) {
+    byName.set(list.displayName, list)
+    if (list.name) byName.set(list.name, list)
+    listIds.set(list.displayName, list.id)
+    if (list.name) listIds.set(list.name, list.id)
+  }
+  return byName
+}
+
+/** Devuelve el id de la lista (o su nombre si aún no se conoce el id). */
+async function listRef(listName: string): Promise<string> {
+  const cached = listIds.get(listName)
+  if (cached) return cached
+  const siteId = await resolveSiteId()
+  const byName = await fetchLists(siteId)
+  return byName.get(listName)?.id ?? listName
+}
+
+const PAYLOAD_COLUMN = { name: PAYLOAD_FIELD, text: { allowMultipleLines: true, textType: 'plain' } }
+const APP_ID_COLUMN = { name: APP_ID_FIELD, indexed: true, text: {} }
 
 /**
  * Crea las listas ARC_* que falten y garantiza las columnas `json_payload` y `app_id`.
@@ -113,36 +149,39 @@ export async function ensureProvisioned(force = false): Promise<{ created: strin
   if (!force && sessionStorage.getItem(PROVISION_KEY) === '1') return { created, updated }
 
   const siteId = await resolveSiteId()
-  const existing = await graphGetAll<GraphList>(`/sites/${siteId}/lists?$select=id,name,displayName&$top=200`)
-  const byName = new Map<string, GraphList>()
-  for (const list of existing) {
-    byName.set(list.displayName, list)
-    if (list.name) byName.set(list.name, list)
-  }
+  const byName = await fetchLists(siteId)
 
   for (const listName of Object.values(SPO_LISTS)) {
     const list = byName.get(listName)
     if (!list) {
-      await graphRequest(`/sites/${siteId}/lists`, 'POST', {
-        displayName: listName,
-        description: 'Intranet Arca de Cristo — datos de la aplicación',
-        list: { template: 'genericList' },
-        columns: [
-          { name: PAYLOAD_FIELD, text: { allowMultipleLines: true, textType: 'plain', linesForEditing: 6 } },
-          { name: APP_ID_FIELD, indexed: true, text: {} },
-        ],
-      })
-      created.push(listName)
+      try {
+        const createdList = await graphRequest<GraphList>(`/sites/${siteId}/lists`, 'POST', {
+          displayName: listName,
+          description: 'Intranet Arca de Cristo — datos de la aplicación',
+          list: { template: 'genericList' },
+          columns: [PAYLOAD_COLUMN, APP_ID_COLUMN],
+        })
+        listIds.set(listName, createdList.id)
+        created.push(listName)
+      } catch (error) {
+        const status = (error as { statusCode?: number }).statusCode
+        throw new ListProvisioningError(
+          `No se pudo crear la lista ${listName} en SharePoint (${status ?? 'error'}).`,
+          status === 403
+            ? 'Su cuenta no tiene permiso de edición en el sitio. Pida a un propietario del sitio que inicie sesión una vez, o que lo agregue como miembro.'
+            : 'Compruebe que el permiso Sites.ReadWrite.All tiene consentimiento de administrador y reintente.',
+        )
+      }
       continue
     }
     const columns = await graphGetAll<GraphColumn>(`/sites/${siteId}/lists/${list.id}/columns?$select=name`)
     const names = new Set(columns.map((c) => c.name))
     if (!names.has(PAYLOAD_FIELD)) {
-      await graphRequest(`/sites/${siteId}/lists/${list.id}/columns`, 'POST', { name: PAYLOAD_FIELD, text: { allowMultipleLines: true, textType: 'plain' } })
+      await graphRequest(`/sites/${siteId}/lists/${list.id}/columns`, 'POST', PAYLOAD_COLUMN)
       updated.push(`${listName}.${PAYLOAD_FIELD}`)
     }
     if (!names.has(APP_ID_FIELD)) {
-      await graphRequest(`/sites/${siteId}/lists/${list.id}/columns`, 'POST', { name: APP_ID_FIELD, indexed: true, text: {} })
+      await graphRequest(`/sites/${siteId}/lists/${list.id}/columns`, 'POST', APP_ID_COLUMN)
       updated.push(`${listName}.${APP_ID_FIELD}`)
     }
   }
@@ -179,8 +218,9 @@ async function findSpId(listName: string, appId: string): Promise<string | null>
   const cached = cacheFor(listName).get(appId)
   if (cached) return cached
   const siteId = await resolveSiteId()
+  const list = await listRef(listName)
   const response = await graphRequest<{ value: GraphItem[] }>(
-    `/sites/${siteId}/lists/${listName}/items?$select=id&$filter=fields/${APP_ID_FIELD} eq '${escapeODataString(appId)}'&$top=1`,
+    `/sites/${siteId}/lists/${list}/items?$select=id&$filter=fields/${APP_ID_FIELD} eq '${escapeODataString(appId)}'&$top=1`,
     'GET',
     undefined,
     { headers: NON_INDEXED_PREFER },
@@ -215,8 +255,9 @@ function parseItem<T extends StoredRecord>(listName: string, item: GraphItem): T
 
 export async function getItems<T extends StoredRecord>(listName: string): Promise<T[]> {
   const siteId = await resolveSiteId()
+  const list = await listRef(listName)
   const items = await graphGetAll<GraphItem>(
-    `/sites/${siteId}/lists/${listName}/items?$select=id&$expand=fields($select=Title,${PAYLOAD_FIELD},${APP_ID_FIELD})&$top=999`,
+    `/sites/${siteId}/lists/${list}/items?$select=id&$expand=fields($select=Title,${PAYLOAD_FIELD},${APP_ID_FIELD})&$top=999`,
   )
   return items.map((item) => parseItem<T>(listName, item))
 }
@@ -241,11 +282,12 @@ export async function upsertItem<T extends StoredRecord>(listName: string, item:
     [APP_ID_FIELD]: appId,
     [PAYLOAD_FIELD]: JSON.stringify(item),
   }
+  const list = await listRef(listName)
   const spId = await findSpId(listName, appId)
   if (spId) {
-    await graphRequest(`/sites/${siteId}/lists/${listName}/items/${spId}/fields`, 'PATCH', fields)
+    await graphRequest(`/sites/${siteId}/lists/${list}/items/${spId}/fields`, 'PATCH', fields)
   } else {
-    const created = await graphRequest<GraphItem>(`/sites/${siteId}/lists/${listName}/items`, 'POST', { fields })
+    const created = await graphRequest<GraphItem>(`/sites/${siteId}/lists/${list}/items`, 'POST', { fields })
     cacheFor(listName).set(appId, created.id)
   }
   return item
@@ -253,8 +295,9 @@ export async function upsertItem<T extends StoredRecord>(listName: string, item:
 
 export async function deleteItem(listName: string, appId: string): Promise<void> {
   const siteId = await resolveSiteId()
+  const list = await listRef(listName)
   const spId = await findSpId(listName, appId)
   if (!spId) return
-  await graphRequest(`/sites/${siteId}/lists/${listName}/items/${spId}`, 'DELETE')
+  await graphRequest(`/sites/${siteId}/lists/${list}/items/${spId}`, 'DELETE')
   cacheFor(listName).delete(appId)
 }
