@@ -34,6 +34,8 @@ export interface Teacher {
   id: string
   fullName: string
   email: string
+  /** Id. de objeto (oid) de la cuenta de Entra ID vinculada (obligatorio) */
+  userId?: string
   subjects: string[]
   grades: string[]
 }
@@ -41,6 +43,10 @@ export interface Teacher {
 export interface Student {
   id: string
   fullName: string
+  /** Correo institucional del estudiante (de su cuenta de Entra ID) */
+  email?: string
+  /** Id. de objeto (oid) de la cuenta de Entra ID vinculada (obligatorio) */
+  userId?: string
   gradeId: string
   section?: string
   parentId?: string
@@ -260,6 +266,8 @@ export interface StudentGuardian {
   studentId: string
   fullName: string
   email: string
+  /** Id. de objeto (oid) de la cuenta de Entra ID vinculada (obligatorio) */
+  userId?: string
   phone?: string
   parentesco: Parentesco
 }

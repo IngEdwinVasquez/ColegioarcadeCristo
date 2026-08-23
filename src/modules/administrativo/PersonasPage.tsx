@@ -9,6 +9,9 @@ import { dataService } from '../../services/dataService'
 import { useCollection } from '../../hooks/useCollection'
 import type { Student, StudentGuardian, Teacher } from '../../types'
 import { genId } from '../../utils/helpers'
+import { EntraUserPicker } from '../../components/shared/EntraUserPicker'
+import { entraEmail, getDirectoryUsers, linkUserRole, unlinkUserRole } from '../../services/userLinks'
+import { graphErrorMessage } from '../../services/graph'
 
 const useStyles = makeStyles({
   tabs: { marginBottom: '16px' },
@@ -26,6 +29,7 @@ export function PersonasPage() {
 
   const studentColumns: CrudColumn<Student>[] = [
     { header: 'Estudiante', render: (s) => <Text weight="semibold">{s.fullName}</Text> },
+    { header: 'Cuenta M365', render: (s) => s.email || <Text size={200} style={{ color: '#B42318' }}>Sin vincular</Text> },
     { header: 'Grado', render: (s) => grades.find((g) => g.id === s.gradeId)?.name ?? s.gradeId },
     { header: 'Padre / Tutor', render: (s) => s.parentName || '—' },
     { header: 'Contacto', render: (s) => s.parentEmail || '—', hideMobile: true },
@@ -44,19 +48,97 @@ export function PersonasPage() {
     },
   ]
 
-  const saveStudent = async (s: Student) => {
-    await studentsCol.save(s)
-    toaster.dispatchToast('Estudiante guardado', { intent: 'success' })
+  /** Busca la cuenta de Entra seleccionada; lanza error si falta (vinculación obligatoria). */
+  const requireAccount = async (userId: string | undefined, label: string) => {
+    if (!userId) {
+      const message = `Seleccione la cuenta de Microsoft 365 del ${label}: es obligatoria para darle acceso al portal.`
+      toaster.dispatchToast(message, { intent: 'error' })
+      throw new Error(message)
+    }
+    const account = (await getDirectoryUsers()).find((u) => u.id === userId)
+    if (!account) {
+      toaster.dispatchToast('La cuenta seleccionada ya no existe en el directorio.', { intent: 'error' })
+      throw new Error('Cuenta no encontrada')
+    }
+    return account
   }
+
+  const failed = (error: unknown) => {
+    toaster.dispatchToast(`No se pudo guardar: ${graphErrorMessage(error)}`, { intent: 'error' })
+    throw error
+  }
+
+  const saveStudent = async (s: Student) => {
+    if (!s.fullName.trim() || !s.gradeId) {
+      toaster.dispatchToast('Complete el nombre y el grado.', { intent: 'error' })
+      throw new Error('Datos incompletos')
+    }
+    const account = await requireAccount(s.userId, 'estudiante')
+    try {
+      const previous = studentsCol.items.find((x) => x.id === s.id)
+      if (previous?.userId && previous.userId !== account.id) await unlinkUserRole(previous.userId, 'estudiante', { studentId: s.id })
+      await linkUserRole(account, 'estudiante', { studentId: s.id })
+      await studentsCol.save({ ...s, email: entraEmail(account) })
+      toaster.dispatchToast(`Estudiante guardado y cuenta ${entraEmail(account)} vinculada con rol Estudiante`, { intent: 'success' })
+    } catch (error) {
+      failed(error)
+    }
+  }
+
   const saveTeacher = async (t: Teacher) => {
-    await teachersCol.save(t)
-    toaster.dispatchToast('Docente guardado', { intent: 'success' })
+    if (!t.fullName.trim()) {
+      toaster.dispatchToast('Complete el nombre del docente.', { intent: 'error' })
+      throw new Error('Datos incompletos')
+    }
+    const account = await requireAccount(t.userId, 'docente')
+    try {
+      const previous = teachersCol.items.find((x) => x.id === t.id)
+      if (previous?.userId && previous.userId !== account.id) await unlinkUserRole(previous.userId, 'docente', { teacherId: t.id })
+      await linkUserRole(account, 'docente', { teacherId: t.id })
+      await teachersCol.save({ ...t, email: entraEmail(account) })
+      toaster.dispatchToast(`Docente guardado y cuenta ${entraEmail(account)} vinculada con rol Docente`, { intent: 'success' })
+    } catch (error) {
+      failed(error)
+    }
   }
 
   const saveGuardian = async (g: StudentGuardian) => {
-    await guardiansCol.save(g)
-    toaster.dispatchToast('Tutor guardado', { intent: 'success' })
+    if (!g.fullName.trim() || !g.studentId) {
+      toaster.dispatchToast('Complete el nombre y el estudiante.', { intent: 'error' })
+      throw new Error('Datos incompletos')
+    }
+    const account = await requireAccount(g.userId, 'padre o tutor')
+    try {
+      const previous = guardiansCol.items.find((x) => x.id === g.id)
+      if (previous?.userId && previous.userId !== account.id) await unlinkUserRole(previous.userId, 'padre')
+      await linkUserRole(account, 'padre')
+      await guardiansCol.save({ ...g, email: entraEmail(account) })
+      toaster.dispatchToast(`Tutor guardado y cuenta ${entraEmail(account)} vinculada con rol Padre / Tutor`, { intent: 'success' })
+    } catch (error) {
+      failed(error)
+    }
   }
+
+  const deleteStudent = async (id: string) => {
+    const s = studentsCol.items.find((x) => x.id === id)
+    await unlinkUserRole(s?.userId, 'estudiante', { studentId: id })
+    await studentsCol.remove(id)
+  }
+  const deleteTeacher = async (id: string) => {
+    const t = teachersCol.items.find((x) => x.id === id)
+    await unlinkUserRole(t?.userId, 'docente', { teacherId: id })
+    await teachersCol.remove(id)
+  }
+  const deleteGuardian = async (id: string) => {
+    const g = guardiansCol.items.find((x) => x.id === id)
+    // Solo se quita el rol si no tiene otros hijos registrados con la misma cuenta.
+    const others = guardiansCol.items.some((x) => x.id !== id && x.userId && x.userId === g?.userId)
+    if (!others) await unlinkUserRole(g?.userId, 'padre')
+    await guardiansCol.remove(id)
+  }
+
+  const takenStudentUsers = studentsCol.items.map((x) => x.userId ?? '').filter(Boolean)
+  const takenTeacherUsers = teachersCol.items.map((x) => x.userId ?? '').filter(Boolean)
 
   return (
     <div>
@@ -81,6 +163,8 @@ export function PersonasPage() {
           createDefault={() => ({
             id: genId('s'),
             fullName: '',
+            email: '',
+            userId: undefined,
             gradeId: grades[0]?.id ?? '',
             parentName: '',
             parentEmail: '',
@@ -91,6 +175,12 @@ export function PersonasPage() {
               <FormField label="Nombre completo" required>
                 <Input value={s.fullName} onChange={(_, d) => set({ ...s, fullName: d.value })} placeholder="Nombre y apellidos" />
               </FormField>
+              <EntraUserPicker
+                value={s.userId}
+                takenIds={takenStudentUsers}
+                onChange={(u) => set({ ...s, userId: u?.id, email: u ? entraEmail(u) : '', fullName: s.fullName || (u?.displayName ?? '') })}
+                hint="Obligatorio. La cuenta recibirá el rol Estudiante y verá su Campus Virtual."
+              />
               <FieldRow>
                 <FormField label="Grado / Curso" required>
                   <Select value={s.gradeId} onChange={(_, d) => set({ ...s, gradeId: d.value })}>
@@ -114,7 +204,7 @@ export function PersonasPage() {
             </div>
           )}
           onSave={saveStudent}
-          onDelete={(id) => studentsCol.remove(id)}
+          onDelete={deleteStudent}
           emptyMessage="Registre los estudiantes de la matrícula."
         />
       )}
@@ -131,6 +221,7 @@ export function PersonasPage() {
             id: genId('t'),
             fullName: '',
             email: '',
+            userId: undefined,
             subjects: [],
             grades: [],
           })}
@@ -139,9 +230,12 @@ export function PersonasPage() {
               <FormField label="Nombre completo" required>
                 <Input value={t.fullName} onChange={(_, d) => set({ ...t, fullName: d.value })} />
               </FormField>
-              <FormField label="Correo institucional">
-                <Input value={t.email} onChange={(_, d) => set({ ...t, email: d.value })} />
-              </FormField>
+              <EntraUserPicker
+                value={t.userId}
+                takenIds={takenTeacherUsers}
+                onChange={(u) => set({ ...t, userId: u?.id, email: u ? entraEmail(u) : '', fullName: t.fullName || (u?.displayName ?? '') })}
+                hint="Obligatorio. La cuenta recibirá el rol Docente; el correo institucional se toma de la cuenta."
+              />
               <FormField label="Asignaturas que imparte">
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
                   {subjects.map((sub) => (
@@ -185,7 +279,7 @@ export function PersonasPage() {
             </div>
           )}
           onSave={saveTeacher}
-          onDelete={(id) => teachersCol.remove(id)}
+          onDelete={deleteTeacher}
           emptyMessage="Registre al cuerpo docente."
         />
       )}
@@ -204,7 +298,7 @@ export function PersonasPage() {
           ]}
           searchText={(g) => `${g.fullName} ${g.email} ${g.parentesco}`}
           newLabel="Registrar tutor"
-          createDefault={() => ({ id: genId('gr'), studentId: studentsCol.items[0]?.id ?? '', fullName: '', email: '', phone: '', parentesco: 'padre' })}
+          createDefault={() => ({ id: genId('gr'), studentId: studentsCol.items[0]?.id ?? '', fullName: '', email: '', userId: undefined, phone: '', parentesco: 'padre' })}
           renderForm={(g, set) => (
             <div>
               <FieldRow>
@@ -219,14 +313,14 @@ export function PersonasPage() {
                   </Select>
                 </FormField>
               </FieldRow>
-              <FieldRow>
-                <FormField label="Correo">
-                  <Input value={g.email ?? ''} onChange={(_, d) => set({ ...g, email: d.value })} />
-                </FormField>
-                <FormField label="Teléfono">
-                  <Input value={g.phone ?? ''} onChange={(_, d) => set({ ...g, phone: d.value })} />
-                </FormField>
-              </FieldRow>
+              <EntraUserPicker
+                value={g.userId}
+                onChange={(u) => set({ ...g, userId: u?.id, email: u ? entraEmail(u) : '', fullName: g.fullName || (u?.displayName ?? '') })}
+                hint="Obligatorio. La cuenta recibirá el rol Padre / Tutor. Un mismo tutor puede vincularse a varios hijos."
+              />
+              <FormField label="Teléfono">
+                <Input value={g.phone ?? ''} onChange={(_, d) => set({ ...g, phone: d.value })} />
+              </FormField>
               <FormField label="Parentesco">
                 <Select value={g.parentesco} onChange={(_, d) => set({ ...g, parentesco: d.value as StudentGuardian['parentesco'] })}>
                   <option value="padre">Padre</option><option value="madre">Madre</option><option value="tutor">Tutor</option><option value="otro">Otro</option>
@@ -235,7 +329,7 @@ export function PersonasPage() {
             </div>
           )}
           onSave={saveGuardian}
-          onDelete={(id) => guardiansCol.remove(id)}
+          onDelete={deleteGuardian}
           emptyMessage="Registre los padres o tutores y asígnelos a un estudiante con su parentesco."
         />
       )}

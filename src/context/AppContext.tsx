@@ -55,13 +55,15 @@ function resolveUser(profile: { id: string; displayName: string; email: string; 
 
   if (appConfig.m365.adminEmails.includes(profile.email)) roles.add('admin')
 
-  const teacher = catalogs.teachers.find((t) => sameEmail(t.email, profile.email))
+  const teacher = catalogs.teachers.find((t) => t.userId === profile.id) ?? catalogs.teachers.find((t) => sameEmail(t.email, profile.email))
   if (teacher) {
     roles.add('docente')
-    teacherId = teacherId ?? teacher.id
+    teacherId = teacher.id
   }
-  if (catalogs.guardians.some((g) => sameEmail(g.email, profile.email))) roles.add('padre')
+  const student = catalogs.students.find((st) => st.userId === profile.id) ?? catalogs.students.find((st) => sameEmail(st.email, profile.email))
+  if (student) studentId = student.id
   if (studentId) roles.add('estudiante')
+  if (catalogs.guardians.some((g) => g.userId === profile.id || sameEmail(g.email, profile.email))) roles.add('padre')
 
   const bootstrap = catalogs.users.length === 0 && roles.size === 0
   if (bootstrap) roles.add('admin')
@@ -83,6 +85,7 @@ function resolveUser(profile: { id: string; displayName: string; email: string; 
     existing.displayName !== user.displayName ||
     !sameEmail(existing.email, user.email) ||
     existing.teacherId !== user.teacherId ||
+    existing.studentId !== user.studentId ||
     existing.roles.length !== nextRoles.length ||
     existing.roles.some((r) => !nextRoles.includes(r))
   return { user, isNew: !existing, changed }
