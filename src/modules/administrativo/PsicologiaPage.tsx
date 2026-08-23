@@ -7,9 +7,8 @@ import { FormField, FieldRow } from '../../components/shared/form'
 import { useApp } from '../../context/useApp'
 import { dataService } from '../../services/dataService'
 import { useCollection } from '../../hooks/useCollection'
-import { useLocalList } from '../../hooks/useLocalList'
-import type { AttendanceRecord } from '../../types'
-import { pct } from '../../utils/helpers'
+import type { AttendanceRecord, PsychRequest } from '../../types'
+import { formatDate, genId, pct } from '../../utils/helpers'
 
 const useStyles = makeStyles({
   kpis: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 220px), 1fr))', gap: '16px', marginBottom: '20px' },
@@ -27,9 +26,9 @@ const TALLERES = [
 export function PsicologiaPage() {
   const styles = useStyles()
   const toaster = useToastController()
-  const { students, gradeById, studentById } = useApp()
+  const { students, gradeById, studentById, user } = useApp()
   const attendanceCol = useCollection<AttendanceRecord>(dataService.getAttendance)
-  const solicitudes = useLocalList<{ id: string; tipo: string; estudiante: string; detalle: string; fecha: string }>('arca_psicologia_solicitudes')
+  const solicitudes = useCollection<PsychRequest>(dataService.getPsychRequests, dataService.savePsychRequest, dataService.deletePsychRequest)
 
   const [tipo, setTipo] = useState('Orientación académica')
   const [estudiante, setEstudiante] = useState('')
@@ -51,16 +50,27 @@ export function PsicologiaPage() {
       .sort((a, b) => a.porcentaje - b.porcentaje)
   }, [attendanceCol.items])
 
-  const enviar = () => {
+  const enviar = async () => {
     if (!estudiante || !detalle) {
       window.alert('Complete el estudiante y el detalle de la solicitud.')
       return
     }
-    solicitudes.add({ tipo, estudiante, detalle, fecha: new Date().toISOString() })
-    toaster.dispatchToast("Solicitud enviada a la Unidad Psicopedagógica", { intent: "success" })
-    setEstudiante('')
-    setDetalle('')
+    try {
+      await solicitudes.save({ id: genId('psy'), tipo, studentId: estudiante, detalle, fecha: new Date().toISOString(), solicitante: user?.displayName, estado: 'pendiente' })
+      toaster.dispatchToast('Solicitud enviada a la Unidad Psicopedagógica', { intent: 'success' })
+      setEstudiante('')
+      setDetalle('')
+    } catch (error) {
+      toaster.dispatchToast(`No se pudo enviar: ${error instanceof Error ? error.message : 'error'}`, { intent: 'error' })
+    }
   }
+
+  const avanzar = async (r: PsychRequest) => {
+    const siguiente: PsychRequest['estado'] = r.estado === 'pendiente' ? 'en_atencion' : 'cerrado'
+    await solicitudes.save({ ...r, estado: siguiente })
+  }
+
+  const pendientes = solicitudes.items.filter((r) => r.estado !== 'cerrado')
 
   return (
     <div>
@@ -71,7 +81,7 @@ export function PsicologiaPage() {
 
       <div className={styles.kpis}>
         <StatCard title="Casos de seguimiento" value={casosSeguimiento.length} icon={<PeopleCheckmarkRegular />} color="#AD1457" sub="Estudiantes con asistencia < 80%" />
-        <StatCard title="Solicitudes de atención" value={solicitudes.items.length} icon={<ShieldPersonRegular />} color="#6A1B9A" sub="Ventanilla virtual" />
+        <StatCard title="Solicitudes de atención" value={pendientes.length} icon={<ShieldPersonRegular />} color="#6A1B9A" sub="Ventanilla virtual" />
         <StatCard title="Talleres programados" value={TALLERES.length} icon={<ClipboardTaskRegular />} color="#4527A0" sub="Programa de talleres y guías de crianza" />
       </div>
 
@@ -103,7 +113,7 @@ export function PsicologiaPage() {
             <FormField label="Detalle de la solicitud" required>
               <Textarea value={detalle} onChange={(_, d) => setDetalle(d.value)} resize="vertical" placeholder="Describa brevemente el motivo de la solicitud…" />
             </FormField>
-            <Button appearance="primary" icon={<SendRegular />} onClick={enviar}>Enviar solicitud</Button>
+            <Button appearance="primary" icon={<SendRegular />} onClick={() => void enviar()}>Enviar solicitud</Button>
           </div>
         </Card>
 
@@ -133,6 +143,43 @@ export function PsicologiaPage() {
                       <span style={{ padding: '2px 10px', borderRadius: '999px', fontSize: '12px', fontWeight: 600, background: c.porcentaje < 60 ? '#C62828' : '#EF6C00', color: '#fff' }}>
                         {c.porcentaje < 60 ? 'Alta' : 'Media'}
                       </span>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </Card>
+
+        <Card className={styles.card} style={{ gridColumn: '1 / -1' }}>
+          <Text weight="semibold" size={400}>🗂️ Solicitudes de atención</Text>
+          {solicitudes.items.length === 0 && <Text size={300}>Sin solicitudes registradas.</Text>}
+          {solicitudes.items.length > 0 && (
+            <Table aria-label="Solicitudes de atención">
+              <TableHeader>
+                <TableRow>
+                  <TableHeaderCell>Fecha</TableHeaderCell>
+                  <TableHeaderCell>Tipo</TableHeaderCell>
+                  <TableHeaderCell>Estudiante</TableHeaderCell>
+                  <TableHeaderCell>Detalle</TableHeaderCell>
+                  <TableHeaderCell>Estado</TableHeaderCell>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {solicitudes.items.slice().sort((x, y) => (x.fecha < y.fecha ? 1 : -1)).map((r) => (
+                  <TableRow key={r.id}>
+                    <TableCell>{formatDate(r.fecha)}</TableCell>
+                    <TableCell>{r.tipo}</TableCell>
+                    <TableCell>{studentById(r.studentId)?.fullName ?? r.studentId}</TableCell>
+                    <TableCell>{r.detalle}</TableCell>
+                    <TableCell>
+                      {r.estado === 'cerrado' ? (
+                        'Cerrado'
+                      ) : (
+                        <Button size="small" appearance="subtle" onClick={() => void avanzar(r)}>
+                          {r.estado === 'en_atencion' ? 'Cerrar caso' : 'Iniciar atención'}
+                        </Button>
+                      )}
                     </TableCell>
                   </TableRow>
                 ))}

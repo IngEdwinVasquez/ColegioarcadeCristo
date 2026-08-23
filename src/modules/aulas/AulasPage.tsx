@@ -136,6 +136,11 @@ export function AulasPage() {
               <TableCell className={styles.cell}>
                 <Text size={300} weight="semibold" block>{a.title}</Text>
                 <Text size={200} style={{ color: tokens.colorNeutralForeground2 }}>{a.description.slice(0, 60)}…</Text>
+                {a.attachments?.length > 0 && (
+                  <Text size={200} block style={{ color: tokens.colorNeutralForeground2 }}>
+                    📎 {a.attachments.length} adjunto(s) en OneDrive
+                  </Text>
+                )}
               </TableCell>
               <TableCell className={styles.cell}>
                 <span className={styles.typeChip} style={{ background: '#eef2f7', color: tokens.colorNeutralForeground1 }}>

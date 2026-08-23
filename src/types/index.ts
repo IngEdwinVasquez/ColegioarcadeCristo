@@ -1,5 +1,9 @@
 import type { Role } from './roles'
 
+/**
+ * Usuario del sistema. El `id` es el identificador de objeto (oid) de Microsoft Entra ID.
+ * Los roles se administran en la lista ARC_Users (módulo "Usuarios y roles").
+ */
 export interface User {
   id: string
   displayName: string
@@ -8,6 +12,8 @@ export interface User {
   photoUrl?: string
   teacherId?: string
   studentId?: string
+  jobTitle?: string
+  updatedAt?: string
 }
 
 export interface GradeSection {
@@ -126,6 +132,13 @@ export type ActivityType = 'tarea' | 'quiz' | 'proyecto' | 'evaluacion' | 'lectu
 
 export type ActivityStatus = 'borrador' | 'publicada' | 'cerrada'
 
+export interface AttachmentRef {
+  id: string
+  name: string
+  webUrl: string
+  size?: number
+}
+
 export interface Activity {
   id: string
   subjectId: string
@@ -138,7 +151,9 @@ export interface Activity {
   publishDate: string
   dueDate: string
   status: ActivityStatus
+  /** Enlaces a documentos en OneDrive (URL compartida) */
   attachments: string[]
+  attachmentRefs?: AttachmentRef[]
   channelId?: string
 }
 
@@ -182,6 +197,8 @@ export interface VirtualMeeting {
   type: MeetingType
   platform: string
   link?: string
+  /** Id. del evento de Outlook/Teams creado con Microsoft Graph */
+  eventId?: string
   status: MeetingStatus
   record?: MeetingRecord
   createdAt: string
@@ -286,4 +303,41 @@ export interface ChatMessage {
   content: string
   timestamp: string
   read: boolean
+}
+
+export interface Announcement {
+  id: string
+  titulo: string
+  contenido: string
+  fecha: string
+  autorId?: string
+  autorNombre?: string
+  /** Si se envió notificación por correo a las familias */
+  notificado?: boolean
+}
+
+export interface DocumentRequest {
+  id: string
+  tipo: string
+  estudiante: string
+  detalle: string
+  fecha: string
+  solicitante?: string
+  estado: 'pendiente' | 'en_proceso' | 'entregado'
+}
+
+export interface PsychRequest {
+  id: string
+  tipo: string
+  studentId: string
+  detalle: string
+  fecha: string
+  solicitante?: string
+  estado: 'pendiente' | 'en_atencion' | 'cerrado'
+}
+
+export interface RoleMeta {
+  id: string
+  label?: string
+  description?: string
 }

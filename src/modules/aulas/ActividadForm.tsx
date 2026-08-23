@@ -1,9 +1,12 @@
-import { useState } from 'react'
-import { Input, Select, Textarea } from '@fluentui/react-components'
+import { useRef, useState } from 'react'
+import { Button, Input, Select, Spinner, Text, Textarea } from '@fluentui/react-components'
+import { AttachRegular, DismissRegular, OpenRegular } from '@fluentui/react-icons'
 import { FormActions, FormField, FieldRow } from '../../components/shared/form'
 import { useApp } from '../../context/useApp'
 import type { Activity } from '../../types'
 import { genId, todayIso } from '../../utils/helpers'
+import { uploadAndShare } from '../../services/onedrive'
+import { graphErrorMessage } from '../../services/graph'
 
 interface ActividadFormProps {
   initial?: Activity | null
@@ -33,6 +36,40 @@ export function ActividadForm({ initial, onSave, onCancel }: ActividadFormProps)
   })
 
   const set = <K extends keyof Activity>(key: K, value: Activity[K]) => setForm((f) => ({ ...f, [key]: value }))
+  const fileInput = useRef<HTMLInputElement>(null)
+  const [uploading, setUploading] = useState(false)
+  const [uploadError, setUploadError] = useState<string | null>(null)
+
+  const attachFiles = async (files: FileList | null) => {
+    if (!files || files.length === 0) return
+    setUploading(true)
+    setUploadError(null)
+    const gradeName = grades.find((g) => g.id === form.gradeId)?.name ?? 'General'
+    const subjectName = subjects.find((s) => s.id === form.subjectId)?.name ?? 'Asignatura'
+    try {
+      for (const file of Array.from(files)) {
+        const ref = await uploadAndShare(`AulasVirtuales/${gradeName}/${subjectName}`, file)
+        setForm((f) => ({
+          ...f,
+          attachments: [...f.attachments, ref.webUrl],
+          attachmentRefs: [...(f.attachmentRefs ?? []), { id: ref.id, name: ref.name, webUrl: ref.webUrl, size: ref.size }],
+        }))
+      }
+    } catch (error) {
+      setUploadError(`No se pudo subir el archivo a OneDrive: ${graphErrorMessage(error)}`)
+    } finally {
+      setUploading(false)
+      if (fileInput.current) fileInput.current.value = ''
+    }
+  }
+
+  const removeAttachment = (url: string) => {
+    setForm((f) => ({
+      ...f,
+      attachments: f.attachments.filter((a) => a !== url),
+      attachmentRefs: (f.attachmentRefs ?? []).filter((r) => r.webUrl !== url),
+    }))
+  }
 
   const handleSubject = (subjectId: string) => {
     const teacher = teachers.find((t) => t.subjects.includes(subjectId))
@@ -96,6 +133,28 @@ export function ActividadForm({ initial, onSave, onCancel }: ActividadFormProps)
           <Input type="date" value={form.dueDate} onChange={(_, d) => set('dueDate', d.value)} />
         </FormField>
       </FieldRow>
+      <FormField label="Material de apoyo (OneDrive)">
+        <input ref={fileInput} type="file" multiple style={{ display: 'none' }} onChange={(e) => void attachFiles(e.target.files)} />
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          {form.attachments.map((url) => {
+            const ref = form.attachmentRefs?.find((r) => r.webUrl === url)
+            return (
+              <div key={url} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Button size="small" appearance="subtle" icon={<OpenRegular />} onClick={() => window.open(url, '_blank', 'noopener')}>
+                  {ref?.name ?? url}
+                </Button>
+                <Button size="small" appearance="subtle" icon={<DismissRegular />} aria-label="Quitar adjunto" onClick={() => removeAttachment(url)} />
+              </div>
+            )
+          })}
+          <div>
+            <Button size="small" appearance="secondary" icon={uploading ? <Spinner size="tiny" /> : <AttachRegular />} onClick={() => fileInput.current?.click()} disabled={uploading}>
+              {uploading ? 'Subiendo a OneDrive…' : 'Adjuntar archivos'}
+            </Button>
+          </div>
+          {uploadError && <Text size={200} style={{ color: '#B42318' }}>{uploadError}</Text>}
+        </div>
+      </FormField>
       <FormField label="Estado">
         <Select value={form.status} onChange={(_, d) => set('status', d.value as Activity['status'])}>
           <option value="borrador">Borrador</option>

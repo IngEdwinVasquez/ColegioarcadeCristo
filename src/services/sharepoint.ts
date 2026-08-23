@@ -1,6 +1,11 @@
-import { graphRequest } from './graph'
+import { graphGetAll, graphRequest } from './graph'
 import { appConfig } from '../config/appConfig'
 
+/**
+ * Listas de SharePoint Online que actúan como base de datos.
+ * Cada elemento guarda el registro completo en `json_payload` y su identificador
+ * lógico en `app_id` (el `Title` solo facilita la lectura desde SharePoint).
+ */
 export const SPO_LISTS = {
   users: 'ARC_Users',
   students: 'ARC_Students',
@@ -21,9 +26,38 @@ export const SPO_LISTS = {
   admissionDocs: 'ARC_AdmissionDocs',
   admissionEvals: 'ARC_AdmissionEvals',
   messages: 'ARC_Messages',
+  announcements: 'ARC_Announcements',
+  admissions: 'ARC_Admissions',
+  documentRequests: 'ARC_DocumentRequests',
+  psychRequests: 'ARC_PsychRequests',
+  roleMeta: 'ARC_RoleMeta',
 } as const
 
+export type SpoListName = (typeof SPO_LISTS)[keyof typeof SPO_LISTS]
+
+export const PAYLOAD_FIELD = 'json_payload'
+export const APP_ID_FIELD = 'app_id'
+
+export class SharePointSetupError extends Error {
+  readonly hint: string
+  constructor(message: string, hint: string) {
+    super(message)
+    this.name = 'SharePointSetupError'
+    this.hint = hint
+  }
+}
+
+// ------------------------------------------------------------------ Sitio
+
 let cachedSiteId: string | null = null
+
+async function resolveHostname(): Promise<string> {
+  if (appConfig.m365.siteHostname) return appConfig.m365.siteHostname
+  const root = await graphRequest<{ siteCollection?: { hostname?: string }; webUrl?: string }>('/sites/root?$select=siteCollection,webUrl')
+  const hostname = root.siteCollection?.hostname ?? (root.webUrl ? new URL(root.webUrl).hostname : '')
+  if (!hostname) throw new SharePointSetupError('No se pudo determinar el tenant de SharePoint.', 'Defina VITE_SPO_HOSTNAME en la configuración.')
+  return hostname
+}
 
 export async function resolveSiteId(): Promise<string> {
   if (cachedSiteId) return cachedSiteId
@@ -31,64 +65,196 @@ export async function resolveSiteId(): Promise<string> {
     cachedSiteId = appConfig.m365.siteId
     return cachedSiteId
   }
-  const path = appConfig.m365.sitePath.startsWith('/') ? appConfig.m365.sitePath.slice(1) : appConfig.m365.sitePath
-  const site = await graphRequest<{ id: string }>(`/sites/${appConfig.m365.siteHostname}:/${path}`)
-  cachedSiteId = site.id
-  return site.id
-}
-
-function serializeFields(fields: Record<string, unknown>): Record<string, unknown> {
-  const out: Record<string, unknown> = {}
-  for (const [key, value] of Object.entries(fields)) {
-    if (value === undefined || value === null || value === '') continue
-    out[key] = typeof value === 'object' ? JSON.stringify(value) : value
+  const hostname = await resolveHostname()
+  const path = appConfig.m365.sitePath.startsWith('/') ? appConfig.m365.sitePath : `/${appConfig.m365.sitePath}`
+  try {
+    const site = await graphRequest<{ id: string }>(`/sites/${hostname}:${path}?$select=id`)
+    cachedSiteId = site.id
+    return site.id
+  } catch (error) {
+    const status = (error as { statusCode?: number }).statusCode
+    if (status === 404 || status === 403) {
+      throw new SharePointSetupError(
+        `No se encontró el sitio de SharePoint https://${hostname}${path} o no tiene acceso a él.`,
+        'Cree el sitio (Centro de administración de SharePoint → Sitios activos → Crear) y conceda acceso a los usuarios, o ajuste VITE_SPO_SITE_PATH.',
+      )
+    }
+    throw error
   }
-  return out
 }
 
-function deserializeFields(fields: Record<string, unknown>): Record<string, unknown> {
-  const out: Record<string, unknown> = { ...fields }
-  for (const [key, value] of Object.entries(out)) {
-    if (typeof value === 'string' && (value.startsWith('{') || value.startsWith('['))) {
-      try {
-        out[key] = JSON.parse(value)
-      } catch {
-        /* se deja como texto */
-      }
+export async function getSiteWebUrl(): Promise<string> {
+  const siteId = await resolveSiteId()
+  const site = await graphRequest<{ webUrl: string }>(`/sites/${siteId}?$select=webUrl`)
+  return site.webUrl
+}
+
+// ------------------------------------------------------------------ Aprovisionamiento
+
+interface GraphList {
+  id: string
+  name?: string
+  displayName: string
+}
+
+interface GraphColumn {
+  name: string
+}
+
+const PROVISION_KEY = 'arca_spo_provisioned_v1'
+
+/**
+ * Crea las listas ARC_* que falten y garantiza las columnas `json_payload` y `app_id`.
+ * Requiere Sites.ReadWrite.All (delegado) y permiso de edición en el sitio.
+ */
+export async function ensureProvisioned(force = false): Promise<{ created: string[]; updated: string[] }> {
+  const created: string[] = []
+  const updated: string[] = []
+  if (!force && sessionStorage.getItem(PROVISION_KEY) === '1') return { created, updated }
+
+  const siteId = await resolveSiteId()
+  const existing = await graphGetAll<GraphList>(`/sites/${siteId}/lists?$select=id,name,displayName&$top=200`)
+  const byName = new Map<string, GraphList>()
+  for (const list of existing) {
+    byName.set(list.displayName, list)
+    if (list.name) byName.set(list.name, list)
+  }
+
+  for (const listName of Object.values(SPO_LISTS)) {
+    const list = byName.get(listName)
+    if (!list) {
+      await graphRequest(`/sites/${siteId}/lists`, 'POST', {
+        displayName: listName,
+        description: 'Intranet Arca de Cristo — datos de la aplicación',
+        list: { template: 'genericList' },
+        columns: [
+          { name: PAYLOAD_FIELD, text: { allowMultipleLines: true, textType: 'plain', linesForEditing: 6 } },
+          { name: APP_ID_FIELD, indexed: true, text: {} },
+        ],
+      })
+      created.push(listName)
+      continue
+    }
+    const columns = await graphGetAll<GraphColumn>(`/sites/${siteId}/lists/${list.id}/columns?$select=name`)
+    const names = new Set(columns.map((c) => c.name))
+    if (!names.has(PAYLOAD_FIELD)) {
+      await graphRequest(`/sites/${siteId}/lists/${list.id}/columns`, 'POST', { name: PAYLOAD_FIELD, text: { allowMultipleLines: true, textType: 'plain' } })
+      updated.push(`${listName}.${PAYLOAD_FIELD}`)
+    }
+    if (!names.has(APP_ID_FIELD)) {
+      await graphRequest(`/sites/${siteId}/lists/${list.id}/columns`, 'POST', { name: APP_ID_FIELD, indexed: true, text: {} })
+      updated.push(`${listName}.${APP_ID_FIELD}`)
     }
   }
-  return out
+  sessionStorage.setItem(PROVISION_KEY, '1')
+  return { created, updated }
 }
+
+// ------------------------------------------------------------------ CRUD de elementos
 
 interface GraphItem {
   id: string
   fields: Record<string, unknown>
 }
 
-export async function getItems<T>(listName: string): Promise<Array<T & { id: string }>> {
+/** Caché por lista: id lógico (app_id) → id numérico del elemento en SharePoint. */
+const idCache = new Map<string, Map<string, string>>()
+
+function cacheFor(listName: string): Map<string, string> {
+  let map = idCache.get(listName)
+  if (!map) {
+    map = new Map()
+    idCache.set(listName, map)
+  }
+  return map
+}
+
+const NON_INDEXED_PREFER = { Prefer: 'HonorNonIndexedQueriesWarningMayFailRandomly' }
+
+function escapeODataString(value: string): string {
+  return value.replace(/'/g, "''")
+}
+
+async function findSpId(listName: string, appId: string): Promise<string | null> {
+  const cached = cacheFor(listName).get(appId)
+  if (cached) return cached
   const siteId = await resolveSiteId()
   const response = await graphRequest<{ value: GraphItem[] }>(
-    `/sites/${siteId}/lists/${listName}/items?expand=fields`,
+    `/sites/${siteId}/lists/${listName}/items?$select=id&$filter=fields/${APP_ID_FIELD} eq '${escapeODataString(appId)}'&$top=1`,
+    'GET',
+    undefined,
+    { headers: NON_INDEXED_PREFER },
   )
-  return response.value.map((item) => ({ ...(deserializeFields(item.fields) as T), id: item.id }))
+  const spId = response.value[0]?.id ?? null
+  if (spId) cacheFor(listName).set(appId, spId)
+  return spId
 }
 
-export async function addItem<T>(listName: string, fields: T): Promise<T & { id: string }> {
+export interface StoredRecord {
+  id: string
+  [key: string]: unknown
+}
+
+function parseItem<T extends StoredRecord>(listName: string, item: GraphItem): T {
+  const fields = item.fields
+  const raw = typeof fields[PAYLOAD_FIELD] === 'string' ? (fields[PAYLOAD_FIELD] as string) : ''
+  let parsed: Record<string, unknown> = {}
+  if (raw) {
+    try {
+      parsed = JSON.parse(raw) as Record<string, unknown>
+    } catch {
+      parsed = {}
+    }
+  }
+  const storedAppId = typeof fields[APP_ID_FIELD] === 'string' ? (fields[APP_ID_FIELD] as string) : ''
+  const payloadId = typeof parsed.id === 'string' ? (parsed.id as string) : ''
+  const appId = storedAppId || payloadId || item.id
+  cacheFor(listName).set(appId, item.id)
+  return { ...parsed, id: appId } as T
+}
+
+export async function getItems<T extends StoredRecord>(listName: string): Promise<T[]> {
   const siteId = await resolveSiteId()
-  const response = await graphRequest<GraphItem>(
-    `/sites/${siteId}/lists/${listName}/items`,
-    'POST',
-    { fields: serializeFields(fields as Record<string, unknown>) },
+  const items = await graphGetAll<GraphItem>(
+    `/sites/${siteId}/lists/${listName}/items?$select=id&$expand=fields($select=Title,${PAYLOAD_FIELD},${APP_ID_FIELD})&$top=999`,
   )
-  return { ...(deserializeFields(response.fields) as T), id: response.id }
+  return items.map((item) => parseItem<T>(listName, item))
 }
 
-export async function updateItem<T>(listName: string, id: string, fields: Partial<T>): Promise<void> {
-  const siteId = await resolveSiteId()
-  await graphRequest(`/sites/${siteId}/lists/${listName}/items/${id}/fields`, 'PATCH', serializeFields(fields as Record<string, unknown>))
+const TITLE_KEYS = ['title', 'topic', 'titulo', 'name', 'fullName', 'displayName', 'estudiante', 'label']
+
+function titleOf(item: Record<string, unknown>): string {
+  for (const key of TITLE_KEYS) {
+    const value = item[key]
+    if (typeof value === 'string' && value.trim()) return value.slice(0, 250)
+  }
+  if (typeof item.date === 'string') return item.date
+  return 'Elemento'
 }
 
-export async function deleteItem(listName: string, id: string): Promise<void> {
+/** Crea o actualiza el registro (según exista su `app_id`). Devuelve el registro guardado. */
+export async function upsertItem<T extends StoredRecord>(listName: string, item: T): Promise<T> {
   const siteId = await resolveSiteId()
-  await graphRequest(`/sites/${siteId}/lists/${listName}/items/${id}`, 'DELETE')
+  const appId = item.id
+  const fields = {
+    Title: titleOf(item),
+    [APP_ID_FIELD]: appId,
+    [PAYLOAD_FIELD]: JSON.stringify(item),
+  }
+  const spId = await findSpId(listName, appId)
+  if (spId) {
+    await graphRequest(`/sites/${siteId}/lists/${listName}/items/${spId}/fields`, 'PATCH', fields)
+  } else {
+    const created = await graphRequest<GraphItem>(`/sites/${siteId}/lists/${listName}/items`, 'POST', { fields })
+    cacheFor(listName).set(appId, created.id)
+  }
+  return item
+}
+
+export async function deleteItem(listName: string, appId: string): Promise<void> {
+  const siteId = await resolveSiteId()
+  const spId = await findSpId(listName, appId)
+  if (!spId) return
+  await graphRequest(`/sites/${siteId}/lists/${listName}/items/${spId}`, 'DELETE')
+  cacheFor(listName).delete(appId)
 }

@@ -1,7 +1,20 @@
 const env = import.meta.env
 
-const m365ClientId = (env.VITE_MSAL_CLIENT_ID as string | undefined) ?? ''
-const m365Enabled = (env.VITE_M365_ENABLED as string | undefined) === 'true' && m365ClientId.length > 0
+const clientId = ((env.VITE_MSAL_CLIENT_ID as string | undefined) ?? '').trim()
+const tenantId = ((env.VITE_MSAL_TENANT_ID as string | undefined) ?? '').trim()
+
+if (!clientId || !tenantId) {
+  // La app solo funciona conectada a Microsoft 365: sin registro de aplicación no hay acceso.
+  throw new Error(
+    'Configuración incompleta: defina VITE_MSAL_CLIENT_ID y VITE_MSAL_TENANT_ID (ver docs/M365_SETUP.md).',
+  )
+}
+
+const csv = (value: string | undefined): string[] =>
+  (value ?? '')
+    .split(',')
+    .map((s) => s.trim().toLowerCase())
+    .filter(Boolean)
 
 export const appConfig = {
   appName: 'Colegio Evangélico Arca de Cristo',
@@ -9,6 +22,7 @@ export const appConfig = {
   institution: 'Centro Educativo Evangélico Arca de Cristo',
   tagline: 'Excelencia educativa con valores cristianos',
   city: 'La Romana, República Dominicana',
+  timeZone: 'America/Santo_Domingo',
   year: new Date().getFullYear(),
   contact: {
     address: 'Calle Dr. Teófilo Ferry No. 78, Centro de la Ciudad, La Romana, Rep. Dom.',
@@ -28,13 +42,14 @@ export const appConfig = {
     blanco: '#FFFFFF',
   },
   m365: {
-    enabled: m365Enabled,
-    clientId: m365ClientId,
-    authority: (env.VITE_MSAL_AUTHORITY as string | undefined) ?? 'https://login.microsoftonline.com/common',
-    redirectUri:
-      (env.VITE_MSAL_REDIRECT_URI as string | undefined) ?? window.location.origin,
+    clientId,
+    tenantId,
+    authority: `https://login.microsoftonline.com/${tenantId}`,
+    // Si no se define, se usa el origen actual (localhost en desarrollo, la URL pública en producción).
+    redirectUri: ((env.VITE_MSAL_REDIRECT_URI as string | undefined) ?? '').trim() || window.location.origin,
     scopes: [
       'User.Read',
+      'User.ReadBasic.All',
       'Mail.Send',
       'Calendars.ReadWrite',
       'Sites.ReadWrite.All',
@@ -42,10 +57,24 @@ export const appConfig = {
       'Directory.Read.All',
     ],
     graphBase: 'https://graph.microsoft.com/v1.0',
-    // SharePoint site que se usará como "base de datos" (listas)
-    siteHostname: (env.VITE_SPO_HOSTNAME as string | undefined) ?? 'yourtenant.sharepoint.com',
-    siteId: (env.VITE_SPO_SITE_ID as string | undefined) ?? '',
-    sitePath: (env.VITE_SPO_SITE_PATH as string | undefined) ?? '/sites/ArcaDeCristo',
+    // Sitio de SharePoint Online que actúa como base de datos (listas ARC_*).
+    // Si VITE_SPO_HOSTNAME está vacío, se resuelve automáticamente desde /sites/root del tenant.
+    siteHostname: ((env.VITE_SPO_HOSTNAME as string | undefined) ?? '').trim(),
+    siteId: ((env.VITE_SPO_SITE_ID as string | undefined) ?? '').trim(),
+    sitePath: ((env.VITE_SPO_SITE_PATH as string | undefined) ?? '').trim() || '/sites/IntranetArca',
+    // Carpeta raíz en OneDrive del usuario para el repositorio documental.
+    driveRootFolder: ((env.VITE_ONEDRIVE_ROOT_FOLDER as string | undefined) ?? '').trim() || 'ArcaDeCristo',
+    // Correos con rol administrador garantizado (arranque inicial del sistema).
+    adminEmails: csv(env.VITE_ADMIN_EMAILS as string | undefined),
+  },
+  automation: {
+    // URL del desencadenador HTTP del flujo de Power Automate "Enviar correo institucional".
+    mailFlowUrl: ((env.VITE_POWER_AUTOMATE_MAIL_URL as string | undefined) ?? '').trim(),
+  },
+  copilot: {
+    // URL de inserción de un agente de Copilot Studio (opcional). Si está vacía, se enlaza a Microsoft 365 Copilot.
+    embedUrl: ((env.VITE_COPILOT_EMBED_URL as string | undefined) ?? '').trim(),
+    m365ChatUrl: 'https://m365.cloud.microsoft/chat',
   },
 } as const
 

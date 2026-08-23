@@ -9,7 +9,8 @@ import { StatusBadge } from '../../components/shared/StatusBadge'
 import { useApp } from '../../context/useApp'
 import { dataService } from '../../services/dataService'
 import { useCollection } from '../../hooks/useCollection'
-import { useLocalList } from '../../hooks/useLocalList'
+import { emailTemplate, escapeHtml, notify } from '../../services/notifications'
+import { appConfig } from '../../config/appConfig'
 import { formatDate, genId } from '../../utils/helpers'
 import type { AdmissionEvaluation, AdmissionRequest, DocumentType, Student } from '../../types'
 import { gradientes } from '../../theme'
@@ -31,7 +32,7 @@ export function AdmisionesPage() {
   const studentsCol = useCollection<Student>(dataService.getStudents, dataService.saveStudent, dataService.deleteStudent)
   const docTypesCol = useCollection<DocumentType>(dataService.getDocumentTypes, dataService.saveDocumentType, dataService.deleteDocumentType)
   const evalsCol = useCollection<AdmissionEvaluation>(dataService.getAdmissionEvals, dataService.saveAdmissionEval, dataService.deleteAdmissionEval)
-  const admisiones = useLocalList<AdmissionRequest>('arca_admisiones')
+  const admisiones = useCollection<AdmissionRequest>(dataService.getAdmissions, dataService.saveAdmission, dataService.deleteAdmission)
 
   const [tab, setTab] = useState('dashboard')
   const [formOpen, setFormOpen] = useState(false)
@@ -56,24 +57,50 @@ export function AdmisionesPage() {
     { name: 'Rechazadas', value: stats.rechazadas, fill: '#C62828' },
   ], [stats])
 
-  const register = () => {
+  const register = async () => {
     if (!estudiante || !grado) { window.alert('Complete el nombre y el grado.'); return }
-    admisiones.add({ estudiante, grado, contacto, fecha: new Date().toISOString(), estado: 'pendiente' })
-    toaster.dispatchToast('Solicitud registrada', { intent: 'success' })
-    setEstudiante(''); setGrado(''); setContacto(''); setFormOpen(false)
+    try {
+      await admisiones.save({ id: genId('adm'), estudiante, grado, contacto, fecha: new Date().toISOString(), estado: 'pendiente' })
+      toaster.dispatchToast('Solicitud registrada', { intent: 'success' })
+      setEstudiante(''); setGrado(''); setContacto(''); setFormOpen(false)
+    } catch (error) {
+      toaster.dispatchToast(`No se pudo registrar: ${error instanceof Error ? error.message : 'error'}`, { intent: 'error' })
+    }
+  }
+
+  const notifyFamily = async (a: AdmissionRequest, resultado: 'aprobada' | 'rechazada') => {
+    if (!a.contacto?.includes('@')) return
+    try {
+      await notify({
+        category: 'admision',
+        to: [{ email: a.contacto }],
+        subject: `Resultado de la solicitud de admisión de ${a.estudiante}`,
+        body: emailTemplate(
+          'Proceso de admisión',
+          resultado === 'aprobada'
+            ? `<p>Nos complace informarle que la solicitud de admisión de <strong>${escapeHtml(a.estudiante)}</strong> para <strong>${escapeHtml(a.grado)}</strong> ha sido <strong>aprobada</strong>. El estudiante ha quedado matriculado en ${appConfig.institution}.</p>`
+            : `<p>Le informamos que la solicitud de admisión de <strong>${escapeHtml(a.estudiante)}</strong> para <strong>${escapeHtml(a.grado)}</strong> no ha sido aprobada en esta ocasión. Puede comunicarse con la oficina de admisiones para más información.</p>`,
+        ),
+        metadata: { admissionId: a.id, resultado },
+      })
+    } catch (error) {
+      toaster.dispatchToast(`No se pudo notificar a la familia: ${error instanceof Error ? error.message : 'error'}`, { intent: 'warning' })
+    }
   }
 
   const approve = async (a: AdmissionRequest) => {
     const grade = grades.find((g) => g.name === a.grado)
-    const student: Student = { id: genId('s'), fullName: a.estudiante, gradeId: grade?.id ?? grades[0]?.id ?? '', parentName: '', parentEmail: a.contacto || '' }
+    const student: Student = { id: genId('s'), fullName: a.estudiante, gradeId: grade?.id ?? grades[0]?.id ?? '', parentName: '', parentEmail: a.contacto?.includes('@') ? a.contacto : '' }
     await studentsCol.save(student)
-    admisiones.add({ ...a, estado: 'aprobada', observacion: `Matriculado en ${a.grado}` })
+    await admisiones.save({ ...a, estado: 'aprobada', observacion: `Matriculado en ${a.grado}` })
     toaster.dispatchToast('Admisión aprobada y estudiante matriculado', { intent: 'success' })
+    void notifyFamily(a, 'aprobada')
   }
 
-  const reject = (a: AdmissionRequest) => {
-    admisiones.add({ ...a, estado: 'rechazada' })
+  const reject = async (a: AdmissionRequest) => {
+    await admisiones.save({ ...a, estado: 'rechazada' })
     toaster.dispatchToast('Solicitud rechazada', { intent: 'warning' })
+    void notifyFamily(a, 'rechazada')
   }
 
   const saveDt = async (dt: DocumentType) => {
@@ -128,7 +155,7 @@ export function AdmisionesPage() {
               <TableRow><TableHeaderCell>Fecha</TableHeaderCell><TableHeaderCell>Aspirante</TableHeaderCell><TableHeaderCell>Grado</TableHeaderCell><TableHeaderCell>Contacto</TableHeaderCell><TableHeaderCell>Estado</TableHeaderCell><TableHeaderCell>Acciones</TableHeaderCell></TableRow>
             </TableHeader>
             <TableBody>
-              {admisiones.items.map((a) => (
+              {admisiones.items.slice().sort((x, y) => (x.fecha < y.fecha ? 1 : -1)).map((a) => (
                 <TableRow key={a.id}>
                   <TableCell className={styles.cell}>{formatDate(a.fecha)}</TableCell>
                   <TableCell className={styles.cell}><Text weight="semibold">{a.estudiante}</Text>{a.observacion && <Text size={200} block style={{ color: 'var(--texto-suave)' }}>{a.observacion}</Text>}</TableCell>
@@ -139,7 +166,7 @@ export function AdmisionesPage() {
                     {(a.estado ?? 'pendiente') === 'pendiente' ? (
                       <Toolbar size="small">
                         <ToolbarButton icon={<CheckmarkCircleRegular />} onClick={() => void approve(a)}>Aprobar</ToolbarButton>
-                        <ToolbarButton icon={<DismissCircleRegular />} onClick={() => reject(a)}>Rechazar</ToolbarButton>
+                        <ToolbarButton icon={<DismissCircleRegular />} onClick={() => void reject(a)}>Rechazar</ToolbarButton>
                       </Toolbar>
                     ) : (<Text size={200} style={{ color: 'var(--texto-suave)' }}>—</Text>)}
                   </TableCell>
@@ -214,7 +241,7 @@ export function AdmisionesPage() {
                   </TableCell>
                   <TableCell>
                     <Button size="small" icon={<CheckmarkCircleRegular />} onClick={() => void approve(adm!)} disabled={!adm || (adm.estado ?? 'pendiente') !== 'pendiente'}>Aprobar</Button>
-                    <Button size="small" icon={<DismissCircleRegular />} onClick={() => adm && reject(adm)} disabled={!adm || (adm.estado ?? 'pendiente') !== 'pendiente'}>Rechazar</Button>
+                    <Button size="small" icon={<DismissCircleRegular />} onClick={() => adm && void reject(adm)} disabled={!adm || (adm.estado ?? 'pendiente') !== 'pendiente'}>Rechazar</Button>
                   </TableCell>
                 </TableRow>
               )
@@ -224,7 +251,7 @@ export function AdmisionesPage() {
       )}
 
       <ModalForm open={formOpen} onOpenChange={setFormOpen} title="Registrar aspirante" subtitle="Admisión · nuevo estudiante"
-        actions={<><Button appearance="secondary" onClick={() => setFormOpen(false)}>Cancelar</Button><Button appearance="primary" onClick={register}>Registrar</Button></>}
+        actions={<><Button appearance="secondary" onClick={() => setFormOpen(false)}>Cancelar</Button><Button appearance="primary" onClick={() => void register()}>Registrar</Button></>}
       >
         <FormField label="Nombre del aspirante" required>
           <Input value={estudiante} onChange={(_, d) => setEstudiante(d.value)} placeholder="Nombre y apellidos" />

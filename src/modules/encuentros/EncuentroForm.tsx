@@ -1,9 +1,12 @@
 import { useState } from 'react'
-import { Button, Input, Select } from '@fluentui/react-components'
+import { Button, Checkbox, Input, Select, Text } from '@fluentui/react-components'
+import { VideoRegular } from '@fluentui/react-icons'
 import { FormActions, FormField, FieldRow } from '../../components/shared/form'
 import { useApp } from '../../context/useApp'
 import type { VirtualMeeting } from '../../types'
 import { genId, todayIso } from '../../utils/helpers'
+import { createTeamsMeeting, updateTeamsMeeting } from '../../services/teams'
+import { graphErrorMessage } from '../../services/graph'
 
 interface EncuentroFormProps {
   initial?: VirtualMeeting | null
@@ -33,6 +36,8 @@ export function EncuentroForm({ initial, onSave, onCancel }: EncuentroFormProps)
   })
 
   const [attendeeIds, setAttendeeIds] = useState<string[]>(form.attendees)
+  const [createTeams, setCreateTeams] = useState(!initial?.eventId)
+  const [teamsError, setTeamsError] = useState<string | null>(null)
 
   const set = <K extends keyof VirtualMeeting>(key: K, value: VirtualMeeting[K]) => setForm((f) => ({ ...f, [key]: value }))
 
@@ -50,7 +55,22 @@ export function EncuentroForm({ initial, onSave, onCancel }: EncuentroFormProps)
       return
     }
     setSaving(true)
-    await onSave({ ...form, attendees: attendeeIds })
+    setTeamsError(null)
+    let next: VirtualMeeting = { ...form, attendees: attendeeIds }
+    if (next.platform === 'Microsoft Teams' && next.status !== 'cancelado') {
+      const emails = attendeeIds.map((id) => teachers.find((t) => t.id === id)?.email ?? '').filter(Boolean)
+      try {
+        if (next.eventId) {
+          await updateTeamsMeeting(next.eventId, next, emails)
+        } else if (createTeams) {
+          const created = await createTeamsMeeting(next, emails)
+          next = { ...next, eventId: created.eventId, link: created.joinUrl || next.link || created.webLink }
+        }
+      } catch (error) {
+        setTeamsError(`No se pudo crear la reunión de Teams: ${graphErrorMessage(error)}. El encuentro se guardará sin enlace.`)
+      }
+    }
+    await onSave(next)
     setSaving(false)
   }
 
@@ -92,9 +112,22 @@ export function EncuentroForm({ initial, onSave, onCancel }: EncuentroFormProps)
           </Select>
         </FormField>
         <FormField label="Enlace (opcional)">
-          <Input value={form.link ?? ''} onChange={(_, d) => set('link', d.value)} placeholder="https://…" />
+          <Input value={form.link ?? ''} onChange={(_, d) => set('link', d.value)} placeholder="https://…" disabled={form.platform === 'Microsoft Teams' && createTeams && !form.eventId} />
         </FormField>
       </FieldRow>
+      {form.platform === 'Microsoft Teams' && !form.eventId && (
+        <Checkbox
+          checked={createTeams}
+          onChange={(_, d) => setCreateTeams(!!d.checked)}
+          label={<span><VideoRegular /> Crear la reunión en Microsoft Teams y enviar las invitaciones de calendario a los participantes</span>}
+        />
+      )}
+      {form.eventId && (
+        <Text size={200} block style={{ color: 'var(--texto-suave)', marginBottom: '8px' }}>
+          Reunión de Teams creada. Al guardar se actualizará el evento en el calendario de los invitados.
+        </Text>
+      )}
+      {teamsError && <Text size={200} block style={{ color: '#B42318', marginBottom: '8px' }}>{teamsError}</Text>}
       <FormField label="Organizador">
         <Select value={form.organizerId} onChange={(_, d) => set('organizerId', d.value)}>
           {teachers.map((t) => (

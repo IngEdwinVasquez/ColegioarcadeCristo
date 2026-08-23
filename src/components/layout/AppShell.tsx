@@ -2,7 +2,6 @@ import { useMemo, useState, type ReactNode } from 'react'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import {
   Avatar,
-  Badge,
   Button,
   Drawer,
   DrawerBody,
@@ -188,7 +187,7 @@ interface AppShellProps {
 
 export function AppShell({ nav }: AppShellProps) {
   const styles = useStyles()
-  const { user, logout, mode } = useApp()
+  const { user, logout } = useApp()
   const navigate = useNavigate()
   const location = useLocation()
   const [mobileOpen, setMobileOpen] = useState(false)
@@ -222,8 +221,7 @@ export function AppShell({ nav }: AppShellProps) {
   const activeItem = nav.find((n) => (n.end ? location.pathname === n.to : location.pathname.startsWith(n.to)))
 
   const handleLogout = () => {
-    logout()
-    navigate('/')
+    void logout()
   }
 
   const sidebarBody = (
@@ -238,7 +236,7 @@ export function AppShell({ nav }: AppShellProps) {
       <NavList nav={nav} />
       <div className={styles.sideFooter}>
         <div className={styles.profile}>
-          <Avatar name={user?.displayName} initials={initials(user?.displayName ?? '?')} color="colorful" size={36} />
+          <Avatar name={user?.displayName} image={user?.photoUrl ? { src: user.photoUrl } : undefined} initials={initials(user?.displayName ?? '?')} color="colorful" size={36} />
           <div style={{ minWidth: '0px' }}>
             <div className={styles.profileName}>{user?.displayName}</div>
             <div className={styles.profileRole}>{portal?.shortTitle}</div>
@@ -301,12 +299,11 @@ export function AppShell({ nav }: AppShellProps) {
             </div>
           </div>
           <div className={styles.userArea}>
-            {mode === 'demo' && <Badge color="warning" appearance="filled">DEMO</Badge>}
             <div className={styles.userName} style={{ textAlign: 'right' }}>
               <Text size={200} weight="semibold" block>{user?.displayName}</Text>
               <Text size={200} style={{ color: 'var(--texto-suave)' }}>{user?.email}</Text>
             </div>
-            <Avatar name={user?.displayName} initials={initials(user?.displayName ?? '?')} color="colorful" size={32} />
+            <Avatar name={user?.displayName} image={user?.photoUrl ? { src: user.photoUrl } : undefined} initials={initials(user?.displayName ?? '?')} color="colorful" size={32} />
           </div>
         </div>
         <div className={`${styles.content} app-surface`}>

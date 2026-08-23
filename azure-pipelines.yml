@@ -1,22 +1,24 @@
-# Pipeline de despliegue a Azure Static Web Apps
-# Se ejecuta cuando se hace un pull request hacia la rama produccion
-
-pr:
-  branches:
-    include:
-      - produccion
+# Pipeline alternativo (Azure DevOps) de despliegue a Azure Static Web Apps.
+# El despliegue principal se hace con GitHub Actions (.github/workflows/azure-static-web-apps.yml).
+#
+# Defina la variable secreta AZURE_STATIC_WEB_APPS_API_TOKEN en el pipeline
+# (Pipelines → Edit → Variables → marcar "Keep this value secret").
+# NUNCA escriba el token en este archivo.
 
 trigger:
   branches:
     include:
+      - main
+      - produccion
+
+pr:
+  branches:
+    include:
+      - main
       - produccion
 
 pool:
   vmImage: ubuntu-latest
-
-variables:
-  # Variables de entorno para el build de Vite
-  VITE_M365_ENABLED: 'false'
 
 steps:
   - task: NodeTool@0
@@ -25,12 +27,15 @@ steps:
       versionSpec: '20.x'
 
   - script: |
-      npm install
+      npm ci
+      npm run lint
       npm run build
-    displayName: 'npm install y build'
+    displayName: 'npm ci, lint y build'
 
   - task: AzureStaticWebApp@0
+    displayName: 'Deploy a Azure Static Web Apps'
     inputs:
       app_location: 'dist'
       skip_app_build: true
-      azure_static_web_apps_api_token: '2e78e99c4fbb7ed64862d200a30eccf3578526dea5b91a052533ebe9f65b0bea07-3851e80d-e082-4be5-b0aa-ffe2f6de414f010142006c0f8310'
+      skip_api_build: true
+      azure_static_web_apps_api_token: $(AZURE_STATIC_WEB_APPS_API_TOKEN)

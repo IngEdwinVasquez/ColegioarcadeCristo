@@ -4,6 +4,7 @@ import { EstudianteDashboard } from '../modules/dashboard/EstudianteDashboard'
 import { StudentAulaView, StudentAsistenciaView, StudentClassesView } from '../modules/dashboard/StudentViews'
 import { Comunicados } from '../modules/dashboard/Comunicados'
 import { ChatPage } from '../modules/chat/ChatPage'
+import { CopilotPage } from '../modules/copilot/CopilotPage'
 import { useApp } from '../context/useApp'
 import {
   HomeRegular,
@@ -12,6 +13,7 @@ import {
   CalendarCheckmarkRegular,
   MegaphoneRegular,
   ChatRegular,
+  SparkleRegular,
 } from '@fluentui/react-icons'
 
 function StudentWrapper({ children }: { children: (studentId: string) => React.ReactNode }) {
@@ -27,6 +29,7 @@ export function EstudiantesPortal() {
     { to: '/estudiantes/asistencia', label: 'Mi Asistencia', icon: <CalendarCheckmarkRegular />, group: 'Académico' },
     { to: '/estudiantes/comunicados', label: 'Comunicados', icon: <MegaphoneRegular />, group: 'Comunidad' },
     { to: '/estudiantes/chat', label: 'Mensajería', icon: <ChatRegular />, group: 'Comunidad' },
+    { to: '/estudiantes/copilot', label: 'Copilot', icon: <SparkleRegular />, group: 'Herramientas' },
   ]
 
   return (
@@ -38,6 +41,7 @@ export function EstudiantesPortal() {
         <Route path="asistencia" element={<StudentWrapper>{(id) => <StudentAsistenciaView studentId={id} />}</StudentWrapper>} />
         <Route path="comunicados" element={<Comunicados />} />
         <Route path="chat" element={<ChatPage />} />
+        <Route path="copilot" element={<CopilotPage />} />
       </Route>
     </Routes>
   )

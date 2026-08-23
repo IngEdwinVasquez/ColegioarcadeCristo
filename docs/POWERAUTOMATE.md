@@ -1,85 +1,92 @@
-# Automatización con Microsoft 365 (Power Automate, Correo, Notificaciones)
+# Power Automate — correo institucional y automatizaciones
 
-Además de la aplicación, el ecosistema Microsoft 365 permite automatizar tareas. Estas son las integraciones recomendadas.
+La intranet delega el **envío de correos** a un flujo de Power Automate para que salgan desde el buzón institucional (y no desde el buzón personal de quien publica). Si el flujo no está configurado, la app envía con Microsoft Graph (`Mail.Send`) desde la cuenta del usuario conectado.
 
-## 1. Notificaciones por correo (Outlook / Graph)
+## 1. Flujo principal: "Intranet — Enviar correo" (desencadenador HTTP)
 
-La app puede enviar correos institucionales con el permiso `Mail.Send` (servicio `src/services/mail.ts`).
+1. [make.powerautomate.com](https://make.powerautomate.com) → **Crear** → **Flujo de nube instantáneo** → desencadenador **Cuando se recibe una solicitud HTTP**.
+2. En *Esquema JSON del cuerpo de la solicitud* pegue:
 
-**Ejemplo de uso en el código:**
-
-```ts
-import { sendMail } from './services/mail'
-
-await sendMail({
-  to: [{ email: 'familia@correo.com', name: 'Familia' }],
-  subject: 'Circular #12 — Evaluaciones del período',
-  body: '<p>Estimada familia, les informamos…</p>',
-  important: true,
-})
+```json
+{
+  "type": "object",
+  "properties": {
+    "app": { "type": "string" },
+    "category": { "type": "string" },
+    "subject": { "type": "string" },
+    "body": { "type": "string" },
+    "important": { "type": "boolean" },
+    "to": { "type": "array", "items": { "type": "string" } },
+    "cc": { "type": "array", "items": { "type": "string" } },
+    "metadata": { "type": "object" },
+    "sentAt": { "type": "string" }
+  },
+  "required": ["subject", "body", "to"]
+}
 ```
 
-Casos sugeridos:
-- Aviso a las familias cuando el estudiante registra ausencias.
-- Notificación al docente cuando se publica una actividad.
-- Recordatorio de reuniones y encuentros virtuales.
+3. Acción **Unir** (Data Operations): *Desde* = `to`, *Unir con* = `;` → produce la lista de destinatarios.
+4. Acción **Enviar un correo electrónico (V2)** (Office 365 Outlook):
+   - **Para:** salida de *Unir*.
+   - **CC:** (opcional) otra acción *Unir* sobre `cc`.
+   - **Asunto:** `subject`.
+   - **Cuerpo:** `body` (ya viene en HTML; en opciones avanzadas deje *Es HTML = Sí*).
+   - **Importancia:** expresión `if(triggerBody()?['important'], 'High', 'Normal')`.
+   - **Enviar desde:** la cuenta institucional (p. ej. `comunicaciones@arcadecristo.edu.do`); la cuenta del flujo debe tener permiso *Enviar como* sobre ese buzón.
+5. (Opcional) Acción **Crear elemento** en una lista `ARC_MailLog` para auditoría.
+6. Acción **Respuesta** con código `202`.
+7. Guarde. Copie la **URL HTTP POST** que genera el desencadenador y colóquela en:
+   - `.env.production` → `VITE_POWER_AUTOMATE_MAIL_URL=https://prod-xx.westus.logic.azure.com:443/workflows/...`
+   - o en GitHub → *Settings → Secrets and variables → Actions → Variables* → `VITE_POWER_AUTOMATE_MAIL_URL`.
 
-## 2. Power Automate — flujo recomendado: "Alerta de asistencia"
+> La URL del desencadenador incluye una firma (`sig=`). Cualquiera que la conozca puede invocar el flujo; es aceptable para una intranet interna, pero si se filtra regenérela (*Desencadenador → … → Regenerar*).
 
-**Desencadenador:** *Cuando se crea un elemento* (lista `ARC_Attendance`).
+### Eventos que envía la app
 
-**Acciones:**
+| `category` | Cuándo | Destinatarios |
+| --- | --- | --- |
+| `comunicado` | Al publicar una circular con "Enviar por correo" marcado | Tutores, correos de contacto de estudiantes y docentes |
+| `admision` | Al aprobar o rechazar una solicitud de admisión | Contacto de la solicitud (si es un correo) |
 
-1. **Obtener elemento** de `ARC_Attendance`.
-2. **Analizar JSON** con el esquema de `entries`.
-3. **Filtrar** entradas con `status = ausente`.
-4. Para cada ausente:
-   - **Buscar estudiante** en `ARC_Students`.
-   - **Enviar un correo** al padre/tutor (`parentEmail`) desde la cuenta del centro.
+`metadata` incluye ids útiles (`announcementId`, `admissionId`, `resultado`) por si desea enrutar o registrar.
 
-Resultado: los padres reciben notificación automática de inasistencias.
+## 2. Flujo: "Alerta de asistencia" (SharePoint)
 
-## 3. Power Automate — "Recordatorio de clases del día"
+**Desencadenador:** *SharePoint — Cuando se crea un elemento* → sitio `IntranetArca`, lista `ARC_Attendance`.
 
-**Desencadenador:** *Recurrence* (diario a las 6:00).
+1. **Analizar JSON** sobre `json_payload` con el esquema:
+   ```json
+   { "type": "object", "properties": {
+       "date": { "type": "string" }, "subjectId": { "type": "string" }, "gradeId": { "type": "string" },
+       "entries": { "type": "array", "items": { "type": "object", "properties": {
+           "studentId": { "type": "string" }, "status": { "type": "string" }, "note": { "type": "string" } } } } } }
+   ```
+2. **Filtrar matriz** `entries` donde `status` = `ausente`.
+3. **Obtener elementos** de `ARC_Students` con filtro OData `app_id eq '<studentId>'` → *Analizar JSON* de su `json_payload` para obtener `fullName` y `parentEmail`.
+4. **Enviar un correo (V2)** al tutor con la inasistencia del día.
 
-**Acciones:**
+## 3. Flujo: "Recordatorio de clases del día"
 
-1. **Obtener elementos** de `ARC_ClassPlans` filtrados por `date = utcNow('yyyy-MM-dd')` y `status = planificada`.
-2. **Enviar correo** a cada docente con el cronograma del día (asignatura, grado, tema, periodo).
+**Desencadenador:** *Periodicidad* (diario 6:00, zona horaria *SA Western Standard Time*).
 
-## 4. Power Automate — "Resumen semanal para Dirección"
+1. **Obtener elementos** de `ARC_ClassPlans` (todos) → *Analizar JSON* de cada `json_payload`.
+2. Filtrar `date` = `formatDateTime(utcNow(), 'yyyy-MM-dd')` y `status` = `planificada`.
+3. Agrupar por `teacherId`, resolver correo en `ARC_Teachers` y enviar el cronograma del día.
 
-**Desencadenador:** *Recurrence* (lunes 8:00).
+## 4. Flujo: "Resumen semanal para Dirección"
 
-**Acciones:**
+**Desencadenador:** *Periodicidad* (lunes 8:00). Lee `ARC_Classes`, `ARC_Attendance` y `ARC_Scores` de la semana anterior y envía un resumen a `direccion@arcadecristo.edu.do`. Combine con un informe de **Power BI** conectado a las listas para el panel directivo.
 
-1. Obtener las listas `ARC_Classes`, `ARC_Attendance`, `ARC_Scores` de la semana anterior.
-2. Construir y enviar un **correo con resumen** (clases impartidas vs. planificadas, % de asistencia, promedio académico) a `direccion@arcadecristo.edu.do`.
+## 5. Microsoft Teams
 
-> Consejo: combine estos datos con un **informe de Power BI** conectado a las listas para el panel directivo.
+- Los **Encuentros Virtuales** crean la reunión de Teams directamente desde la app (Graph `/me/events` con `isOnlineMeeting`), envían las invitaciones de calendario a los participantes y guardan el enlace *Unirse*.
+- Opcionalmente cree un flujo *"Cuando se crea un elemento"* sobre `ARC_Announcements` que publique la circular en un canal de Teams (*Publicar mensaje en un chat o canal*).
 
-## 5. Teams / Aulas virtuales
+## 6. OneDrive
 
-- **Teams por grado y asignatura:** cree equipos con canales por asignatura; la sección *Aulas Virtuales* de la app puede guardar el `channelId` de la actividad para publicar enlaces.
-- **Programación de reuniones:** la app puede crear eventos de calendario con Graph (`Calendars.ReadWrite`) para los **Encuentros Virtuales** y enviar invitaciones a los participantes.
+El material de las aulas virtuales se sube a OneDrive del docente (`/ArcaDeCristo/AulasVirtuales/<grado>/<asignatura>/`) y se comparte con un **enlace de solo lectura para la organización**, que queda guardado en la actividad.
 
-## 6. OneDrive como repositorio de documentos
+## 7. Copilot
 
-- Adjuntos de actividades, guías y actas se suben a carpetas de OneDrive del docente (`src/services/onedrive.ts`).
-- Los enlaces (`webUrl`) se guardan como `DriveFileRef` en las listas.
-
-**Ejemplo:**
-
-```ts
-import { uploadFile } from './services/onedrive'
-const ref = await uploadFile('AulasVirtuales/6toA/Matematicas', 'actividad-01.pdf', archivo)
-```
-
-## 7. SharePoint conector para Power Automate
-
-Utilice los conectores **"SharePoint - Cuando se crea/modifica un elemento"** apuntando a las listas `ARC_*`. Asegúrese de que la cuenta del flujo tenga acceso de escritura al sitio `IntranetArca`.
-
----
-
-**Nota:** los flujos de Power Automate deben crearse desde el centro de administración de Power Platform (make.powerautomate.com). El correo de envío debe ser una cuenta del dominio institucional (o una cuenta de servicio con buzón).
+- **Microsoft 365 Copilot Chat** está enlazado en la sección *Copilot* de cada portal.
+- Para un agente propio del colegio: cree el agente en **Copilot Studio**, publíquelo en el canal *Sitio web personalizado* y pegue la URL de inserción en `VITE_COPILOT_EMBED_URL`. El agente puede conectarse a las listas `ARC_*` como origen de conocimiento (conector SharePoint).

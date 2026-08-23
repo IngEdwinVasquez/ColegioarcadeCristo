@@ -10,6 +10,7 @@ import { EncuentrosPage } from '../modules/encuentros/EncuentrosPage'
 import { EncuentroDetail } from '../modules/encuentros/EncuentroDetail'
 import { Comunicados } from '../modules/dashboard/Comunicados'
 import { ChatPage } from '../modules/chat/ChatPage'
+import { CopilotPage } from '../modules/copilot/CopilotPage'
 import {
   HomeRegular,
   CalendarTodayRegular,
@@ -19,6 +20,7 @@ import {
   VideoPersonRegular,
   MegaphoneRegular,
   ChatRegular,
+  SparkleRegular,
 } from '@fluentui/react-icons'
 
 const NAV: NavItem[] = [
@@ -30,6 +32,7 @@ const NAV: NavItem[] = [
   { to: '/docentes/encuentros', label: 'Encuentros Virtuales', icon: <VideoPersonRegular />, group: 'Comunidad' },
   { to: '/docentes/comunicados', label: 'Comunicados', icon: <MegaphoneRegular />, group: 'Comunidad' },
   { to: '/docentes/chat', label: 'Mensajería', icon: <ChatRegular />, group: 'Comunidad' },
+  { to: '/docentes/copilot', label: 'Copilot', icon: <SparkleRegular />, group: 'Herramientas' },
 ]
 
 export function DocentesPortal() {
@@ -46,6 +49,7 @@ export function DocentesPortal() {
         <Route path="encuentros/:id" element={<EncuentroDetail />} />
         <Route path="comunicados" element={<Comunicados />} />
         <Route path="chat" element={<ChatPage />} />
+        <Route path="copilot" element={<CopilotPage />} />
       </Route>
     </Routes>
   )

@@ -1,98 +1,90 @@
 # SharePoint Online como base de datos
 
-La aplicación lee y escribe en **listas de SharePoint** del sitio `IntranetArca` usando Microsoft Graph. Cada lista guarda cada registro serializado en una columna de texto grande `json_payload` (además de `Title` para facilitar la administración en SharePoint). Esto permite un modelo de datos flexible sin columnas adicionales por campo.
+La aplicación lee y escribe en **listas de SharePoint** del sitio `IntranetArca` usando Microsoft Graph con la identidad del usuario conectado (permiso delegado `Sites.ReadWrite.All`).
 
-## Listas requeridas
+## Aprovisionamiento automático
 
-| Lista | Descripción |
-| --- | --- |
-| `ARC_Users` | Usuarios de demostración / mapeo de roles |
-| `ARC_Students` | Matrícula de estudiantes |
-| `ARC_Teachers` | Cuerpo docente |
-| `ARC_Subjects` | Asignaturas |
-| `ARC_Grades` | Grados y secciones (cursos) |
-| `ARC_Periods` | Períodos escolares (años lectivos, trimestres) |
-| `ARC_ClassPlans` | Planificación anual (cronograma de clases) |
-| `ARC_Classes` | Clases impartidas (antes / durante / después) |
-| `ARC_Attendance` | Registros de asistencia por clase |
-| `ARC_Activities` | Actividades de las aulas virtuales |
-| `ARC_Scores` | Calificaciones por actividad y estudiante |
-| `ARC_Meetings` | Encuentros virtuales, actas y acuerdos |
-| `ARC_Enrollments` | Matrícula de estudiantes a cursos y períodos |
-| `ARC_TeacherAssignments` | Asignación de docentes a asignaturas, cursos y períodos |
+No es necesario crear las listas a mano. Al iniciar sesión, la app:
 
-> Los nombres internos de lista no deben contener espacios ni caracteres especiales.
+1. Resuelve el sitio (`VITE_SPO_SITE_PATH`, por defecto `/sites/IntranetArca`; el hostname se detecta desde `/sites/root`).
+2. Lee las listas existentes y **crea las `ARC_*` que falten** con sus columnas.
+3. Si una lista ya existía (p. ej. creada con PnP), **agrega las columnas que falten**.
 
-## Columnas de cada lista
+El resultado se recuerda durante la sesión del navegador. Si un usuario no tiene permiso para crear listas, el paso se omite y la app sigue (las listas deben existir ya). Es recomendable que la **primera persona en iniciar sesión sea un administrador con permiso de edición** en el sitio.
 
-Todas las listas requieren al menos:
+## Esquema de cada lista
 
-| Columna | Tipo | Notas |
+| Columna | Tipo | Uso |
 | --- | --- | --- |
-| `Title` | Línea de texto | Título del elemento (tema, actividad, reunión…) |
-| `json_payload` | Varias líneas de texto | Registro completo del elemento en JSON (lo usa la app) |
+| `Title` | Texto | Título legible (tema, nombre, asunto…) |
+| `app_id` | Texto, **indexada** | Identificador lógico del registro (el que usa la app; p. ej. `act-…`, `s-…`) |
+| `json_payload` | Varias líneas de texto (sin formato) | Registro completo en JSON según `src/types/index.ts` |
 
-## Aprovisionamiento con PowerShell (PnP PowerShell)
+> El `id` numérico de SharePoint **no** se usa como identificador de negocio: la app mantiene sus propios ids (`app_id`) para que las referencias entre listas (`subjectId`, `teacherId`, `studentId`…) sean estables. Internamente resuelve `app_id → id de SharePoint` con una caché y, si falta, con `$filter=fields/app_id eq '…'`.
 
-Instale los módulos y ejecute:
+## Listas
+
+| Lista | Contenido |
+| --- | --- |
+| `ARC_Users` | Usuarios que han iniciado sesión y sus roles (oid de Entra ID como `id`) |
+| `ARC_Students` | Matrícula de estudiantes |
+| `ARC_Teachers` | Cuerpo docente (el correo vincula con la cuenta de Entra) |
+| `ARC_Guardians` | Padres y tutores (el correo vincula con la cuenta de Entra) |
+| `ARC_Subjects` | Asignaturas |
+| `ARC_Grades` | Grados y secciones |
+| `ARC_Periods` | Períodos escolares |
+| `ARC_ClassPlans` | Planificación anual |
+| `ARC_Classes` | Clases impartidas (antes / durante / después) |
+| `ARC_Attendance` | Registros de asistencia |
+| `ARC_Activities` | Actividades de aulas virtuales (con enlaces a OneDrive) |
+| `ARC_Scores` | Calificaciones |
+| `ARC_Meetings` | Encuentros virtuales (con `eventId` de Teams/Outlook) |
+| `ARC_Enrollments` | Matrícula por curso y período |
+| `ARC_TeacherAssignments` | Asignación de docentes |
+| `ARC_DocumentTypes` | Documentos requeridos en admisión |
+| `ARC_AdmissionDocs` | Documentos entregados por aspirantes |
+| `ARC_AdmissionEvals` | Evaluaciones de admisión |
+| `ARC_Admissions` | Solicitudes de admisión |
+| `ARC_DocumentRequests` | Solicitudes de certificaciones y cartas |
+| `ARC_PsychRequests` | Solicitudes a la Unidad Psicopedagógica |
+| `ARC_Announcements` | Circulares y comunicados |
+| `ARC_Messages` | Mensajería interna |
+| `ARC_RoleMeta` | Nombres y descripciones personalizados de los roles |
+
+## Aprovisionamiento manual (alternativa con PnP PowerShell)
+
+Solo si prefiere crear las listas antes del primer inicio de sesión:
 
 ```powershell
 Install-Module PnP.PowerShell -Scope CurrentUser
-
 Connect-PnPOnline -Url https://SU-TENANT.sharepoint.com/sites/IntranetArca -Interactive
-```
 
-```powershell
-$listas = @("ARC_Users","ARC_Students","ARC_Teachers","ARC_Subjects","ARC_Grades","ARC_Periods",
-            "ARC_ClassPlans","ARC_Classes","ARC_Attendance",
-            "ARC_Activities","ARC_Scores","ARC_Meetings",
-            "ARC_Enrollments","ARC_TeacherAssignments")
+$listas = @(
+  "ARC_Users","ARC_Students","ARC_Teachers","ARC_Guardians","ARC_Subjects","ARC_Grades","ARC_Periods",
+  "ARC_ClassPlans","ARC_Classes","ARC_Attendance","ARC_Activities","ARC_Scores","ARC_Meetings",
+  "ARC_Enrollments","ARC_TeacherAssignments","ARC_DocumentTypes","ARC_AdmissionDocs","ARC_AdmissionEvals",
+  "ARC_Admissions","ARC_DocumentRequests","ARC_PsychRequests","ARC_Announcements","ARC_Messages","ARC_RoleMeta"
+)
 
 foreach ($nombre in $listas) {
-    New-PnPList -Title $nombre -Template GenericList -Url $nombre
-
-    # Columna de carga útil JSON
-    Add-PnPField -List $nombre -DisplayName "json_payload" -InternalName "json_payload" `
-        -Type Note -AddToDefaultView
-
-    $lista = Get-PnPList -Identity $nombre
-    $lista.Hidden = $false
-    $lista.Update()
-    Invoke-PnPQuery
+  if (-not (Get-PnPList -Identity $nombre -ErrorAction SilentlyContinue)) {
+    New-PnPList -Title $nombre -Template GenericList -Url "Lists/$nombre" | Out-Null
+  }
+  if (-not (Get-PnPField -List $nombre -Identity "app_id" -ErrorAction SilentlyContinue)) {
+    Add-PnPField -List $nombre -DisplayName "app_id" -InternalName "app_id" -Type Text -AddToDefaultView | Out-Null
+    Set-PnPField -List $nombre -Identity "app_id" -Values @{ Indexed = $true }
+  }
+  if (-not (Get-PnPField -List $nombre -Identity "json_payload" -ErrorAction SilentlyContinue)) {
+    Add-PnPField -List $nombre -DisplayName "json_payload" -InternalName "json_payload" -Type Note | Out-Null
+  }
 }
 ```
 
-> **Alternativa con el explorador de SharePoint:** cree cada lista manualmente desde *Configuración → Agregar una lista* y agregue la columna `json_payload` (Varias líneas de texto) a cada una.
+## Permisos
 
-## Permisos de la aplicación
+- Usuarios que deben **escribir** (docentes, dirección, familias que envían solicitudes): **Miembros** del sitio (Editar).
+- Usuarios que solo **consultan**: **Visitantes** (Leer) es suficiente para ver, pero la mensajería y las solicitudes requieren edición.
 
-Para que la app (SPA) acceda a las listas con el usuario autenticado, basta con el permiso delegado `Sites.ReadWrite.All` (ver [M365_SETUP.md](M365_SETUP.md)). El usuario conectado debe tener acceso al sitio `IntranetArca` (por ejemplo, mediante el grupo *Miembros del sitio*).
+## Power Automate
 
-## Resolución del sitio
-
-La app resuelve el sitio de dos maneras:
-
-1. Si define `VITE_SPO_SITE_ID`, lo usa directamente.
-2. En caso contrario, resuelve `https://graph.microsoft.com/v1.0/sites/{hostname}:/{ruta}` con `VITE_SPO_HOSTNAME` y `VITE_SPO_SITE_PATH`.
-
-## Estructura del `json_payload`
-
-Cada registro sigue el modelo de `src/types/index.ts`. Ejemplo de un elemento de `ARC_Classes`:
-
-```json
-{
-  "planId": "plan-g-6toA-subj-inf-2026-08-07",
-  "subjectId": "subj-inf",
-  "teacherId": "t1",
-  "gradeId": "g-6toA",
-  "date": "2026-08-07",
-  "period": "9:15 - 10:00",
-  "title": "Informática · Seguridad en internet",
-  "status": "completada",
-  "before": { "objectives": "...", "content": "...", "activities": "...", "resources": "...", "cronograma": "..." },
-  "during": { "development": "...", "participation": "...", "observations": "..." },
-  "after": { "reflection": "...", "achieved": "...", "toImprove": "...", "report": "..." }
-}
-```
-
-El campo `id` de la lista se usa como identificador del registro.
+Los flujos pueden desencadenarse con *"Cuando se crea un elemento"* sobre cualquier lista `ARC_*` y leer el JSON de `json_payload` con la acción **Analizar JSON** (ver [POWERAUTOMATE.md](POWERAUTOMATE.md)).

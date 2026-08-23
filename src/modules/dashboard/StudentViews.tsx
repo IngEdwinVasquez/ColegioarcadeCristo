@@ -98,6 +98,11 @@ export function StudentAulaView({ studentId }: { studentId: string }) {
                   <TableCell>
                     <Text size={300} weight="semibold" block>{a.title}</Text>
                     <Text size={200} className={styles.subtitle}>{a.type}</Text>
+                    {a.attachments?.map((url, i) => (
+                      <a key={url} href={url} target="_blank" rel="noopener noreferrer" style={{ display: 'block', fontSize: '12px', marginTop: '2px' }}>
+                        📎 {a.attachmentRefs?.find((r) => r.webUrl === url)?.name ?? `Material ${i + 1}`}
+                      </a>
+                    ))}
                   </TableCell>
                   <TableCell>{subjectById(a.subjectId)?.shortName ?? ''}</TableCell>
                   <TableCell>{formatDate(a.dueDate)}</TableCell>

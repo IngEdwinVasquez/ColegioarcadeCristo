@@ -12,6 +12,7 @@ import { useCollection } from '../../hooks/useCollection'
 import { EncuentroForm } from './EncuentroForm'
 import type { VirtualMeeting } from '../../types'
 import { formatDate } from '../../utils/helpers'
+import { cancelTeamsMeeting } from '../../services/teams'
 
 const useStyles = makeStyles({
   filterRow: { display: 'flex', gap: '12px', flexWrap: 'wrap', marginBottom: '16px' },
@@ -46,6 +47,13 @@ export function EncuentrosPage() {
   const handleDelete = async (m: VirtualMeeting) => {
     if (!window.confirm('¿Desea eliminar este encuentro?')) return
     try {
+      if (m.eventId) {
+        try {
+          await cancelTeamsMeeting(m.eventId)
+        } catch {
+          /* el evento puede haber sido eliminado manualmente */
+        }
+      }
       await meetingsCol.remove(m.id)
     } catch {
       /* error del hook */
