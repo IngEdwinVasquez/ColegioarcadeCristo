@@ -172,7 +172,7 @@ export function UsuariosPage() {
                 <span style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
                   {row.roles.length === 0 && <Text size={200} style={{ color: 'var(--texto-suave)' }}>Sin rol</Text>}
                   {row.roles.map((r) => (
-                    <Badge key={r} appearance="filled" color="informative" style={{ background: ROLE_COLORS[r] }}>
+                    <Badge key={r} appearance="filled" style={{ background: ROLE_COLORS[r], color: '#fff' }}>
                       {ROLE_LABELS[r]}
                     </Badge>
                   ))}

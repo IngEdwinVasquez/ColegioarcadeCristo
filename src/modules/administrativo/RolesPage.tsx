@@ -95,7 +95,7 @@ export function RolesPage() {
             return (
               <TableRow key={r}>
                 <TableCell>
-                  <Badge appearance="filled" style={{ background: ROLE_COLORS[r] }}>
+                  <Badge appearance="filled" style={{ background: ROLE_COLORS[r], color: '#fff' }}>
                     {m?.label ?? ROLE_LABELS[r]}
                   </Badge>
                 </TableCell>
@@ -116,7 +116,7 @@ export function RolesPage() {
         <Text weight="semibold" size={400}>Usuarios por rol</Text>
         {roles.map((r) => (
           <div key={r} className={styles.roleGroup}>
-            <Badge appearance="filled" style={{ background: ROLE_COLORS[r] }}>{ROLE_LABELS[r]}</Badge>
+            <Badge appearance="filled" style={{ background: ROLE_COLORS[r], color: '#fff' }}>{ROLE_LABELS[r]}</Badge>
             <Text size={300} style={{ color: 'var(--texto-suave)' }}>
               {usersByRole.get(r)?.length ?? 0} usuario(s) · {usersByRole.get(r)?.join(', ') || 'Sin asignaciones'}
             </Text>
