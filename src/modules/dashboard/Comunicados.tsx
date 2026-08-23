@@ -27,7 +27,7 @@ export function Comunicados() {
   const [enviarCorreo, setEnviarCorreo] = useState(true)
   const [publicando, setPublicando] = useState(false)
 
-  const isAdmin = role === 'admin' || role === 'docente'
+  const isAdmin = role === 'admin' || role === 'docente' || role === 'psicologia'
 
   const destinatarios = useMemo(
     () =>

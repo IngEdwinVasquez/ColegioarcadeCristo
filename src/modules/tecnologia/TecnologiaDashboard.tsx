@@ -1,0 +1,86 @@
+import { useMemo } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { Button, Card, Text, makeStyles, tokens } from '@fluentui/react-components'
+import { PeopleTeamRegular, ShieldPersonRegular, PersonWarningRegular, DatabaseRegular, OpenRegular, ArrowRightRegular } from '@fluentui/react-icons'
+import { WelcomeHero } from '../../components/shared/WelcomeHero'
+import { StatCard } from '../../components/shared/StatCard'
+import { useApp } from '../../context/useApp'
+import { appConfig } from '../../config/appConfig'
+import { ROLE_LABELS, type Role } from '../../types/roles'
+import { gradientes } from '../../theme'
+
+const useStyles = makeStyles({
+  kpis: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 220px), 1fr))', gap: '16px', margin: '20px 0' },
+  grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 340px), 1fr))', gap: '20px' },
+  card: { padding: '20px', display: 'flex', flexDirection: 'column', gap: '12px' },
+  row: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: `1px solid ${tokens.colorNeutralStroke2}` },
+  muted: { color: tokens.colorNeutralForeground2 },
+})
+
+export function TecnologiaDashboard() {
+  const styles = useStyles()
+  const navigate = useNavigate()
+  const { user, users, students, teachers, guardians } = useApp()
+
+  const byRole = useMemo(() => {
+    const map = new Map<Role, number>()
+    for (const r of Object.keys(ROLE_LABELS) as Role[]) map.set(r, 0)
+    for (const u of users) for (const r of u.roles) map.set(r, (map.get(r) ?? 0) + 1)
+    return map
+  }, [users])
+
+  const sinCuenta = useMemo(
+    () => students.filter((s) => !s.userId).length + teachers.filter((t) => !t.userId).length + guardians.filter((g) => !g.userId).length,
+    [students, teachers, guardians],
+  )
+  const sinRol = useMemo(() => users.filter((u) => u.roles.length === 0).length, [users])
+
+  return (
+    <div>
+      <WelcomeHero
+        title={<span>Tecnología e Innovación · {user?.displayName}</span>}
+        subtitle="Administración de la plataforma: personas, cuentas de Microsoft 365, roles de acceso y estado de la integración."
+        actions={
+          <>
+            <Button appearance="primary" icon={<PeopleTeamRegular />} onClick={() => navigate('/tecnologia/personas')}>Personas</Button>
+            <Button appearance="secondary" icon={<ShieldPersonRegular />} onClick={() => navigate('/tecnologia/usuarios')}>Usuarios y roles</Button>
+          </>
+        }
+      />
+
+      <div className={styles.kpis}>
+        <StatCard title="Usuarios con acceso" value={users.filter((u) => u.roles.length > 0).length} icon={<ShieldPersonRegular />} color="#0095C8" gradient={gradientes.azul} sub="Cuentas con al menos un rol" />
+        <StatCard title="Personas registradas" value={students.length + teachers.length + guardians.length} icon={<PeopleTeamRegular />} color="#15803D" gradient={gradientes.verde} sub={`${students.length} estudiantes · ${teachers.length} docentes · ${guardians.length} tutores`} />
+        <StatCard title="Fichas sin cuenta M365" value={sinCuenta} icon={<PersonWarningRegular />} color="#EA580C" gradient={gradientes.naranja} sub="Requieren vincular una cuenta de Entra ID" />
+        <StatCard title="Cuentas sin rol" value={sinRol} icon={<PersonWarningRegular />} color="#C8102E" gradient={gradientes.rojo} sub="Han iniciado sesión sin acceso asignado" />
+      </div>
+
+      <div className={styles.grid}>
+        <Card className={styles.card}>
+          <Text weight="semibold" size={400}>Usuarios por rol</Text>
+          {(Object.keys(ROLE_LABELS) as Role[]).map((r) => (
+            <div key={r} className={styles.row}>
+              <Text size={300}>{ROLE_LABELS[r]}</Text>
+              <Text size={300} weight="semibold">{byRole.get(r) ?? 0}</Text>
+            </div>
+          ))}
+          <Button appearance="subtle" icon={<ArrowRightRegular />} onClick={() => navigate('/tecnologia/roles')} style={{ alignSelf: 'flex-start' }}>Mantenimiento de roles</Button>
+        </Card>
+
+        <Card className={styles.card}>
+          <Text weight="semibold" size={400}><DatabaseRegular /> Plataforma Microsoft 365</Text>
+          <div className={styles.row}><Text size={300}>Tenant</Text><Text size={300} className={styles.muted}>{appConfig.m365.tenantId}</Text></div>
+          <div className={styles.row}><Text size={300}>Aplicación (Entra ID)</Text><Text size={300} className={styles.muted}>{appConfig.m365.clientId}</Text></div>
+          <div className={styles.row}><Text size={300}>Sitio de SharePoint</Text><Text size={300} className={styles.muted}>{appConfig.m365.siteHostname || 'auto'}{appConfig.m365.sitePath}</Text></div>
+          <div className={styles.row}><Text size={300}>Correo por Power Automate</Text><Text size={300} className={styles.muted}>{appConfig.automation.mailFlowUrl ? 'Configurado' : 'No configurado (se usa Graph)'}</Text></div>
+          <div className={styles.row}><Text size={300}>Copilot Studio</Text><Text size={300} className={styles.muted}>{appConfig.copilot.embedUrl ? 'Agente embebido' : 'Microsoft 365 Copilot'}</Text></div>
+          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+            <Button appearance="outline" size="small" icon={<OpenRegular />} onClick={() => window.open('https://entra.microsoft.com', '_blank', 'noopener')}>Entra ID</Button>
+            <Button appearance="outline" size="small" icon={<OpenRegular />} onClick={() => window.open(`https://${appConfig.m365.siteHostname}${appConfig.m365.sitePath}/_layouts/15/viewlsts.aspx`, '_blank', 'noopener')} disabled={!appConfig.m365.siteHostname}>Listas de SharePoint</Button>
+            <Button appearance="outline" size="small" icon={<OpenRegular />} onClick={() => window.open('https://make.powerautomate.com', '_blank', 'noopener')}>Power Automate</Button>
+          </div>
+        </Card>
+      </div>
+    </div>
+  )
+}

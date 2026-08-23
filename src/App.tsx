@@ -15,6 +15,8 @@ const DocentesPortal = lazy(() => import('./portals/DocentesPortal').then((m) =>
 const EstudiantesPortal = lazy(() => import('./portals/EstudiantesPortal').then((m) => ({ default: m.EstudiantesPortal })))
 const PadresPortal = lazy(() => import('./portals/PadresPortal').then((m) => ({ default: m.PadresPortal })))
 const AdminPortal = lazy(() => import('./portals/AdminPortal').then((m) => ({ default: m.AdminPortal })))
+const PsicologiaPortal = lazy(() => import('./portals/PsicologiaPortal').then((m) => ({ default: m.PsicologiaPortal })))
+const TecnologiaPortal = lazy(() => import('./portals/TecnologiaPortal').then((m) => ({ default: m.TecnologiaPortal })))
 
 const useStyles = makeStyles({
   loader: { display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '60vh' },
@@ -47,6 +49,8 @@ function AppRoutes() {
         <Route path="/estudiantes/*" element={<RequireRole><PortalSuspense><EstudiantesPortal /></PortalSuspense></RequireRole>} />
         <Route path="/padres/*" element={<RequireRole><PortalSuspense><PadresPortal /></PortalSuspense></RequireRole>} />
         <Route path="/administrativo/*" element={<RequireRole><PortalSuspense><AdminPortal /></PortalSuspense></RequireRole>} />
+        <Route path="/psicologia/*" element={<RequireRole><PortalSuspense><PsicologiaPortal /></PortalSuspense></RequireRole>} />
+        <Route path="/tecnologia/*" element={<RequireRole><PortalSuspense><TecnologiaPortal /></PortalSuspense></RequireRole>} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </HashRouter>

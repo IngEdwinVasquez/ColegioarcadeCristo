@@ -5,6 +5,8 @@ import {
   PersonRegular,
   PeopleTeamRegular,
   PremiumPersonRegular,
+  PeopleCheckmarkRegular,
+  DeveloperBoardRegular,
 } from '@fluentui/react-icons'
 
 export interface PortalMeta {
@@ -57,6 +59,26 @@ export const PORTALS: PortalMeta[] = [
       'Espacio ejecutivo para el monitoreo institucional, análisis de indicadores de rendimiento académico, supervisión docente y toma de decisiones estratégicas.',
     icon: <PremiumPersonRegular />,
     accent: '#7D1D24',
+  },
+  {
+    role: 'psicologia',
+    path: '/psicologia',
+    title: 'Psicología y Orientación',
+    shortTitle: 'Psicología',
+    description:
+      'Unidad de acompañamiento integral al estudiante: ventanilla de atención, casos de seguimiento, talleres y guías de crianza para las familias.',
+    icon: <PeopleCheckmarkRegular />,
+    accent: '#AD1457',
+  },
+  {
+    role: 'tecnologia',
+    path: '/tecnologia',
+    title: 'Tecnología e Innovación',
+    shortTitle: 'Tecnología',
+    description:
+      'Administración de la plataforma: datos de personas, cuentas de Microsoft 365, roles de acceso y configuración técnica de la intranet.',
+    icon: <DeveloperBoardRegular />,
+    accent: '#161616',
   },
 ]
 

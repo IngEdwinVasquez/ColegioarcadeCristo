@@ -16,7 +16,9 @@ const DEFAULT_DESCRIPTIONS: Record<Role, string> = {
   docente: 'Acceso al portal docente: planificación, clases, asistencia, aulas y encuentros.',
   estudiante: 'Acceso al campus virtual: clases, actividades, calificaciones y asistencia.',
   padre: 'Acceso al portal de familias: progreso académico, asistencia y comunicaciones.',
-  admin: 'Acceso al portal administrativo: dirección, psicología, administración y catálogos.',
+  admin: 'Acceso al portal administrativo: dirección, admisiones, académico y catálogos.',
+  psicologia: 'Acceso al portal de Psicología y Orientación: ventanilla, casos de seguimiento y talleres.',
+  tecnologia: 'Acceso al portal de Tecnología: personas, cuentas de Microsoft 365, usuarios y roles.',
 }
 
 const ROLE_COLORS: Record<Role, string> = {
@@ -24,6 +26,8 @@ const ROLE_COLORS: Record<Role, string> = {
   estudiante: '#C8102E',
   padre: '#15803D',
   admin: '#6B21A8',
+  psicologia: '#AD1457',
+  tecnologia: '#161616',
 }
 
 export function RolesPage() {
@@ -138,7 +142,7 @@ export function RolesPage() {
           <Input value={description} onChange={(_, d) => setDescription(d.value)} />
         </FormField>
         <Text size={200} block style={{ color: 'var(--texto-suave)' }}>
-          La asignación de roles a usuarios se realiza en el módulo “Usuarios y roles”.
+          La asignación de roles a usuarios se realiza en el módulo “Usuarios y roles” del portal de Tecnología.
         </Text>
       </ModalForm>
     </div>
