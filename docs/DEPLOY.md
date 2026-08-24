@@ -24,13 +24,17 @@ Los valores públicos (client id, tenant id, ruta del sitio) ya están en `.env.
 | `VITE_POWER_AUTOMATE_MAIL_URL` | URL del desencadenador HTTP del flujo |
 | `VITE_COPILOT_EMBED_URL` | URL de inserción del agente de Copilot Studio |
 
-## 3. Publicar
+## 3. Flujo de ramas y publicación
 
-```bash
-git push origin main
-```
+El flujo es estricto: **dev → qa → produccion** (nunca se salta un paso).
 
-El workflow instala dependencias, ejecuta `npm run lint` y `npm run build`, y sube `dist/` a SWA. Los *pull requests* generan un entorno de vista previa que se cierra al fusionarlos. También puede lanzarlo a mano desde **Actions → Azure Static Web Apps CI/CD → Run workflow**.
+1. Los cambios se suben a `dev`.
+2. `dev` se fusiona en `qa` (PR o merge): se despliega al **entorno qa** de SWA (URL propia con sufijo `-qa`).
+3. Tras validar en qa, `qa` se fusiona en `produccion`: se despliega al entorno principal.
+
+El workflow instala dependencias, ejecuta `npm run lint` y `npm run build`, y sube `dist/` a SWA. Los *pull requests* generan además un entorno de vista previa. También puede lanzarse a mano desde **Actions → Run workflow**.
+
+> Agregue la URL del entorno qa como URI de redirección SPA en Entra ID para poder iniciar sesión allí.
 
 ## 4. Después del primer despliegue
 

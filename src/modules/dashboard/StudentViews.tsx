@@ -1,6 +1,7 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo } from 'react'
 import { Select, Table, TableBody, TableCell, TableHeader, TableHeaderCell, TableRow, Text, makeStyles, tokens } from '@fluentui/react-components'
 import { useApp } from '../../context/useApp'
+import { useMyChildren } from '../../hooks/useMyChildren'
 import { dataService } from '../../services/dataService'
 import { useCollection } from '../../hooks/useCollection'
 import { StatusBadge } from '../../components/shared/StatusBadge'
@@ -174,12 +175,30 @@ export function StudentAsistenciaView({ studentId }: { studentId: string }) {
 
 export function StudentPicker({ value, onChange }: { value: string; onChange: (id: string) => void }) {
   const styles = useStyles()
-  const { students, gradeById } = useApp()
+  const { gradeById } = useApp()
+  // Privacidad: un padre solo ve a los estudiantes vinculados a su cuenta.
+  const children = useMyChildren()
+  useEffect(() => {
+    if (!value && children.length === 1) onChange(children[0].id)
+    if (value && !children.some((c) => c.id === value)) onChange('')
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [children, value])
+
+  if (children.length === 0) {
+    return (
+      <div className={styles.selector}>
+        <Text size={300} style={{ color: 'var(--texto-suave)' }}>
+          Su cuenta no tiene estudiantes vinculados. Solicite a la administración del colegio que lo registre como padre o tutor de su hijo(a).
+        </Text>
+      </div>
+    )
+  }
   return (
     <div className={styles.selector}>
       <FormField label="Seleccione a su hijo(a)">
         <Select value={value} onChange={(_, d) => onChange(d.value)}>
-          {students.map((s) => (
+          {!value && <option value="">— Seleccionar —</option>}
+          {children.map((s) => (
             <option key={s.id} value={s.id}>
               {s.fullName} · {gradeById(s.gradeId)?.name ?? ''}
             </option>
