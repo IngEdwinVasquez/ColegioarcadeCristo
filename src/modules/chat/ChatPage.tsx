@@ -67,7 +67,7 @@ export function ChatPage() {
   const parentChildren = useMemo(() => {
     if (role !== 'padre' || !user) return []
     return guardiansCol.items
-      .filter((g) => g.email?.toLowerCase() === user.email?.toLowerCase())
+      .filter((g) => g.userId === user.id || g.email?.toLowerCase() === user.email?.toLowerCase())
       .map((g) => ({ studentId: g.studentId, studentName: students.find((s) => s.id === g.studentId)?.fullName ?? g.studentId }))
       .filter((c, i, a) => a.findIndex((x) => x.studentId === c.studentId) === i)
   }, [role, user, guardiansCol.items, students])
