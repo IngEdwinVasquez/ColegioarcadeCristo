@@ -54,6 +54,14 @@ export function MultiSelect({ label, options, selected, onChange, placeholder = 
     <FormField label={label} required={required}>
       <div className={styles.box}>
         <div className={styles.header}>
+          <Checkbox
+            title="Marcar todos los visibles"
+            checked={filtered.length > 0 && filtered.every((o) => selected.includes(o.id)) ? true : filtered.some((o) => selected.includes(o.id)) ? 'mixed' : false}
+            onChange={(_, d) => {
+              const ids = filtered.map((o) => o.id)
+              onChange(d.checked ? [...new Set([...selected, ...ids])] : selected.filter((x) => !ids.includes(x)))
+            }}
+          />
           <Input
             appearance="filled-lighter"
             style={{ flex: 1 }}

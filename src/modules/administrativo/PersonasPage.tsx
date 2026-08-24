@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { Input, Select, Tab, TabList, Text, makeStyles, useToastController } from '@fluentui/react-components'
+import { Button, Input, Select, Tab, TabList, Text, makeStyles, useToastController } from '@fluentui/react-components'
+import { CloudArrowDownRegular } from '@fluentui/react-icons'
 import { PageHeader } from '../../components/shared/PageHeader'
 import { EntityCrud, type CrudColumn } from '../../components/shared/EntityCrud'
 import { FormField, FieldRow } from '../../components/shared/form'
@@ -11,6 +12,7 @@ import type { Student, StudentGuardian, Teacher } from '../../types'
 import { genId } from '../../utils/helpers'
 import { EntraUserPicker } from '../../components/shared/EntraUserPicker'
 import { MultiSelect } from '../../components/shared/MultiSelect'
+import { ImportPersonasWizard } from '../tecnologia/ImportPersonasWizard'
 import { entraEmail, getDirectoryUsers, linkUserRole, syncTeacherAssignments, unlinkUserRole } from '../../services/userLinks'
 import { graphErrorMessage } from '../../services/graph'
 
@@ -27,6 +29,7 @@ export function PersonasPage() {
   const guardiansCol = useCollection<StudentGuardian>(dataService.getGuardians, dataService.saveGuardian, dataService.deleteGuardian)
 
   const [tab, setTab] = useState('estudiantes')
+  const [importOpen, setImportOpen] = useState(false)
 
   const studentColumns: CrudColumn<Student>[] = [
     { header: 'Estudiante', render: (s) => <Text weight="semibold">{s.fullName}</Text> },
@@ -150,7 +153,13 @@ export function PersonasPage() {
       <PageHeader
         title="Datos institucionales"
         subtitle="Mantenimiento de los datos de estudiantes, docentes y padres de familia."
+        actions={
+          <Button appearance="primary" icon={<CloudArrowDownRegular />} onClick={() => setImportOpen(true)}>
+            Importar desde Microsoft 365
+          </Button>
+        }
       />
+      <ImportPersonasWizard open={importOpen} onOpenChange={setImportOpen} />
       <TabList className={styles.tabs} selectedValue={tab} onTabSelect={(_, d) => setTab(String(d.value))}>
         <Tab value="estudiantes">Estudiantes ({students.length})</Tab>
         <Tab value="docentes">Docentes ({teachers.length})</Tab>

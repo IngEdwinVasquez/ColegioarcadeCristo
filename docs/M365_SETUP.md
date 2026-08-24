@@ -46,6 +46,7 @@ Acceda a [entra.microsoft.com](https://entra.microsoft.com) → **Aplicaciones**
 | `Files.ReadWrite.All` | Subir material a OneDrive y crear enlaces compartidos |
 | `Calendars.ReadWrite` | Crear reuniones de Teams para los encuentros virtuales y eventos del plan TIC |
 | `Team.Create` | Crear equipos de clase de Teams por curso (Gestión académica) |
+| `Team.ReadBasic.All` | Listar sus equipos de Teams para importarlos como cursos |
 | `Mail.Send` | Envío de correo de respaldo cuando no hay flujo de Power Automate |
 
 Pulse **Conceder consentimiento de administrador para <tenant>** y compruebe que todos aparecen en verde.
