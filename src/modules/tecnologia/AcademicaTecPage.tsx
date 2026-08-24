@@ -1,20 +1,31 @@
 import { useState } from 'react'
-import { Badge, Button, Input, Select, Spinner, Table, TableBody, TableCell, TableHeader, TableHeaderCell, TableRow, Text, Toolbar, ToolbarButton, useToastController, makeStyles } from '@fluentui/react-components'
-import { AddRegular, DeleteRegular, EditRegular, OpenRegular, PeopleTeamRegular, VideoRegular } from '@fluentui/react-icons'
+import { Badge, Button, Checkbox, Input, Select, Spinner, Table, TableBody, TableCell, TableHeader, TableHeaderCell, TableRow, Text, Toolbar, ToolbarButton, useToastController, makeStyles } from '@fluentui/react-components'
+import { AddRegular, ArrowDownloadRegular, DeleteRegular, EditRegular, OpenRegular, PeopleTeamRegular, VideoRegular } from '@fluentui/react-icons'
 import { PageHeader } from '../../components/shared/PageHeader'
 import { ModalForm } from '../../components/shared/ModalForm'
 import { FormField, FieldRow } from '../../components/shared/form'
+import { MultiSelect } from '../../components/shared/MultiSelect'
 import { useApp } from '../../context/useApp'
 import { dataService } from '../../services/dataService'
 import { useCollection } from '../../hooks/useCollection'
-import { createClassTeam } from '../../services/teamsEdu'
+import { createClassTeam, listTenantTeams, resolveTeamUrl, type TeamInfo } from '../../services/teamsEdu'
 import { graphErrorMessage } from '../../services/graph'
 import type { GradeSection } from '../../types'
 import { genId } from '../../utils/helpers'
+import { appConfig } from '../../config/appConfig'
 
 const useStyles = makeStyles({
   hint: { marginBottom: '14px', color: 'var(--texto-suave)' },
 })
+
+/** Deduce el nivel educativo a partir del nombre del curso o del equipo. */
+export function detectLevel(name: string): string | null {
+  const n = name.toLowerCase()
+  if (/(inicial|kinder|kínder|pre\s*-?\s*primar|preescolar|maternal|nido)/.test(n)) return 'Nivel Inicial'
+  if (/(secundaria|secundario|bachiller|media\b)/.test(n)) return 'Nivel Secundario'
+  if (/(primaria|primario)/.test(n)) return 'Nivel Primario'
+  return null
+}
 
 /**
  * RM-008: gestión académica desde Tecnología — cursos y secciones con
@@ -28,6 +39,59 @@ export function AcademicaTecPage() {
 
   const [editing, setEditing] = useState<GradeSection | null>(null)
   const [creatingTeam, setCreatingTeam] = useState<string | null>(null)
+  const [importOpen, setImportOpen] = useState(false)
+  const [teams, setTeams] = useState<TeamInfo[] | null>(null)
+  const [importSel, setImportSel] = useState<string[]>([])
+  const [importLevel, setImportLevel] = useState('Nivel Primario')
+  const [createTeamToo, setCreateTeamToo] = useState(true)
+  const [importing, setImporting] = useState(false)
+
+  /** Abre el asistente de importación y carga los equipos existentes de Teams. */
+  const openImport = async () => {
+    setImportOpen(true)
+    setImportSel([])
+    if (teams === null) {
+      try {
+        setTeams(await listTenantTeams())
+      } catch (error) {
+        setTeams([])
+        toaster.dispatchToast(`No se pudieron listar los equipos: ${graphErrorMessage(error)}`, { intent: 'error' })
+      }
+    }
+  }
+
+  /** Crea (o vincula, si existe un curso con el mismo nombre) los equipos elegidos. */
+  const runImport = async () => {
+    if (importSel.length === 0) return
+    setImporting(true)
+    let creados = 0
+    let vinculados = 0
+    try {
+      for (const teamId of importSel) {
+        const team = (teams ?? []).find((t) => t.id === teamId)
+        if (!team) continue
+        const name = team.displayName.replace(new RegExp(`^${appConfig.shortName}\\s*·\\s*`, 'i'), '').trim()
+        const url = await resolveTeamUrl(teamId)
+        const existing = gradesCol.items.find((g) => g.name.trim().toLowerCase() === name.toLowerCase())
+        if (existing) {
+          await gradesCol.save({ ...existing, teamId, teamUrl: url })
+          vinculados++
+        } else {
+          // El nivel se detecta por el nombre (inicial/primaria/secundaria); si no, se usa el elegido.
+          await gradesCol.save({ id: genId('g'), name, level: detectLevel(team.displayName) ?? importLevel, teamId, teamUrl: url })
+          creados++
+        }
+      }
+      toaster.dispatchToast(`Importación completada: ${creados} curso(s) creado(s), ${vinculados} vinculado(s) a su equipo`, { intent: 'success' })
+      setImportOpen(false)
+    } catch (error) {
+      toaster.dispatchToast(`Error al importar: ${graphErrorMessage(error)}`, { intent: 'error' })
+    } finally {
+      setImporting(false)
+    }
+  }
+
+  const linkedTeamIds = gradesCol.items.map((g) => g.teamId ?? '').filter(Boolean)
 
   const studentCount = (gradeId: string) => {
     const byEnrollment = enrollments.filter((e) => e.gradeId === gradeId).map((e) => e.studentId)
@@ -41,8 +105,19 @@ export function AcademicaTecPage() {
       return
     }
     try {
-      await gradesCol.save(g)
-      toaster.dispatchToast('Curso guardado', { intent: 'success' })
+      let next = { ...g, level: g.level || (detectLevel(g.name) ?? 'Nivel Primario') }
+      const isNew = !gradesCol.items.some((x) => x.id === g.id)
+      // Crear el curso también en Teams en el mismo paso.
+      if (isNew && createTeamToo && !next.teamId) {
+        try {
+          const team = await createClassTeam(next)
+          next = { ...next, teamId: team.teamId, teamUrl: team.webUrl }
+        } catch (error) {
+          toaster.dispatchToast(`El curso se guardará, pero el equipo de Teams falló: ${graphErrorMessage(error)}`, { intent: 'warning' })
+        }
+      }
+      await gradesCol.save(next)
+      toaster.dispatchToast(next.teamId ? 'Curso guardado con su equipo de Teams' : 'Curso guardado', { intent: 'success' })
       setEditing(null)
     } catch (error) {
       toaster.dispatchToast(`No se pudo guardar: ${graphErrorMessage(error)}`, { intent: 'error' })
@@ -68,9 +143,14 @@ export function AcademicaTecPage() {
         title="Gestión académica"
         subtitle="Cursos y secciones del colegio con su equipo de Microsoft Teams. Cada curso puede tener un equipo de clase donde se agregan el docente y los estudiantes."
         actions={
-          <Button appearance="primary" icon={<AddRegular />} onClick={() => setEditing({ id: genId('g'), name: '', level: 'Nivel Primario', section: 'A' })}>
-            Nuevo curso
-          </Button>
+          <>
+            <Button appearance="secondary" icon={<ArrowDownloadRegular />} onClick={() => void openImport()}>
+              Importar desde Teams
+            </Button>
+            <Button appearance="primary" icon={<AddRegular />} onClick={() => setEditing({ id: genId('g'), name: '', level: 'Nivel Primario', section: 'A' })}>
+              Nuevo curso
+            </Button>
+          </>
         }
       />
       <Text size={300} block className={styles.hint}>
@@ -133,6 +213,47 @@ export function AcademicaTecPage() {
         <Text size={300} block style={{ marginTop: '12px', color: 'var(--texto-suave)' }}>Cree los cursos del colegio para vincularlos con Teams.</Text>
       )}
 
+      {/* -------- Importar equipos de Teams como cursos -------- */}
+      <ModalForm
+        open={importOpen}
+        onOpenChange={setImportOpen}
+        title="Importar cursos desde Microsoft Teams"
+        subtitle="Seleccione los equipos que corresponden a cursos del colegio; se crearán (o se vincularán si el curso ya existe) con acceso directo a la clase."
+        actions={
+          <>
+            <Button appearance="secondary" onClick={() => setImportOpen(false)} disabled={importing}>Cancelar</Button>
+            <Button appearance="primary" onClick={() => void runImport()} disabled={importing || importSel.length === 0}>
+              {importing ? 'Importando…' : `Importar ${importSel.length} equipo(s)`}
+            </Button>
+          </>
+        }
+      >
+        {teams === null ? (
+          <Spinner label="Leyendo equipos de Microsoft Teams…" />
+        ) : (
+          <div>
+            <MultiSelect
+              label={`Equipos disponibles (${teams.length})`}
+              placeholder="Filtrar equipos…"
+              options={teams.map((t) => ({ id: t.id, label: t.displayName, detail: linkedTeamIds.includes(t.id) ? 'ya vinculado' : t.description?.slice(0, 60) }))}
+              selected={importSel}
+              onChange={(ids) => setImportSel(ids.filter((id) => !linkedTeamIds.includes(id)))}
+              emptyMessage="No se encontraron equipos de Teams. Verifique los permisos Team.ReadBasic.All / Directory.Read.All."
+            />
+            <FormField label="Nivel si no se puede detectar por el nombre">
+              <Select value={importLevel} onChange={(_, d) => setImportLevel(d.value)}>
+                <option value="Nivel Inicial">Nivel Inicial</option>
+                <option value="Nivel Primario">Nivel Primario</option>
+                <option value="Nivel Secundario">Nivel Secundario</option>
+              </Select>
+            </FormField>
+            <Text size={200} block style={{ color: 'var(--texto-suave)' }}>
+              El nivel (Inicial / Primaria / Secundaria) se detecta automáticamente por el nombre del equipo; si no es posible, se usa el nivel elegido arriba. Los equipos «ya vinculado» pertenecen a un curso existente; los de igual nombre se vinculan sin duplicarse. Use la casilla junto al filtro para marcar todos.
+            </Text>
+          </div>
+        )}
+      </ModalForm>
+
       <ModalForm
         open={!!editing}
         onOpenChange={(o) => { if (!o) setEditing(null) }}
@@ -161,6 +282,13 @@ export function AcademicaTecPage() {
                 <option value="Nivel Secundario">Nivel Secundario</option>
               </Select>
             </FormField>
+            {!gradesCol.items.some((x) => x.id === editing.id) && (
+              <Checkbox
+                checked={createTeamToo}
+                onChange={(_, d) => setCreateTeamToo(!!d.checked)}
+                label="Crear también el equipo de clase en Microsoft Teams"
+              />
+            )}
           </div>
         )}
       </ModalForm>

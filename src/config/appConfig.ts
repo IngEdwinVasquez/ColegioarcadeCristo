@@ -57,6 +57,7 @@ export const appConfig = {
       'Mail.Send',
       'Calendars.ReadWrite',
       'Team.Create',
+      'Team.ReadBasic.All',
       'Sites.ReadWrite.All',
       'Sites.Manage.All',
       'Files.ReadWrite.All',

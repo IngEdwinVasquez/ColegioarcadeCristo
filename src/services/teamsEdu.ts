@@ -1,5 +1,5 @@
 import { acquireToken } from './msal'
-import { graphRequest } from './graph'
+import { graphGetAll, graphRequest } from './graph'
 import { appConfig } from '../config/appConfig'
 import type { GradeSection } from '../types'
 
@@ -65,4 +65,40 @@ export async function classTeamExists(teamId: string): Promise<boolean> {
   } catch {
     return false
   }
+}
+
+export interface TeamInfo {
+  id: string
+  displayName: string
+  description?: string
+}
+
+/**
+ * Lista los equipos de Teams del tenant para importarlos como cursos.
+ * 1) Intenta listar todos los grupos con equipo (requiere Directory.Read.All, ya concedido).
+ * 2) Si no es posible, lista los equipos a los que pertenece el usuario (Team.ReadBasic.All).
+ */
+export async function listTenantTeams(): Promise<TeamInfo[]> {
+  try {
+    const groups = await graphGetAll<{ id: string; displayName: string; description?: string }>(
+      "/groups?$select=id,displayName,description&$filter=resourceProvisioningOptions/Any(x:x eq 'Team')&$count=true",
+      { headers: { ConsistencyLevel: 'eventual' } },
+    )
+    if (groups.length > 0) return groups.sort((a, b) => a.displayName.localeCompare(b.displayName))
+  } catch {
+    /* sin permiso para listar grupos: se usa el plan B */
+  }
+  const joined = await graphGetAll<{ id: string; displayName: string; description?: string }>('/me/joinedTeams')
+  return joined.sort((a, b) => a.displayName.localeCompare(b.displayName))
+}
+
+/** URL directa del equipo (para entrar a la clase con un clic). */
+export async function resolveTeamUrl(teamId: string): Promise<string> {
+  try {
+    const team = await graphRequest<{ webUrl?: string }>(`/teams/${teamId}?$select=webUrl`)
+    if (team.webUrl) return team.webUrl
+  } catch {
+    /* el usuario no es miembro: enlace genérico por groupId */
+  }
+  return `https://teams.microsoft.com/l/team/0/conversations?groupId=${teamId}&tenantId=${appConfig.m365.tenantId}`
 }
