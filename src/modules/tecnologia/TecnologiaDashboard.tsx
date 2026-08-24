@@ -1,12 +1,15 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Button, Card, Text, makeStyles, tokens } from '@fluentui/react-components'
 import { PeopleTeamRegular, ShieldPersonRegular, PersonWarningRegular, DatabaseRegular, OpenRegular, ArrowRightRegular } from '@fluentui/react-icons'
 import { WelcomeHero } from '../../components/shared/WelcomeHero'
 import { StatCard } from '../../components/shared/StatCard'
 import { useApp } from '../../context/useApp'
+import { dataService } from '../../services/dataService'
+import { useCollection } from '../../hooks/useCollection'
+import { getDirectoryUsers } from '../../services/userLinks'
 import { appConfig } from '../../config/appConfig'
-import { ROLE_LABELS, type Role } from '../../types/roles'
+import { ROLE_LABELS } from '../../types/roles'
 import { gradientes } from '../../theme'
 
 const useStyles = makeStyles({
@@ -20,11 +23,27 @@ const useStyles = makeStyles({
 export function TecnologiaDashboard() {
   const styles = useStyles()
   const navigate = useNavigate()
-  const { user, users, students, teachers, guardians } = useApp()
+  const { user, roleLabel } = useApp()
+  // RM-007: indicadores con datos en vivo del sistema (no la caché del inicio de sesión)
+  const usersCol = useCollection(dataService.getUsers)
+  const studentsCol = useCollection(dataService.getStudents)
+  const teachersCol = useCollection(dataService.getTeachers)
+  const guardiansCol = useCollection(dataService.getGuardians)
+  const users = usersCol.items
+  const students = studentsCol.items
+  const teachers = teachersCol.items
+  const guardians = guardiansCol.items
+  const [directoryCount, setDirectoryCount] = useState<number | null>(null)
+
+  useEffect(() => {
+    getDirectoryUsers()
+      .then((list) => setDirectoryCount(list.length))
+      .catch(() => setDirectoryCount(null))
+  }, [])
 
   const byRole = useMemo(() => {
-    const map = new Map<Role, number>()
-    for (const r of Object.keys(ROLE_LABELS) as Role[]) map.set(r, 0)
+    const map = new Map<string, number>()
+    for (const r of Object.keys(ROLE_LABELS)) map.set(r, 0)
     for (const u of users) for (const r of u.roles) map.set(r, (map.get(r) ?? 0) + 1)
     return map
   }, [users])
@@ -49,7 +68,7 @@ export function TecnologiaDashboard() {
       />
 
       <div className={styles.kpis}>
-        <StatCard title="Usuarios con acceso" value={users.filter((u) => u.roles.length > 0).length} icon={<ShieldPersonRegular />} color="#0095C8" gradient={gradientes.azul} sub="Cuentas con al menos un rol" />
+        <StatCard title="Usuarios con acceso" value={users.filter((u) => u.roles.length > 0).length} icon={<ShieldPersonRegular />} color="#0095C8" gradient={gradientes.azul} sub={directoryCount != null ? `De ${directoryCount} cuentas en Entra ID` : 'Cuentas con al menos un rol'} />
         <StatCard title="Personas registradas" value={students.length + teachers.length + guardians.length} icon={<PeopleTeamRegular />} color="#15803D" gradient={gradientes.verde} sub={`${students.length} estudiantes · ${teachers.length} docentes · ${guardians.length} tutores`} />
         <StatCard title="Fichas sin cuenta M365" value={sinCuenta} icon={<PersonWarningRegular />} color="#EA580C" gradient={gradientes.naranja} sub="Requieren vincular una cuenta de Entra ID" />
         <StatCard title="Cuentas sin rol" value={sinRol} icon={<PersonWarningRegular />} color="#C8102E" gradient={gradientes.rojo} sub="Han iniciado sesión sin acceso asignado" />
@@ -58,10 +77,10 @@ export function TecnologiaDashboard() {
       <div className={styles.grid}>
         <Card className={styles.card}>
           <Text weight="semibold" size={400}>Usuarios por rol</Text>
-          {(Object.keys(ROLE_LABELS) as Role[]).map((r) => (
+          {[...byRole.entries()].map(([r, count]) => (
             <div key={r} className={styles.row}>
-              <Text size={300}>{ROLE_LABELS[r]}</Text>
-              <Text size={300} weight="semibold">{byRole.get(r) ?? 0}</Text>
+              <Text size={300}>{roleLabel(r)}</Text>
+              <Text size={300} weight="semibold">{count}</Text>
             </div>
           ))}
           <Button appearance="subtle" icon={<ArrowRightRegular />} onClick={() => navigate('/tecnologia/roles')} style={{ alignSelf: 'flex-start' }}>Mantenimiento de roles</Button>

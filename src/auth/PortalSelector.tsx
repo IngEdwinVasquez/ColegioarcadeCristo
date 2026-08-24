@@ -94,13 +94,12 @@ const useStyles = makeStyles({
 export function PortalSelector() {
   const styles = useStyles()
   const navigate = useNavigate()
-  const { role, setRole, user } = useApp()
+  const { role, setRole, effectiveRoles } = useApp()
 
   const allowed = useMemo(() => {
-    const roles = user?.roles ?? []
-    if (roles.length === 0) return PORTALS
-    return PORTALS.filter((p) => roles.includes(p.role))
-  }, [user])
+    if (effectiveRoles.length === 0) return PORTALS
+    return PORTALS.filter((p) => effectiveRoles.includes(p.role))
+  }, [effectiveRoles])
 
   useEffect(() => {
     if (allowed.length === 1) {

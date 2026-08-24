@@ -1,5 +1,5 @@
 import { createContext } from 'react'
-import type { GradeSection, Period, Student, StudentGuardian, Subject, Teacher, User } from '../types'
+import type { GradeSection, Period, RoleMeta, Student, StudentGuardian, Subject, Teacher, User } from '../types'
 import type { Role } from '../types/roles'
 
 export type AuthState = 'anonymous' | 'loading' | 'ready' | 'no-access' | 'error'
@@ -26,6 +26,11 @@ export interface AppContextValue {
   students: Student[]
   guardians: StudentGuardian[]
   users: User[]
+  roleMeta: RoleMeta[]
+  /** Roles de portal efectivos del usuario (roles personalizados ya expandidos) */
+  effectiveRoles: Role[]
+  /** Etiqueta visible de un rol (fijo o personalizado), según ARC_RoleMeta */
+  roleLabel: (roleId: string) => string
   refreshCatalogs: () => Promise<void>
   subjectById: (id?: string) => Subject | undefined
   gradeById: (id?: string) => GradeSection | undefined

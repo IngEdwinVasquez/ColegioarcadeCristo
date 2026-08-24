@@ -15,6 +15,7 @@ import type {
   Period,
   PsychRequest,
   RoleMeta,
+  TicActivity,
   SchoolClassRecord,
   Student,
   StudentGuardian,
@@ -73,6 +74,7 @@ export const collections = {
   documentRequests: collection<DocumentRequest>(SPO_LISTS.documentRequests),
   psychRequests: collection<PsychRequest>(SPO_LISTS.psychRequests),
   roleMeta: collection<RoleMeta>(SPO_LISTS.roleMeta),
+  ticPlan: collection<TicActivity>(SPO_LISTS.ticPlan),
 }
 
 export const dataService = {
@@ -160,6 +162,11 @@ export const dataService = {
   // Metadatos de roles
   getRoleMeta: collections.roleMeta.getAll,
   saveRoleMeta: collections.roleMeta.save,
+  deleteRoleMeta: collections.roleMeta.remove,
+  // Plan de trabajo TIC
+  getTicActivities: collections.ticPlan.getAll,
+  saveTicActivity: collections.ticPlan.save,
+  deleteTicActivity: collections.ticPlan.remove,
 }
 
 export type DataService = typeof dataService

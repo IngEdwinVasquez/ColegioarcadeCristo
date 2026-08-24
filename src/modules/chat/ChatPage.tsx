@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState, useEffect } from 'react'
 import { Avatar, Button, Input, Select, makeStyles, Text, tokens, Badge } from '@fluentui/react-components'
-import { SendRegular, ChatRegular, ArrowLeftRegular } from '@fluentui/react-icons'
+import { SendRegular, ChatRegular, ArrowLeftRegular, SearchRegular } from '@fluentui/react-icons'
 import { useApp } from '../../context/useApp'
 import { dataService } from '../../services/dataService'
 import { useCollection } from '../../hooks/useCollection'
@@ -58,6 +58,7 @@ export function ChatPage() {
   const [selected, setSelected] = useState<string | null>(null)
   const [draft, setDraft] = useState('')
   const [parentChildId, setParentChildId] = useState('')
+  const [contactQuery, setContactQuery] = useState('')
   const bottomRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [msgCol.items, selected])
@@ -122,7 +123,7 @@ export function ChatPage() {
       const msgs = msgCol.items.filter((m) => getContactId(m.senderId, m.receiverId) === pair)
       const unread = msgs.filter((m) => m.receiverId === user!.id && !m.read).length
       const last = msgs[msgs.length - 1]
-      return { id: u.id, displayName: u.displayName, email: u.email, role: (u.roles[0] as Role) || 'docente', lastMessage: last?.content, lastTime: last?.timestamp, unread }
+      return { id: u.id, displayName: u.displayName, email: u.email, role: (u.roles.find((r) => r in ROLE_LABELS) as Role) ?? 'docente', lastMessage: last?.content, lastTime: last?.timestamp, unread }
     }).sort((a, b) => (b.lastTime || '').localeCompare(a.lastTime || ''))
   }, [users, role, user, teachers, students, parentChildId, msgCol.items])
 
@@ -154,9 +155,26 @@ export function ChatPage() {
     }
   }
 
+  // RM-006: búsqueda de usuarios por nombre o correo institucional
+  const visibleContacts = useMemo(() => {
+    const q = contactQuery.trim().toLowerCase()
+    if (!q) return contacts
+    return contacts.filter((c) => c.displayName.toLowerCase().includes(q) || c.email.toLowerCase().includes(q))
+  }, [contacts, contactQuery])
+
   const sidebar = (
     <div className={`${styles.sidebar} ${!selected ? styles.sidebarShow : ''}`}>
       <div className={styles.sidebarHdr}><ChatRegular style={{ fontSize: 18 }} /><Text weight="semibold" size={400}>Mensajes</Text></div>
+      <div style={{ padding: '8px 12px', borderBottom: '1px solid var(--borde)' }}>
+        <Input
+          size="small"
+          style={{ width: '100%' }}
+          contentBefore={<SearchRegular />}
+          placeholder="Buscar por nombre o correo…"
+          value={contactQuery}
+          onChange={(_, d) => setContactQuery(d.value)}
+        />
+      </div>
       {role === 'padre' && parentChildren.length > 0 && (
         <div className={styles.childBar}>
           <Badge appearance="tint" size="small" style={{ background: ROLE_COLORS.padre, color: '#fff' }}>Hijo</Badge>
@@ -167,7 +185,12 @@ export function ChatPage() {
         </div>
       )}
       <div className={styles.contactList}>
-        {contacts.map((c) => (
+        {visibleContacts.length === 0 && (
+          <Text size={200} block style={{ padding: '14px', color: 'var(--texto-suave)' }}>
+            {contactQuery ? `Sin resultados para “${contactQuery}”.` : 'Sin contactos disponibles.'}
+          </Text>
+        )}
+        {visibleContacts.map((c) => (
           <div key={c.id} className={`${styles.contact} ${selected === c.id ? styles.contactActive : ''}`} onClick={() => openContact(c.id)}>
             <Avatar name={c.displayName} initials={initials(c.displayName)} color="colorful" size={36} />
             <div style={{ flex: 1, minWidth: 0 }}>

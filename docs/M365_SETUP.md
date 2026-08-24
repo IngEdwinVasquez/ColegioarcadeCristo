@@ -44,7 +44,8 @@ Acceda a [entra.microsoft.com](https://entra.microsoft.com) → **Aplicaciones**
 | `Sites.ReadWrite.All` | Leer/escribir los elementos de las listas de SharePoint |
 | `Sites.Manage.All` | Crear las listas y columnas `ARC_*` automáticamente (aprovisionamiento) |
 | `Files.ReadWrite.All` | Subir material a OneDrive y crear enlaces compartidos |
-| `Calendars.ReadWrite` | Crear reuniones de Teams para los encuentros virtuales |
+| `Calendars.ReadWrite` | Crear reuniones de Teams para los encuentros virtuales y eventos del plan TIC |
+| `Team.Create` | Crear equipos de clase de Teams por curso (Gestión académica) |
 | `Mail.Send` | Envío de correo de respaldo cuando no hay flujo de Power Automate |
 
 Pulse **Conceder consentimiento de administrador para <tenant>** y compruebe que todos aparecen en verde.

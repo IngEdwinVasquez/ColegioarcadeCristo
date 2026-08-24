@@ -20,6 +20,11 @@ export interface GradeSection {
   id: string
   name: string
   level: string
+  /** Seccion (A, B, ...) si se administra por separado */
+  section?: string
+  /** Equipo de Microsoft Teams vinculado al curso */
+  teamId?: string
+  teamUrl?: string
 }
 
 export interface Subject {
@@ -344,8 +349,58 @@ export interface PsychRequest {
   estado: 'pendiente' | 'en_atencion' | 'cerrado'
 }
 
+/**
+ * Metadatos de un rol. Los seis roles del sistema (docente, estudiante, padre,
+ * admin, psicologia, tecnologia) son fijos; ademas pueden crearse roles
+ * personalizados (custom) que dan acceso al portal indicado en `portal`.
+ */
 export interface RoleMeta {
   id: string
   label?: string
   description?: string
+  /** Portal al que da acceso un rol personalizado */
+  portal?: string
+  custom?: boolean
+}
+
+// ------------------------------ Gestion TIC (RM-009) ------------------------------
+
+export type TicScope = 'anual' | 'mensual' | 'semanal'
+export type TicStage = 'inicio' | 'desarrollo' | 'finalizacion'
+export type TicStatus = 'pendiente' | 'en_progreso' | 'completada' | 'cancelada'
+export type TicCategory = 'infraestructura' | 'soporte' | 'capacitacion' | 'innovacion' | 'plataforma' | 'otros'
+
+export interface TicLogEntry {
+  id: string
+  date: string
+  note: string
+  author?: string
+}
+
+export interface TicEvidence {
+  id: string
+  name: string
+  webUrl: string
+  type: 'foto' | 'documento' | 'otro'
+  uploadedAt: string
+}
+
+/** Actividad del plan de trabajo del Coordinador TIC */
+export interface TicActivity {
+  id: string
+  title: string
+  description: string
+  scope: TicScope
+  category: TicCategory
+  startDate: string
+  endDate: string
+  stage: TicStage
+  status: TicStatus
+  /** % de avance 0-100 */
+  progress: number
+  responsible?: string
+  evidences: TicEvidence[]
+  log: TicLogEntry[]
+  createdAt: string
+  updatedAt?: string
 }
