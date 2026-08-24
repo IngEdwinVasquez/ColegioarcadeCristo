@@ -3,7 +3,7 @@ import { Badge, Button, Input, Select, Spinner, Table, TableBody, TableCell, Tab
 import { EditRegular, ArrowSyncRegular, PersonAddRegular, LinkSquareRegular, SearchRegular } from '@fluentui/react-icons'
 import { PageHeader } from '../../components/shared/PageHeader'
 import { ModalForm } from '../../components/shared/ModalForm'
-import { FormField } from '../../components/shared/form'
+import { FormField, FieldRow } from '../../components/shared/form'
 import { useApp } from '../../context/useApp'
 import { ROLE_LABELS, type Role } from '../../types/roles'
 import { dataService } from '../../services/dataService'
@@ -15,7 +15,7 @@ interface UserRow {
   id: string
   displayName: string
   email: string
-  roles: Role[]
+  roles: string[]
   teacherId?: string
   studentId?: string
   jobTitle?: string
@@ -23,7 +23,7 @@ interface UserRow {
   registered: boolean
 }
 
-const ROLE_COLORS: Record<Role, string> = {
+export const ROLE_COLORS: Record<string, string> = {
   docente: '#0095C8',
   estudiante: '#C8102E',
   padre: '#15803D',
@@ -32,20 +32,48 @@ const ROLE_COLORS: Record<Role, string> = {
   tecnologia: '#161616',
 }
 
+/** Distintivo de rol legible: texto blanco, tamaño medio y tipografía firme (RM-001). */
+export function RoleBadge({ roleId, label }: { roleId: string; label: string }) {
+  return (
+    <Badge
+      appearance="filled"
+      size="large"
+      style={{
+        background: ROLE_COLORS[roleId] ?? '#475569',
+        color: '#fff',
+        fontSize: '13px',
+        fontWeight: 600,
+        letterSpacing: '0.01em',
+        padding: '4px 12px',
+      }}
+    >
+      {label}
+    </Badge>
+  )
+}
+
 const sameEmail = (a?: string | null, b?: string | null) => !!a && !!b && a.trim().toLowerCase() === b.trim().toLowerCase()
 
 export function UsuariosPage() {
   const toaster = useToastController()
-  const { users, students, teachers, refreshCatalogs, user: me } = useApp()
+  const { users, students, teachers, refreshCatalogs, user: me, roleMeta, roleLabel } = useApp()
 
   const [entraUsers, setEntraUsers] = useState<EntraUser[]>([])
   const [syncing, setSyncing] = useState(false)
   const [query, setQuery] = useState('')
+  const [roleFilter, setRoleFilter] = useState('')
   const [editing, setEditing] = useState<UserRow | null>(null)
-  const [formRoles, setFormRoles] = useState<Role[]>([])
+  const [formRoles, setFormRoles] = useState<string[]>([])
   const [formTeacher, setFormTeacher] = useState('')
   const [formStudent, setFormStudent] = useState('')
   const [saving, setSaving] = useState(false)
+
+  /** Todos los roles asignables: los seis del sistema + los personalizados. */
+  const allRoles = useMemo(() => {
+    const base = Object.keys(ROLE_LABELS)
+    const custom = roleMeta.filter((m) => m.custom && !base.includes(m.id)).map((m) => m.id)
+    return [...base, ...custom]
+  }, [roleMeta])
 
   const syncEntra = async (silent = false) => {
     setSyncing(true)
@@ -83,8 +111,13 @@ export function UsuariosPage() {
     const q = query.trim().toLowerCase()
     return [...map.values()]
       .filter((r) => !q || r.displayName.toLowerCase().includes(q) || r.email.toLowerCase().includes(q))
+      .filter((r) => {
+        if (!roleFilter) return true
+        if (roleFilter === '__none') return r.roles.length === 0
+        return r.roles.includes(roleFilter)
+      })
       .sort((a, b) => a.displayName.localeCompare(b.displayName))
-  }, [users, entraUsers, query])
+  }, [users, entraUsers, query, roleFilter])
 
   const openEdit = (row: UserRow) => {
     setEditing(row)
@@ -93,11 +126,21 @@ export function UsuariosPage() {
     setFormStudent(row.studentId ?? '')
   }
 
+  const toggleRole = (r: string) => {
+    setFormRoles((prev) => {
+      const next = prev.includes(r) ? prev.filter((x) => x !== r) : [...prev, r]
+      // RM-002: desmarcar un rol elimina también su vinculación.
+      if (r === 'docente' && !next.includes('docente')) setFormTeacher('')
+      if (r === 'estudiante' && !next.includes('estudiante')) setFormStudent('')
+      return next
+    })
+  }
+
   const save = async () => {
     if (!editing) return
     setSaving(true)
     try {
-      const roles = new Set<Role>(formRoles)
+      const roles = new Set<string>(formRoles)
       if (formTeacher) roles.add('docente')
       if (formStudent) roles.add('estudiante')
       const record: User = {
@@ -105,7 +148,7 @@ export function UsuariosPage() {
         displayName: editing.displayName,
         email: editing.email,
         jobTitle: editing.jobTitle,
-        roles: [...roles],
+        roles: [...roles] as Role[],
         teacherId: formTeacher || undefined,
         studentId: formStudent || undefined,
         updatedAt: new Date().toISOString(),
@@ -119,10 +162,6 @@ export function UsuariosPage() {
     } finally {
       setSaving(false)
     }
-  }
-
-  const toggleRole = (r: Role) => {
-    setFormRoles((prev) => (prev.includes(r) ? prev.filter((x) => x !== r) : [...prev, r]))
   }
 
   return (
@@ -146,8 +185,22 @@ export function UsuariosPage() {
         }
       />
 
-      <div style={{ marginBottom: '12px', maxWidth: '360px' }}>
-        <Input contentBefore={<SearchRegular />} placeholder="Buscar por nombre o correo…" value={query} onChange={(_, d) => setQuery(d.value)} />
+      <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginBottom: '14px' }}>
+        <Input
+          style={{ minWidth: '260px', flex: '1 1 280px', maxWidth: '420px' }}
+          contentBefore={<SearchRegular />}
+          placeholder="Buscar por nombre o correo…"
+          value={query}
+          onChange={(_, d) => setQuery(d.value)}
+        />
+        <Select value={roleFilter} onChange={(_, d) => setRoleFilter(d.value)} style={{ minWidth: '210px' }}>
+          <option value="">Todos los roles</option>
+          <option value="__none">Sin rol asignado</option>
+          {allRoles.map((r) => (
+            <option key={r} value={r}>{roleLabel(r)}</option>
+          ))}
+        </Select>
+        <Text size={300} style={{ alignSelf: 'center', color: 'var(--texto-suave)' }}>{rows.length} usuario(s)</Text>
       </div>
 
       <Table aria-label="Usuarios">
@@ -169,12 +222,10 @@ export function UsuariosPage() {
               </TableCell>
               <TableCell>{row.email}</TableCell>
               <TableCell>
-                <span style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                  {row.roles.length === 0 && <Text size={200} style={{ color: 'var(--texto-suave)' }}>Sin rol</Text>}
+                <span style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', padding: '4px 0' }}>
+                  {row.roles.length === 0 && <Text size={300} style={{ color: 'var(--texto-suave)' }}>Sin rol</Text>}
                   {row.roles.map((r) => (
-                    <Badge key={r} appearance="filled" color="informative" style={{ background: ROLE_COLORS[r] }}>
-                      {ROLE_LABELS[r]}
-                    </Badge>
+                    <RoleBadge key={r} roleId={r} label={roleLabel(r)} />
                   ))}
                 </span>
               </TableCell>
@@ -195,7 +246,7 @@ export function UsuariosPage() {
       </Table>
       {rows.length === 0 && !syncing && (
         <Text size={300} block style={{ marginTop: '12px', color: 'var(--texto-suave)' }}>
-          No se encontraron usuarios. Pulse “Actualizar desde Entra ID” o cree los usuarios en el directorio.
+          No se encontraron usuarios con esos filtros.
         </Text>
       )}
 
@@ -213,36 +264,38 @@ export function UsuariosPage() {
       >
         <FormField label="Roles de acceso">
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-            {(Object.keys(ROLE_LABELS) as Role[]).map((r) => (
+            {allRoles.map((r) => (
               <Button
                 key={r}
-                size="small"
+                size="medium"
                 appearance={formRoles.includes(r) ? 'primary' : 'secondary'}
                 onClick={() => toggleRole(r)}
               >
-                {ROLE_LABELS[r]}
+                {roleLabel(r)}
               </Button>
             ))}
           </div>
         </FormField>
-        <FormField label="Vincular a docente (si aplica)">
-          <Select value={formTeacher} onChange={(_, d) => setFormTeacher(d.value)}>
-            <option value="">Sin vincular</option>
-            {teachers.map((t) => (
-              <option key={t.id} value={t.id}>{t.fullName}</option>
-            ))}
-          </Select>
-        </FormField>
-        <FormField label="Vincular a estudiante (si aplica)">
-          <Select value={formStudent} onChange={(_, d) => setFormStudent(d.value)}>
-            <option value="">Sin vincular</option>
-            {students.map((s) => (
-              <option key={s.id} value={s.id}>{s.fullName}</option>
-            ))}
-          </Select>
-        </FormField>
+        <FieldRow>
+          <FormField label="Vincular a docente (rol Docente)">
+            <Select value={formTeacher} onChange={(_, d) => setFormTeacher(d.value)}>
+              <option value="">Sin vincular</option>
+              {teachers.map((t) => (
+                <option key={t.id} value={t.id}>{t.fullName}</option>
+              ))}
+            </Select>
+          </FormField>
+          <FormField label="Vincular a estudiante (rol Estudiante)">
+            <Select value={formStudent} onChange={(_, d) => setFormStudent(d.value)}>
+              <option value="">Sin vincular</option>
+              {students.map((s) => (
+                <option key={s.id} value={s.id}>{s.fullName}</option>
+              ))}
+            </Select>
+          </FormField>
+        </FieldRow>
         <Text size={200} block style={{ color: 'var(--texto-suave)' }}>
-          <LinkSquareRegular /> Los roles se guardan en la lista <code>ARC_Users</code> de SharePoint y se aplican en el próximo inicio de sesión del usuario. Los docentes cuyo correo coincide con su ficha en “Personas” reciben el rol Docente automáticamente; los tutores registrados reciben el rol Padre / Tutor.
+          <LinkSquareRegular /> Al desmarcar Docente o Estudiante se elimina también su vinculación. Los cambios se aplican de inmediato y en el próximo inicio de sesión del usuario.
         </Text>
       </ModalForm>
     </div>

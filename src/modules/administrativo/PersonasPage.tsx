@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Button, Input, Select, Tab, TabList, Text, makeStyles, useToastController } from '@fluentui/react-components'
+import { Input, Select, Tab, TabList, Text, makeStyles, useToastController } from '@fluentui/react-components'
 import { PageHeader } from '../../components/shared/PageHeader'
 import { EntityCrud, type CrudColumn } from '../../components/shared/EntityCrud'
 import { FormField, FieldRow } from '../../components/shared/form'
@@ -10,6 +10,7 @@ import { useCollection } from '../../hooks/useCollection'
 import type { Student, StudentGuardian, Teacher } from '../../types'
 import { genId } from '../../utils/helpers'
 import { EntraUserPicker } from '../../components/shared/EntraUserPicker'
+import { MultiSelect } from '../../components/shared/MultiSelect'
 import { entraEmail, getDirectoryUsers, linkUserRole, syncTeacherAssignments, unlinkUserRole } from '../../services/userLinks'
 import { graphErrorMessage } from '../../services/graph'
 
@@ -182,7 +183,7 @@ export function PersonasPage() {
               <EntraUserPicker
                 value={s.userId}
                 takenIds={takenStudentUsers}
-                onChange={(u) => set({ ...s, userId: u?.id, email: u ? entraEmail(u) : '', fullName: s.fullName || (u?.displayName ?? '') })}
+                onChange={(u) => set({ ...s, userId: u?.id, email: u ? entraEmail(u) : '', fullName: u?.displayName ?? s.fullName })}
                 hint="Obligatorio. La cuenta recibirá el rol Estudiante y verá su Campus Virtual."
               />
               <FieldRow>
@@ -237,52 +238,28 @@ export function PersonasPage() {
               <EntraUserPicker
                 value={t.userId}
                 takenIds={takenTeacherUsers}
-                onChange={(u) => set({ ...t, userId: u?.id, email: u ? entraEmail(u) : '', fullName: t.fullName || (u?.displayName ?? '') })}
+                onChange={(u) => set({ ...t, userId: u?.id, email: u ? entraEmail(u) : '', fullName: u?.displayName ?? t.fullName })}
                 hint="Obligatorio. La cuenta recibirá el rol Docente; el correo institucional se toma de la cuenta."
               />
               <Text size={200} block style={{ color: 'var(--texto-suave)', margin: '4px 0 10px' }}>
                 Marque las asignaturas y los grados: al guardar se crean automáticamente las asignaciones (grado × asignatura) del período escolar activo.
               </Text>
-              <FormField label="Asignaturas que imparte">
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                  {subjects.map((sub) => (
-                    <Button
-                      key={sub.id}
-                      size="small"
-                      appearance={t.subjects.includes(sub.id) ? 'primary' : 'secondary'}
-                      onClick={() =>
-                        set({
-                          ...t,
-                          subjects: t.subjects.includes(sub.id)
-                            ? t.subjects.filter((x) => x !== sub.id)
-                            : [...t.subjects, sub.id],
-                        })
-                      }
-                    >
-                      {sub.name}
-                    </Button>
-                  ))}
-                </div>
-              </FormField>
-              <FormField label="Grados a su cargo">
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                  {grades.map((g) => (
-                    <Button
-                      key={g.id}
-                      size="small"
-                      appearance={t.grades.includes(g.id) ? 'primary' : 'secondary'}
-                      onClick={() =>
-                        set({
-                          ...t,
-                          grades: t.grades.includes(g.id) ? t.grades.filter((x) => x !== g.id) : [...t.grades, g.id],
-                        })
-                      }
-                    >
-                      {g.name}
-                    </Button>
-                  ))}
-                </div>
-              </FormField>
+              <MultiSelect
+                label="Asignaturas que imparte"
+                placeholder="Filtrar asignaturas…"
+                options={subjects.map((sub) => ({ id: sub.id, label: sub.name, detail: sub.shortName }))}
+                selected={t.subjects}
+                onChange={(ids) => set({ ...t, subjects: ids })}
+                emptyMessage="Cree las asignaturas en Catálogos."
+              />
+              <MultiSelect
+                label="Grados y cursos a su cargo"
+                placeholder="Filtrar cursos…"
+                options={grades.map((g) => ({ id: g.id, label: g.name, detail: g.level }))}
+                selected={t.grades}
+                onChange={(ids) => set({ ...t, grades: ids })}
+                emptyMessage="Cree los cursos en Catálogos."
+              />
             </div>
           )}
           onSave={saveTeacher}
@@ -322,7 +299,7 @@ export function PersonasPage() {
               </FieldRow>
               <EntraUserPicker
                 value={g.userId}
-                onChange={(u) => set({ ...g, userId: u?.id, email: u ? entraEmail(u) : '', fullName: g.fullName || (u?.displayName ?? '') })}
+                onChange={(u) => set({ ...g, userId: u?.id, email: u ? entraEmail(u) : '', fullName: u?.displayName ?? g.fullName })}
                 hint="Obligatorio. La cuenta recibirá el rol Padre / Tutor. Un mismo tutor puede vincularse a varios hijos."
               />
               <FormField label="Teléfono">

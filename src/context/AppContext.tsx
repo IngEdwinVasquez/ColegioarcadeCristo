@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useIsAuthenticated } from '@azure/msal-react'
-import type { GradeSection, Period, Student, StudentGuardian, Subject, Teacher, User } from '../types'
-import type { Role } from '../types/roles'
+import type { GradeSection, Period, RoleMeta, Student, StudentGuardian, Subject, Teacher, User } from '../types'
+import { ROLE_LABELS, expandPortalRoles, type Role } from '../types/roles'
 import { dataService } from '../services/dataService'
 import { signIn as msalSignIn, signOut as msalSignOut } from '../services/msal'
 import { getMyProfile, getMyPhoto } from '../services/entraUsers'
@@ -21,12 +21,13 @@ interface Catalogs {
   students: Student[]
   guardians: StudentGuardian[]
   users: User[]
+  roleMeta: RoleMeta[]
 }
 
-const EMPTY: Catalogs = { subjects: [], grades: [], periods: [], teachers: [], students: [], guardians: [], users: [] }
+const EMPTY: Catalogs = { subjects: [], grades: [], periods: [], teachers: [], students: [], guardians: [], users: [], roleMeta: [] }
 
 async function loadCatalogs(): Promise<Catalogs> {
-  const [subjects, grades, periods, teachers, students, guardians, users] = await Promise.all([
+  const [subjects, grades, periods, teachers, students, guardians, users, roleMeta] = await Promise.all([
     dataService.getSubjects(),
     dataService.getGrades(),
     dataService.getPeriods(),
@@ -34,8 +35,9 @@ async function loadCatalogs(): Promise<Catalogs> {
     dataService.getStudents(),
     dataService.getGuardians(),
     dataService.getUsers(),
+    dataService.getRoleMeta(),
   ])
-  return { subjects, grades, periods, teachers, students, guardians, users }
+  return { subjects, grades, periods, teachers, students, guardians, users, roleMeta }
 }
 
 const sameEmail = (a?: string | null, b?: string | null) => !!a && !!b && a.trim().toLowerCase() === b.trim().toLowerCase()
@@ -49,29 +51,30 @@ const sameEmail = (a?: string | null, b?: string | null) => !!a && !!b && a.trim
  */
 function resolveUser(profile: { id: string; displayName: string; email: string; jobTitle?: string }, catalogs: Catalogs): { user: User; isNew: boolean; changed: boolean } {
   const existing = catalogs.users.find((u) => u.id === profile.id) ?? catalogs.users.find((u) => sameEmail(u.email, profile.email))
-  const roles = new Set<Role>(existing?.roles ?? [])
-  let teacherId = existing?.teacherId
-  let studentId = existing?.studentId
-
-  // Superadministradores (VITE_ADMIN_EMAILS): acceso a los cuatro portales.
-  if (appConfig.m365.adminEmails.includes(profile.email)) {
-    for (const r of ['admin', 'docente', 'estudiante', 'padre', 'psicologia', 'tecnologia'] as Role[]) roles.add(r)
-  }
-
+  // Los roles guardados en ARC_Users son la fuente de verdad: si Tecnología
+  // desmarca un rol, no se vuelve a inferir en el siguiente inicio de sesión.
+  const roles = new Set<string>(existing?.roles ?? [])
   const teacher = catalogs.teachers.find((t) => t.userId === profile.id) ?? catalogs.teachers.find((t) => sameEmail(t.email, profile.email))
-  if (teacher) {
-    roles.add('docente')
-    teacherId = teacher.id
-  }
   const student = catalogs.students.find((st) => st.userId === profile.id) ?? catalogs.students.find((st) => sameEmail(st.email, profile.email))
-  if (student) studentId = student.id
-  if (studentId) roles.add('estudiante')
-  if (catalogs.guardians.some((g) => g.userId === profile.id || sameEmail(g.email, profile.email))) roles.add('padre')
+  const teacherId = teacher?.id ?? existing?.teacherId
+  const studentId = student?.id ?? existing?.studentId
+
+  if (!existing) {
+    // Primer inicio de sesión: se infiere el rol desde las fichas registradas.
+    if (teacher) roles.add('docente')
+    if (studentId) roles.add('estudiante')
+    if (catalogs.guardians.some((g) => g.userId === profile.id || sameEmail(g.email, profile.email))) roles.add('padre')
+  }
+
+  // Superadministradores (VITE_ADMIN_EMAILS): acceso a todos los portales.
+  if (appConfig.m365.adminEmails.includes(profile.email)) {
+    for (const r of Object.keys(ROLE_LABELS) as Role[]) roles.add(r)
+  }
 
   const bootstrap = catalogs.users.length === 0 && roles.size === 0
   if (bootstrap) roles.add('admin')
 
-  const nextRoles = [...roles]
+  const nextRoles = [...roles] as Role[]
   const user: User = {
     id: profile.id,
     displayName: profile.displayName,
@@ -190,7 +193,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         sessionStorage.removeItem(ROLE_KEY)
         setRoleState(null)
       }
-      setAuthState(resolved.user.roles.length > 0 ? 'ready' : 'no-access')
+      setAuthState(expandPortalRoles(resolved.user.roles, loaded.roleMeta).length > 0 ? 'ready' : 'no-access')
     }
 
     bootstrap().catch((error: unknown) => {
@@ -232,6 +235,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
     sessionStorage.setItem(ROLE_KEY, nextRole)
   }, [])
 
+  const effectiveRoles = useMemo(() => expandPortalRoles(user?.roles ?? [], catalogs.roleMeta), [user, catalogs.roleMeta])
+
+  const roleLabel = useCallback(
+    (roleId: string) => {
+      const meta = catalogs.roleMeta.find((m) => m.id === roleId)
+      if (meta?.label) return meta.label
+      return (ROLE_LABELS as Record<string, string>)[roleId] ?? roleId
+    },
+    [catalogs.roleMeta],
+  )
+
   const lookup = useMemo(
     () => ({
       subjectById: (id?: string) => catalogs.subjects.find((s) => s.id === id),
@@ -254,6 +268,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     logout,
     retry,
     ...catalogs,
+    effectiveRoles,
+    roleLabel,
     refreshCatalogs,
     ...lookup,
   }
