@@ -4,10 +4,13 @@ import './index.css'
 import App from './App.tsx'
 import { initMsal } from './services/msal'
 import { dataService } from './services/dataService'
+import { graphGetAll, graphRequest } from './services/graph'
+import { getTeamRoster, classifyDirectory } from './services/importM365'
+import { listTenantTeams, resolveTeamUrl } from './services/teamsEdu'
 
 if (import.meta.env.DEV) {
   // Gancho de desarrollo para pruebas desde la consola del navegador (no se incluye en producción).
-  ;(window as unknown as { __arca?: unknown }).__arca = { dataService }
+  ;(window as unknown as { __arca?: unknown }).__arca = { dataService, graphGetAll, graphRequest, getTeamRoster, classifyDirectory, listTenantTeams, resolveTeamUrl }
 }
 
 const root = createRoot(document.getElementById('root')!)

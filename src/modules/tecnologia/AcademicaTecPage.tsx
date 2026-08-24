@@ -20,11 +20,18 @@ const useStyles = makeStyles({
 
 /** Deduce el nivel educativo a partir del nombre del curso o del equipo. */
 export function detectLevel(name: string): string | null {
-  const n = name.toLowerCase()
-  if (/(inicial|kinder|kínder|pre\s*-?\s*primar|preescolar|maternal|nido)/.test(n)) return 'Nivel Inicial'
-  if (/(secundaria|secundario|bachiller|media\b)/.test(n)) return 'Nivel Secundario'
-  if (/(primaria|primario)/.test(n)) return 'Nivel Primario'
+  const n = ` ${name.toLowerCase()} `
+  if (/(inicial|kinder|kínder|pre\s*-?\s*primar|preescolar|maternal|nido|kids)/.test(n)) return 'Nivel Inicial'
+  // "Secundaria", "1roSec.", "2do Sec", "media", "bachillerato", "liceo"
+  if (/(secundaria|secundario|bachiller|liceo|\bmedia\b|sec\.|\bsec\b|\dro?\.?\s*sec)/.test(n)) return 'Nivel Secundario'
+  if (/(primaria|primario|b[aá]sica)/.test(n)) return 'Nivel Primario'
   return null
+}
+
+const LEVEL_SHORT: Record<string, string> = {
+  'Nivel Inicial': 'Inicial',
+  'Nivel Primario': 'Primaria',
+  'Nivel Secundario': 'Secundaria',
 }
 
 /**
@@ -92,6 +99,17 @@ export function AcademicaTecPage() {
   }
 
   const linkedTeamIds = gradesCol.items.map((g) => g.teamId ?? '').filter(Boolean)
+
+  /** Nivel detectado por equipo, para mostrarlo y para el resumen del asistente. */
+  const levelSummary = (() => {
+    const counts = { 'Nivel Inicial': 0, 'Nivel Primario': 0, 'Nivel Secundario': 0, sin: 0 }
+    for (const t of teams ?? []) {
+      const lvl = detectLevel(t.displayName)
+      if (lvl) counts[lvl as keyof typeof counts]++
+      else counts.sin++
+    }
+    return counts
+  })()
 
   const studentCount = (gradeId: string) => {
     const byEnrollment = enrollments.filter((e) => e.gradeId === gradeId).map((e) => e.studentId)
@@ -232,10 +250,24 @@ export function AcademicaTecPage() {
           <Spinner label="Leyendo equipos de Microsoft Teams…" />
         ) : (
           <div>
+            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '8px' }}>
+              <Badge appearance="filled" style={{ background: '#9A9C2E', color: '#fff' }}>Inicial: {levelSummary['Nivel Inicial']}</Badge>
+              <Badge appearance="filled" style={{ background: '#0095C8', color: '#fff' }}>Primaria: {levelSummary['Nivel Primario']}</Badge>
+              <Badge appearance="filled" style={{ background: '#7D1D24', color: '#fff' }}>Secundaria: {levelSummary['Nivel Secundario']}</Badge>
+              <Badge appearance="filled" style={{ background: '#475569', color: '#fff' }}>Sin detectar: {levelSummary.sin}</Badge>
+            </div>
             <MultiSelect
               label={`Equipos disponibles (${teams.length})`}
-              placeholder="Filtrar equipos…"
-              options={teams.map((t) => ({ id: t.id, label: t.displayName, detail: linkedTeamIds.includes(t.id) ? 'ya vinculado' : t.description?.slice(0, 60) }))}
+              placeholder="Filtrar equipos… (p. ej. primaria, secundaria, inicial)"
+              options={teams.map((t) => {
+                const lvl = detectLevel(t.displayName)
+                const marca = lvl ? LEVEL_SHORT[lvl] : '¿nivel?'
+                return {
+                  id: t.id,
+                  label: t.displayName,
+                  detail: linkedTeamIds.includes(t.id) ? 'ya vinculado' : `${marca}${t.description ? ' · ' + t.description.slice(0, 40) : ''}`,
+                }
+              })}
               selected={importSel}
               onChange={(ids) => setImportSel(ids.filter((id) => !linkedTeamIds.includes(id)))}
               emptyMessage="No se encontraron equipos de Teams. Verifique los permisos Team.ReadBasic.All / Directory.Read.All."
