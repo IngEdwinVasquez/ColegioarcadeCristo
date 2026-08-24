@@ -3,12 +3,14 @@
 # (GitHub → Settings → Secrets and variables → Actions → New repository secret).
 name: Azure Static Web Apps CI/CD
 
+# Flujo de ramas: dev → qa → produccion (sin saltar pasos).
+# qa se publica en un entorno con nombre propio de Static Web Apps; produccion, en el entorno principal.
 on:
   push:
-    branches: [main, produccion]
+    branches: [main, produccion, qa]
   pull_request:
     types: [opened, synchronize, reopened, closed]
-    branches: [main, produccion]
+    branches: [main, produccion, qa]
   workflow_dispatch:
 
 permissions:
@@ -54,6 +56,8 @@ jobs:
           app_location: dist
           skip_app_build: true
           skip_api_build: true
+          # La rama qa se despliega a un entorno separado (URL propia); produccion/main al entorno principal.
+          deployment_environment: ${{ github.ref_name == 'qa' && 'qa' || '' }}
 
   close_pull_request:
     if: github.event_name == 'pull_request' && github.event.action == 'closed'
