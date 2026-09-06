@@ -4,6 +4,7 @@ import { SparkleRegular, ArrowLeftRegular } from '@fluentui/react-icons'
 import { ModalForm } from '../../components/shared/ModalForm'
 import { FormField, FieldRow } from '../../components/shared/form'
 import { useApp } from '../../context/useApp'
+import { isAdminEmail } from '../../config/appConfig'
 import { generatePlanWithAi } from '../../services/planningPrompts'
 import { isAiConfigured, AiServiceError } from '../../services/ai'
 import { genId, todayIso } from '../../utils/helpers'
@@ -38,6 +39,7 @@ interface AsistenteIAProps {
 export function AsistenteIA({ open, onOpenChange, onGenerated }: AsistenteIAProps) {
   const styles = useStyles()
   const { user, teachers, subjects, grades, subjectById, gradeById } = useApp()
+  const isSuperadmin = isAdminEmail(user?.email)
 
   const teacherId = user?.teacherId ?? teachers[0]?.id ?? ''
   const [subjectId, setSubjectId] = useState(subjects[0]?.id ?? '')
@@ -146,7 +148,7 @@ export function AsistenteIA({ open, onOpenChange, onGenerated }: AsistenteIAProp
         <Button appearance="secondary" icon={<ArrowLeftRegular />} onClick={() => onOpenChange(false)}>
           Cancelar
         </Button>
-        <Button appearance="primary" icon={loading ? undefined : <SparkleRegular />} onClick={() => void generar()} disabled={loading || !configured}>
+        <Button appearance="primary" icon={loading ? undefined : <SparkleRegular />} onClick={() => void generar()} disabled={loading || !configured || !isSuperadmin}>
           {loading ? <><Spinner size="tiny" style={{ marginRight: '8px' }} /> Generando…</> : 'Generar planificación'}
         </Button>
       </div>

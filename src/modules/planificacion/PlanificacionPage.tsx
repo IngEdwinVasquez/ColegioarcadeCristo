@@ -6,6 +6,7 @@ import { StatusBadge } from '../../components/shared/StatusBadge'
 import { EmptyStateView } from '../../components/shared/EmptyStateView'
 import { ModalForm } from '../../components/shared/ModalForm'
 import { useApp } from '../../context/useApp'
+import { isAdminEmail } from '../../config/appConfig'
 import { dataService } from '../../services/dataService'
 import { useCollection } from '../../hooks/useCollection'
 import { PlanDiarioForm } from './PlanDiarioForm'
@@ -23,6 +24,7 @@ const useStyles = makeStyles({
 export function PlanificacionPage() {
   const styles = useStyles()
   const { user, subjects, grades, subjectById, gradeById, role } = useApp()
+  const isSuperadmin = isAdminEmail(user?.email)
 
   const plansCol = useCollection<DailyPlan>(dataService.getDailyPlans, dataService.saveDailyPlan, dataService.deleteDailyPlan)
 
@@ -83,9 +85,11 @@ export function PlanificacionPage() {
         subtitle="Planificaciones académicas (diarias y de unidad) con la estructura del diseño curricular del MINERD: competencias, ejes transversales, contenidos, actividades e indicadores de logro."
         actions={
           <>
-            <Button appearance="secondary" icon={<SparkleRegular />} onClick={() => setAsistenteOpen(true)}>
-              Generar con IA
-            </Button>
+            {isSuperadmin && (
+              <Button appearance="secondary" icon={<SparkleRegular />} onClick={() => setAsistenteOpen(true)}>
+                Generar con IA
+              </Button>
+            )}
             <Button appearance="primary" icon={<AddRegular />} onClick={openNew}>
               Nueva planificación
             </Button>
