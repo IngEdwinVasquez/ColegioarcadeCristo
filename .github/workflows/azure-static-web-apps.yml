@@ -46,6 +46,8 @@ jobs:
           VITE_ADMIN_EMAILS: ${{ vars.VITE_ADMIN_EMAILS }}
           VITE_POWER_AUTOMATE_MAIL_URL: ${{ vars.VITE_POWER_AUTOMATE_MAIL_URL }}
           VITE_COPILOT_EMBED_URL: ${{ vars.VITE_COPILOT_EMBED_URL }}
+          VITE_AI_PROVIDER: ${{ vars.VITE_AI_PROVIDER || 'proxy' }}
+          VITE_AI_API_URL: ${{ vars.VITE_AI_API_URL || 'https://arca-ai-proxy-09061258.azurewebsites.net/api/ai' }}
 
       - name: Deploy a Azure Static Web Apps
         uses: Azure/static-web-apps-deploy@v1

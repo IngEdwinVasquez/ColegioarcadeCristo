@@ -1,0 +1,200 @@
+import { useMemo, useState } from 'react'
+import { Button, Input, Select, Table, TableBody, TableCell, TableHeader, TableHeaderCell, TableRow, Text, Toolbar, ToolbarButton, makeStyles, tokens } from '@fluentui/react-components'
+import { AddRegular, SparkleRegular, OpenRegular, DeleteRegular, SearchRegular, DocumentRegular, PrintRegular, CalendarLtrRegular } from '@fluentui/react-icons'
+import { PageHeader } from '../../components/shared/PageHeader'
+import { StatusBadge } from '../../components/shared/StatusBadge'
+import { EmptyStateView } from '../../components/shared/EmptyStateView'
+import { ModalForm } from '../../components/shared/ModalForm'
+import { useApp } from '../../context/useApp'
+import { dataService } from '../../services/dataService'
+import { useCollection } from '../../hooks/useCollection'
+import { PlanDiarioForm } from './PlanDiarioForm'
+import { AsistenteIA } from './AsistenteIA'
+import { exportPlanWord, printPlan } from './exportPlan'
+import type { DailyPlan } from '../../types'
+import { formatDate } from '../../utils/helpers'
+
+const useStyles = makeStyles({
+  toolbar: { marginBottom: '16px', gap: '12px', flexWrap: 'wrap' },
+  filterRow: { display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center', marginBottom: '16px' },
+  cell: { verticalAlign: 'middle' },
+})
+
+export function PlanificacionPage() {
+  const styles = useStyles()
+  const { user, subjects, grades, subjectById, gradeById, role } = useApp()
+
+  const plansCol = useCollection<DailyPlan>(dataService.getDailyPlans, dataService.saveDailyPlan, dataService.deleteDailyPlan)
+
+  const [subjectFilter, setSubjectFilter] = useState('')
+  const [gradeFilter, setGradeFilter] = useState('')
+  const [tipoFilter, setTipoFilter] = useState('')
+  const [search, setSearch] = useState('')
+  const [formOpen, setFormOpen] = useState(false)
+  const [asistenteOpen, setAsistenteOpen] = useState(false)
+  const [editing, setEditing] = useState<DailyPlan | null>(null)
+
+  const isStaff = role === 'admin' || role === 'psicologia' || role === 'tecnologia'
+
+  const myPlans = useMemo(() => {
+    const items = plansCol.items
+    if (isStaff && !user?.teacherId) return items
+    return items.filter((p) => p.teacherId === user?.teacherId)
+  }, [plansCol.items, user?.teacherId, isStaff])
+
+  const filtered = useMemo(() => {
+    return myPlans
+      .filter((p) => !subjectFilter || p.subjectId === subjectFilter)
+      .filter((p) => !gradeFilter || p.gradeId === gradeFilter)
+      .filter((p) => !tipoFilter || p.tipo === tipoFilter)
+      .filter((p) => !search || p.tema.toLowerCase().includes(search.toLowerCase()) || p.unidad.toLowerCase().includes(search.toLowerCase()))
+      .sort((a, b) => (a.fecha < b.fecha ? 1 : -1))
+  }, [myPlans, subjectFilter, gradeFilter, tipoFilter, search])
+
+  const openNew = () => {
+    setEditing(null)
+    setFormOpen(true)
+  }
+  const openEdit = (plan: DailyPlan) => {
+    setEditing(plan)
+    setFormOpen(true)
+  }
+  const handleAiGenerated = (plan: DailyPlan) => {
+    setEditing(plan)
+    setFormOpen(true)
+  }
+  const handleSave = async (plan: DailyPlan) => {
+    await plansCol.save(plan)
+    setFormOpen(false)
+  }
+  const handleDelete = async (plan: DailyPlan) => {
+    if (!window.confirm('¿Desea eliminar esta planificación?')) return
+    try {
+      await plansCol.remove(plan.id)
+    } catch {
+      /* error mostrado por el hook */
+    }
+  }
+
+  return (
+    <div>
+      <PageHeader
+        title="Planificaciones"
+        subtitle="Planificaciones académicas (diarias y de unidad) con la estructura del diseño curricular del MINERD: competencias, ejes transversales, contenidos, actividades e indicadores de logro."
+        actions={
+          <>
+            <Button appearance="secondary" icon={<SparkleRegular />} onClick={() => setAsistenteOpen(true)}>
+              Generar con IA
+            </Button>
+            <Button appearance="primary" icon={<AddRegular />} onClick={openNew}>
+              Nueva planificación
+            </Button>
+          </>
+        }
+      />
+
+      <div className={styles.filterRow}>
+        <Select value={subjectFilter} onChange={(_, d) => setSubjectFilter(d.value)} style={{ minWidth: '180px' }}>
+          <option value="">Todas las asignaturas</option>
+          {subjects.map((s) => (
+            <option key={s.id} value={s.id}>{s.name}</option>
+          ))}
+        </Select>
+        <Select value={gradeFilter} onChange={(_, d) => setGradeFilter(d.value)} style={{ minWidth: '150px' }}>
+          <option value="">Todos los grados</option>
+          {grades.map((g) => (
+            <option key={g.id} value={g.id}>{g.name}</option>
+          ))}
+        </Select>
+        <Select value={tipoFilter} onChange={(_, d) => setTipoFilter(d.value)} style={{ minWidth: '150px' }}>
+          <option value="">Diarias y unidades</option>
+          <option value="diaria">Solo diarias</option>
+          <option value="unidad">Solo unidades</option>
+        </Select>
+        <Input
+          placeholder="Buscar por tema o unidad…"
+          value={search}
+          onChange={(_, d) => setSearch(d.value)}
+          contentBefore={<SearchRegular />}
+          style={{ minWidth: '220px', flex: 1 }}
+        />
+      </div>
+
+      <Table aria-label="Planificaciones">
+        <TableHeader>
+          <TableRow>
+            <TableHeaderCell>Tipo</TableHeaderCell>
+            <TableHeaderCell>Fecha</TableHeaderCell>
+            <TableHeaderCell>Asignatura</TableHeaderCell>
+            <TableHeaderCell>Grado</TableHeaderCell>
+            <TableHeaderCell>Tema</TableHeaderCell>
+            <TableHeaderCell>IA</TableHeaderCell>
+            <TableHeaderCell>Acciones</TableHeaderCell>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {filtered.map((plan) => (
+            <TableRow key={plan.id}>
+              <TableCell className={styles.cell}>
+                <StatusBadge status={plan.tipo === 'unidad' ? 'activo' : 'planificada'}>{plan.tipo === 'unidad' ? 'Unidad' : 'Diaria'}</StatusBadge>
+              </TableCell>
+              <TableCell className={styles.cell}>
+                <Text size={300} weight="semibold" block>{formatDate(plan.fecha)}</Text>
+                <Text size={200} block style={{ color: tokens.colorNeutralForeground2 }}>{plan.duracion}</Text>
+              </TableCell>
+              <TableCell className={styles.cell}>
+                <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: subjectById(plan.subjectId)?.color ?? '#999' }} />
+                  {subjectById(plan.subjectId)?.name ?? plan.subjectId}
+                </span>
+              </TableCell>
+              <TableCell className={styles.cell}>
+                {gradeById(plan.gradeId)?.name ?? plan.gradeId}{plan.section ? ` ${plan.section}` : ''}
+              </TableCell>
+              <TableCell className={styles.cell}>{plan.tema}</TableCell>
+              <TableCell className={styles.cell}>{plan.generadoPorIA ? '✨' : '—'}</TableCell>
+              <TableCell className={styles.cell}>
+                <Toolbar size="small" style={{ gap: '4px' }}>
+                  <ToolbarButton icon={<OpenRegular />} onClick={() => openEdit(plan)}>Editar</ToolbarButton>
+                  <ToolbarButton icon={<DocumentRegular />} onClick={() => exportPlanWord(plan, subjectById(plan.subjectId)?.name ?? '', gradeById(plan.gradeId)?.name ?? '')}>Word</ToolbarButton>
+                  <ToolbarButton icon={<PrintRegular />} onClick={() => printPlan(plan, subjectById(plan.subjectId)?.name ?? '', gradeById(plan.gradeId)?.name ?? '')}>PDF</ToolbarButton>
+                  <ToolbarButton icon={<DeleteRegular />} onClick={() => void handleDelete(plan)}>Eliminar</ToolbarButton>
+                </Toolbar>
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+
+      {!plansCol.loading && filtered.length === 0 && (
+        <EmptyStateView
+          title="No hay planificaciones"
+          message="Cree una planificación manualmente o genere una con el asistente de IA."
+          icon={<CalendarLtrRegular />}
+          action={
+            <Button appearance="primary" icon={<AddRegular />} onClick={openNew}>
+              Crear planificación
+            </Button>
+          }
+        />
+      )}
+
+      <ModalForm
+        open={formOpen}
+        onOpenChange={setFormOpen}
+        title={editing ? 'Editar planificación' : 'Nueva planificación'}
+        subtitle="Estructura del diseño curricular del MINERD"
+        width={820}
+      >
+        <PlanDiarioForm
+          initial={editing}
+          submitting={plansCol.saving}
+          onSave={(plan) => void handleSave(plan)}
+          onCancel={() => setFormOpen(false)}
+        />
+      </ModalForm>
+
+      <AsistenteIA open={asistenteOpen} onOpenChange={setAsistenteOpen} onGenerated={handleAiGenerated} />
+    </div>
+  )
+}

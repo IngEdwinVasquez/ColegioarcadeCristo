@@ -1,0 +1,7 @@
+.funcignore
+.git
+.gitignore
+.vscode
+local.settings.json
+local.settings.json.example
+*.log
