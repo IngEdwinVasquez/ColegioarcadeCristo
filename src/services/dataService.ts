@@ -7,6 +7,7 @@ import type {
   AttendanceRecord,
   ChatMessage,
   ClassPlan,
+  DailyPlan,
   DocumentRequest,
   DocumentType,
   Enrollment,
@@ -22,6 +23,7 @@ import type {
   Subject,
   Teacher,
   TeacherAssignment,
+  TeacherGradeConfig,
   User,
   VirtualMeeting,
 } from '../types'
@@ -57,6 +59,8 @@ export const collections = {
   grades: collection<GradeSection>(SPO_LISTS.grades),
   periods: collection<Period>(SPO_LISTS.periods),
   classPlans: collection<ClassPlan>(SPO_LISTS.classPlans),
+  dailyPlans: collection<DailyPlan>(SPO_LISTS.dailyPlans),
+  teacherConfig: collection<TeacherGradeConfig>(SPO_LISTS.teacherConfig),
   classes: collection<SchoolClassRecord>(SPO_LISTS.classes),
   attendance: collection<AttendanceRecord>(SPO_LISTS.attendance),
   activities: collection<Activity>(SPO_LISTS.activities),
@@ -101,6 +105,14 @@ export const dataService = {
   getClassPlans: collections.classPlans.getAll,
   saveClassPlan: collections.classPlans.save,
   deleteClassPlan: collections.classPlans.remove,
+  // Planificación académica (diaria / unidad, estructura MINERD)
+  getDailyPlans: collections.dailyPlans.getAll,
+  saveDailyPlan: collections.dailyPlans.save,
+  deleteDailyPlan: collections.dailyPlans.remove,
+  // Configuración de grados y secciones del docente
+  getTeacherConfigs: collections.teacherConfig.getAll,
+  saveTeacherConfig: collections.teacherConfig.save,
+  deleteTeacherConfig: collections.teacherConfig.remove,
   // Repositorio de clases
   getClasses: collections.classes.getAll,
   saveClassRecord: collections.classes.save,

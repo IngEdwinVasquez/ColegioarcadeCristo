@@ -81,6 +81,73 @@ export interface ClassPlan {
 
 export type ClassPhaseStatus = 'programada' | 'en_progreso' | 'completada' | 'cancelada'
 
+// ------------------------------ Planificación (MINERD) ------------------------------
+
+export type PlanTipo = 'diaria' | 'unidad'
+
+export interface PlanContenidos {
+  conceptuales: string
+  procedimentales: string
+  actitudinales: string
+}
+
+export interface PlanActividades {
+  inicio: string
+  desarrollo: string
+  cierre: string
+}
+
+export interface PlanEvaluacion {
+  tipo: string
+  instrumento: string
+  criterios: string
+}
+
+/**
+ * Planificación académica (diaria o de unidad) con la estructura del diseño
+ * curricular del MINERD (República Dominicana): competencias, ejes
+ * transversales, contenidos, actividades e indicadores de logro.
+ */
+export interface DailyPlan {
+  id: string
+  teacherId: string
+  subjectId: string
+  gradeId: string
+  section: string
+  tipo: PlanTipo
+  nivel: string
+  unidad: string
+  tema: string
+  fecha: string
+  duracion: string
+  competenciasFundamentales: string[]
+  competenciasEspecificas: string[]
+  ejesTransversales: string[]
+  contenidos: PlanContenidos
+  actividades: PlanActividades
+  estrategias: string[]
+  recursos: string[]
+  indicadoresLogro: string[]
+  evaluacion: PlanEvaluacion
+  generadoPorIA: boolean
+  createdAt: string
+  updatedAt?: string
+}
+
+/**
+ * Configuración de grados y secciones del docente: la matriz grados × secciones
+ * que imparte y el modo máster (sin restricción de grados, para coordinadores).
+ */
+export interface TeacherGradeConfig {
+  id: string
+  teacherId: string
+  /** Matriz grados × secciones: combinaciones (curso + sección) que imparte el docente. */
+  selection: Array<{ gradeId: string; section: string }>
+  /** Modo máster: ignora las restricciones de grados/secciones */
+  masterMode: boolean
+  updatedAt?: string
+}
+
 export interface ClassPlanSection {
   objectives: string
   content: string
