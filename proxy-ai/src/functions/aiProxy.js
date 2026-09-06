@@ -34,15 +34,18 @@ function allowRate(ip) {
 
 // ------------------------------------------------------------------ Validación del token de Entra ID
 // Delega la verificación de firma a Microsoft Graph: solo un token válido de un
-// usuario del tenant devuelve 200 en /me. No se usa ningún secreto del lado del cliente.
-async function tokenIsValid(token) {
+// usuario del tenant devuelve 200 en /me. Devuelve el correo del usuario o null.
+async function validateAndGetEmail(token) {
   try {
     const res = await fetch('https://graph.microsoft.com/v1.0/me', {
       headers: { Authorization: `Bearer ${token}` },
     })
-    return res.ok
+    if (!res.ok) return null
+    const data = await res.json()
+    const raw = typeof data?.mail === 'string' ? data.mail : data?.userPrincipalName
+    return typeof raw === 'string' ? raw.toLowerCase() : null
   } catch {
-    return false
+    return null
   }
 }
 
@@ -57,7 +60,14 @@ app.http('aiProxy', {
     const auth = request.headers.get('authorization') || ''
     const token = auth.startsWith('Bearer ') ? auth.slice(7).trim() : ''
     if (!token) return json(401, { error: 'Autenticación requerida (inicio de sesión de Microsoft 365).' })
-    if (!(await tokenIsValid(token))) return json(401, { error: 'Token inválido o sesión expirada. Vuelva a iniciar sesión.' })
+    const email = await validateAndGetEmail(token)
+    if (!email) return json(401, { error: 'Token inválido o sesión expirada. Vuelva a iniciar sesión.' })
+
+    // Solo los correos autorizados (superadministradores) pueden usar el asistente.
+    const admins = (process.env.AI_ADMIN_EMAILS || '').split(',').map((s) => s.trim().toLowerCase()).filter(Boolean)
+    if (admins.length > 0 && !admins.includes(email)) {
+      return json(403, { error: 'Sin permiso para usar el asistente de IA.' })
+    }
 
     const body = await request.json().catch(() => null)
     const messages = body?.messages
