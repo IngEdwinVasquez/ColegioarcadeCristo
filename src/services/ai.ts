@@ -1,4 +1,5 @@
 import { appConfig } from '../config/appConfig'
+import { acquireToken } from './msal'
 
 export interface AiMessage {
   role: 'system' | 'user' | 'assistant'
@@ -72,6 +73,16 @@ function extractContent(data: unknown): string {
   throw new AiServiceError('Respuesta de IA no reconocida. Revise la configuración del proveedor/proxy.')
 }
 
+/** Obtiene el token de Entra ID del usuario para autenticar la llamada al proxy. */
+async function authHeaders(): Promise<Record<string, string>> {
+  try {
+    const token = await acquireToken()
+    return { Authorization: `Bearer ${token}` }
+  } catch {
+    throw new AiServiceError('No se pudo autenticar con Microsoft 365. Vuelva a iniciar sesión.')
+  }
+}
+
 /**
  * Chat de IA multi-proveedor. En modo `proxy` (recomendado) envía los mensajes a un
  * desencadenador HTTP (Power Automate / Azure Function) y espera `{ content }` o una
@@ -83,7 +94,7 @@ export async function aiChat(messages: AiMessage[], options: AiChatOptions = {})
 
   if (provider === 'proxy') {
     if (!baseUrl) throw new AiServiceError('Falta VITE_AI_API_URL (URL del desencadenador HTTP del proxy de IA).')
-    const data = await postJson(baseUrl, { messages, options })
+    const data = await postJson(baseUrl, { messages, options }, await authHeaders())
     return extractContent(data)
   }
 
