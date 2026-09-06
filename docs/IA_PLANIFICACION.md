@@ -4,9 +4,22 @@ El módulo de planificación del **Portal de Docentes** incluye un asistente de 
 planificaciones académicas (diarias y de unidad) alineadas al diseño curricular del
 **MINERD** (República Dominicana).
 
+## Política de uso de la IA
+
+- **Usuarios finales (docentes, estudiantes, familias):** usan **Microsoft 365 Copilot** del
+  centro educativo (sección *Copilot* de cada portal).
+- **El asistente "Generar con IA" (DeepSeek) está restringido a los superadministradores**
+  (`VITE_ADMIN_EMAILS`): se reserva para el **desarrollo y mejora de la plataforma**, y solo
+  cuando no sea factible hacerlo con Copilot.
+
+> Microsoft 365 Copilot Chat no expone una API programática, por lo que el generador
+> estructurado de planificaciones (que devuelve un JSON para prellenar el formulario) se
+> apoya en DeepSeek a través del proxy. Esta es la herramienta de desarrollo/mejora, no el
+> asistente de los usuarios.
+
 ## Cómo funciona
 
-1. El docente abre **Planificaciones → Generar con IA**.
+1. Un superadministrador abre **Planificaciones → Generar con IA**.
 2. Selecciona **grado, asignatura, tema/unidad, tipo y duración**.
 3. La intranet envía los datos a un modelo de lenguaje con un *prompt de sistema*
    parametrizado con la estructura curricular dominicana.
@@ -37,6 +50,10 @@ navegador. **No coloque claves de API directamente en `VITE_AI_API_KEY` en produ
 El modo **`proxy`** (recomendado) es coherente con la arquitectura del proyecto: igual que el
 envío de correos usa un flujo de Power Automate, aquí se apunta a un **desencadenador HTTP**
 que guarda la clave del lado del servidor y reenvía la petición al modelo.
+
+El proxy exige **autenticación de Entra ID**: valida el token del usuario contra Microsoft
+Graph (`/me`) y solo permite los correos listados en `AI_ADMIN_EMAILS` (configuración del
+Function App). Además aplica límite de peticiones por IP y validación de entrada.
 
 > Guía completa paso a paso (Azure Function lista para desplegar + Power Automate):
 > **ver [IA_PROXY.md](IA_PROXY.md)**.
