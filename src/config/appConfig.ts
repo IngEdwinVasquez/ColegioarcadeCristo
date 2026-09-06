@@ -96,3 +96,9 @@ export const appConfig = {
 } as const
 
 export type AppConfig = typeof appConfig
+
+/** Indica si un correo pertenece a un superadministrador (VITE_ADMIN_EMAILS). */
+export function isAdminEmail(email?: string | null): boolean {
+  if (!email) return false
+  return appConfig.m365.adminEmails.includes(email.trim().toLowerCase())
+}
