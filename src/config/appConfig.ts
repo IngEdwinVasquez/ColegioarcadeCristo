@@ -83,6 +83,16 @@ export const appConfig = {
     embedUrl: ((env.VITE_COPILOT_EMBED_URL as string | undefined) ?? '').trim(),
     m365ChatUrl: 'https://m365.cloud.microsoft/chat',
   },
+  // Asistente de IA para generación de planificaciones (ver docs/IA_PLANIFICACION.md).
+  // `provider` puede ser: openai | deepseek | anthropic | azure | proxy.
+  // `proxy` (recomendado): apunta a un desencadenador HTTP de Power Automate / Azure
+  // Function que guarda la clave del lado del servidor (no se expone en el navegador).
+  ai: {
+    provider: ((env.VITE_AI_PROVIDER as string | undefined) ?? 'proxy').trim(),
+    baseUrl: ((env.VITE_AI_API_URL as string | undefined) ?? '').trim(),
+    apiKey: ((env.VITE_AI_API_KEY as string | undefined) ?? '').trim(),
+    model: ((env.VITE_AI_MODEL as string | undefined) ?? '').trim(),
+  },
 } as const
 
 export type AppConfig = typeof appConfig

@@ -14,6 +14,8 @@ export const SPO_LISTS = {
   grades: 'ARC_Grades',
   periods: 'ARC_Periods',
   classPlans: 'ARC_ClassPlans',
+  dailyPlans: 'ARC_DailyPlans',
+  teacherConfig: 'ARC_TeacherConfig',
   classes: 'ARC_Classes',
   attendance: 'ARC_Attendance',
   activities: 'ARC_Activities',
