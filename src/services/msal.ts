@@ -54,7 +54,12 @@ export async function acquireToken(): Promise<string> {
     const response = await msalInstance.acquireTokenSilent({ ...loginRequest, account })
     return response.accessToken
   } catch (error) {
-    if (error instanceof InteractionRequiredAuthError) {
+    const code = (error as { errorCode?: string })?.errorCode
+    // Si la renovación silenciosa falla (interacción requerida o el iframe
+    // silencioso expiró, p. ej. por bloqueo de cookies de terceros), se vuelve
+    // a autenticar con un redirect completo, que funciona con SSO sin cookies
+    // de terceros.
+    if (error instanceof InteractionRequiredAuthError || code === 'timed_out' || code === 'login_required' || code === 'consent_required') {
       await msalInstance.acquireTokenRedirect({ ...loginRequest, account })
       // acquireTokenRedirect navega fuera de la página; esta promesa no se resuelve.
       return new Promise<string>(() => {})
