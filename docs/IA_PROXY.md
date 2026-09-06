@@ -69,6 +69,7 @@ Opción **VS Code + extensión "Azure Functions"** (lo más cómodo):
    - `AI_API_KEY` = la clave del proveedor (se guarda del servidor, no en el navegador)
    - `AI_BASE_URL` = `https://api.deepseek.com` (o `https://api.openai.com/v1`)
    - `AI_MODEL` = `deepseek-chat` (o `gpt-4o-mini`, etc.)
+   - `AI_ADMIN_EMAILS` = correos autorizados, separados por coma (solo ellos pueden usar el asistente)
 5. En el Function App → **CORS**, agregue:
    - `http://localhost:5173` (desarrollo)
    - `https://<nombre>.azurestaticapps.net` (producción)
