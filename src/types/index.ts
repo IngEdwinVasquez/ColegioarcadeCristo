@@ -522,3 +522,20 @@ export interface Accompaniment {
   status: AccompanimentStatus
   createdAt: string
 }
+
+// ------------------------------ Personas (Coordinación / TIC) ------------------------------
+
+export type PersonaTipo = 'coordinador' | 'tic'
+
+/**
+ * Registro de una persona de staff de coordinación (pedagógica) o tecnología (TIC).
+ * El tipo determina el rol de Entra ID vinculado (coordinacion / tecnologia).
+ */
+export interface Persona {
+  id: string
+  fullName: string
+  email: string
+  userId?: string
+  tipo: PersonaTipo
+  createdAt: string
+}
