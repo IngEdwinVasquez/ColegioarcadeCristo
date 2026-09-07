@@ -1,12 +1,14 @@
-import { useMemo, type ReactNode } from 'react'
-import { Button, Card, Text, makeStyles, tokens } from '@fluentui/react-components'
+import { useMemo, useState, type ReactNode } from 'react'
+import { Button, Card, Select, Text, makeStyles, tokens } from '@fluentui/react-components'
 import { PrintRegular, DocumentRegular, PeopleRegular, PersonSupportRegular, HeartPulseRegular, PeopleCheckmarkRegular, DeveloperBoardRegular, CalendarLtrRegular } from '@fluentui/react-icons'
+import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RTooltip, Cell, Legend } from 'recharts'
 import { PageHeader } from '../../components/shared/PageHeader'
 import { StatCard } from '../../components/shared/StatCard'
 import { gradientes } from '../../theme'
 import { useApp } from '../../context/useApp'
 import { dataService } from '../../services/dataService'
 import { useCollection } from '../../hooks/useCollection'
+import type { CoordinationLevel } from '../../types'
 import type {
   Accompaniment,
   Activity,
@@ -22,6 +24,7 @@ import type {
 } from '../../types'
 
 const useStyles = makeStyles({
+  controls: { display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center', marginBottom: '20px' },
   kpis: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 220px), 1fr))', gap: '16px', marginBottom: '24px' },
   grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 380px), 1fr))', gap: '20px' },
   card: { padding: '22px', display: 'flex', flexDirection: 'column', gap: '12px' },
@@ -30,6 +33,7 @@ const useStyles = makeStyles({
   metric: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '7px 0', borderBottom: '1px solid var(--borde)' },
   metricLabel: { fontSize: '13px', color: 'var(--texto-suave)' },
   metricValue: { fontSize: '14px', fontWeight: 800, color: 'var(--azul-oscuro)' },
+  title: { fontWeight: 600, fontSize: '16px', marginBottom: '8px' },
   note: { fontSize: '12px', color: tokens.colorNeutralForeground2 },
 })
 
@@ -40,9 +44,17 @@ interface AreaData {
   metrics: Array<{ label: string; value: string }>
 }
 
+const LEVELS: Array<CoordinationLevel | 'Todos'> = ['Todos', 'Inicial', 'Primaria', 'Secundaria']
+
+const PERIODS = [
+  { value: 'all', label: 'Todo el período' },
+  { value: 'month', label: 'Este mes' },
+  { value: 'quarter', label: 'Este trimestre' },
+] as const
+
 export function InformesPage() {
   const styles = useStyles()
-  const { students, teachers, guardians, users } = useApp()
+  const { students, teachers, guardians, users, grades } = useApp()
 
   const plansCol = useCollection<ClassPlan>(dataService.getClassPlans)
   const dailyCol = useCollection<DailyPlan>(dataService.getDailyPlans)
@@ -56,43 +68,67 @@ export function InformesPage() {
   const psychCol = useCollection<PsychRequest>(dataService.getPsychRequests)
   const ticCol = useCollection<TicActivity>(dataService.getTicActivities)
 
-  const d = useMemo(() => {
-    const planificadas = plansCol.items.length
-    const impartidas = plansCol.items.filter((p) => p.status === 'impartida').length
-    const diarias = dailyCol.items.length
-    const clases = classesCol.items.length
-    const completadas = classesCol.items.filter((c) => c.status === 'completada').length
-    const actividades = activitiesCol.items.length
-    const encuentros = meetingsCol.items.length
-    const asistencias = attendanceCol.items.length
+  const [levelFilter, setLevelFilter] = useState<CoordinationLevel | 'Todos'>('Todos')
+  const [periodFilter, setPeriodFilter] = useState<'all' | 'month' | 'quarter'>('all')
 
-    let attTotal = 0
-    let attPres = 0
-    attendanceCol.items.forEach((a) => { attTotal += a.entries.length; attPres += a.entries.filter((e) => e.status === 'presente').length })
+  const levelGradeIds = useMemo(() => {
+    if (levelFilter === 'Todos') return null
+    return new Set(grades.filter((g) => g.level === levelFilter).map((g) => g.id))
+  }, [grades, levelFilter])
+
+  const byLevel = (gradeId: string) => !levelGradeIds || levelGradeIds.has(gradeId)
+  const byLevelTeacher = (gradesArr: string[]) => !levelGradeIds || gradesArr.some((g) => levelGradeIds.has(g))
+
+  const cutoff = useMemo(() => {
+    if (periodFilter === 'all') return ''
+    const d = new Date()
+    d.setMonth(d.getMonth() - (periodFilter === 'month' ? 1 : 3))
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  }, [periodFilter])
+  const inPeriod = (date: string) => !cutoff || (!!date && date >= cutoff)
+
+  const studentsLvl = useMemo(() => students.filter((s) => byLevel(s.gradeId)), [students, levelGradeIds])
+  const teachersLvl = useMemo(() => teachers.filter((t) => byLevelTeacher(t.grades)), [teachers, levelGradeIds])
+  const plans = useMemo(() => plansCol.items.filter((p) => byLevel(p.gradeId) && inPeriod(p.date)), [plansCol.items, levelGradeIds, cutoff])
+  const dailies = useMemo(() => dailyCol.items.filter((p) => byLevel(p.gradeId) && inPeriod(p.fecha)), [dailyCol.items, levelGradeIds, cutoff])
+  const classes = useMemo(() => classesCol.items.filter((c) => byLevel(c.gradeId) && inPeriod(c.date)), [classesCol.items, levelGradeIds, cutoff])
+  const attendance = useMemo(() => attendanceCol.items.filter((a) => byLevel(a.gradeId) && inPeriod(a.date)), [attendanceCol.items, levelGradeIds, cutoff])
+  const activities = useMemo(() => activitiesCol.items.filter((a) => byLevel(a.gradeId) && inPeriod(a.publishDate)), [activitiesCol.items, levelGradeIds, cutoff])
+  const meetings = useMemo(() => meetingsCol.items.filter((m) => inPeriod(m.date)), [meetingsCol.items, cutoff])
+  const accs = useMemo(() => accsCol.items.filter((a) => (levelFilter === 'Todos' || a.level === levelFilter) && inPeriod(a.date)), [accsCol.items, levelFilter, cutoff])
+  const schedules = useMemo(() => schedCol.items.filter((s) => byLevel(s.gradeId)), [schedCol.items, levelGradeIds])
+
+  const d = useMemo(() => {
+    const planificadas = plans.length
+    const impartidas = plans.filter((p) => p.status === 'impartida').length
+    const completadas = classes.filter((c) => c.status === 'completada').length
+
+    let attTotal = 0, attPres = 0
+    attendance.forEach((a) => { attTotal += a.entries.length; attPres += a.entries.filter((e) => e.status === 'presente').length })
     const asistencia = attTotal ? Math.round((attPres / attTotal) * 100) : 0
 
-    const activitiesMap = new Map(activitiesCol.items.map((a) => [a.id, a.points]))
+    const activitiesMap = new Map(activities.map((a) => [a.id, a.points]))
     const norm = scoresCol.items.map((s) => (s.score / (activitiesMap.get(s.activityId) ?? 100)) * 100)
     const promedio = norm.length ? Math.round(norm.reduce((x, y) => x + y, 0) / norm.length) : 0
 
-    const accs = accsCol.items
     const realizados = accs.filter((x) => x.status === 'realizado').length
     const pendientes = accs.filter((x) => x.status === 'planificado').length
     const cumplimiento = planificadas ? Math.round((impartidas / planificadas) * 100) : 0
 
-    const psych = psychCol.items
-    const tic = ticCol.items
-
-    return { planificadas, impartidas, diarias, clases, completadas, actividades, encuentros, asistencias, asistencia, promedio, accs: accs.length, realizados, pendientes, cumplimiento, psych, tic }
-  }, [plansCol.items, dailyCol.items, classesCol.items, attendanceCol.items, activitiesCol.items, scoresCol.items, meetingsCol.items, accsCol.items, psychCol.items, ticCol.items])
+    return {
+      planificadas, impartidas, diarias: dailies.length, completadas,
+      actividades: activities.length, encuentros: meetings.length, asistencias: attendance.length,
+      asistencia, promedio, accs: accs.length, realizados, pendientes, cumplimiento,
+    }
+  }, [plans, dailies, classes, attendance, activities, meetings, accs, scoresCol.items])
 
   const areas: AreaData[] = useMemo(() => [
     {
       icon: <PersonSupportRegular />, color: '#0082AD', title: 'Docentes',
       metrics: [
-        { label: 'Docentes registrados', value: String(teachers.length) },
+        { label: 'Docentes', value: String(teachersLvl.length) },
         { label: 'Planificaciones anuales', value: String(d.planificadas) },
-        { label: 'Planificaciones diarias/unidad', value: String(d.diarias) },
+        { label: 'Diarias / unidad', value: String(d.diarias) },
         { label: 'Clases impartidas', value: String(d.impartidas) },
         { label: 'Actividades publicadas', value: String(d.actividades) },
         { label: 'Encuentros virtuales', value: String(d.encuentros) },
@@ -101,7 +137,7 @@ export function InformesPage() {
     {
       icon: <PeopleRegular />, color: '#0EA5E9', title: 'Estudiantes',
       metrics: [
-        { label: 'Matrícula', value: String(students.length) },
+        { label: 'Matrícula', value: String(studentsLvl.length) },
         { label: 'Asistencia promedio', value: `${d.asistencia}%` },
         { label: 'Rendimiento académico', value: `${d.promedio}/100` },
         { label: 'Registros de asistencia', value: String(d.asistencias) },
@@ -111,7 +147,6 @@ export function InformesPage() {
       icon: <PeopleCheckmarkRegular />, color: '#E62327', title: 'Padres y tutores',
       metrics: [
         { label: 'Tutores registrados', value: String(guardians.length) },
-        { label: 'Vinculados a estudiantes', value: String(new Set(guardians.map((g) => g.studentId)).size) },
       ],
     },
     {
@@ -119,29 +154,59 @@ export function InformesPage() {
       metrics: [
         { label: 'Acompañamientos realizados', value: String(d.realizados) },
         { label: 'Acompañamientos pendientes', value: String(d.pendientes) },
-        { label: 'Horarios de clase registrados', value: String(schedCol.items.length) },
-        { label: 'Cumplimiento de planificación', value: `${d.cumplimiento}%` },
+        { label: 'Horarios registrados', value: String(schedules.length) },
+        { label: 'Cumplimiento', value: `${d.cumplimiento}%` },
       ],
     },
     {
       icon: <HeartPulseRegular />, color: '#AD1457', title: 'Psicología y orientación',
       metrics: [
-        { label: 'Casos registrados', value: String(d.psych.length) },
-        { label: 'En atención', value: String(d.psych.filter((x) => x.estado === 'en_atencion').length) },
-        { label: 'Pendientes', value: String(d.psych.filter((x) => x.estado === 'pendiente').length) },
-        { label: 'Cerrados', value: String(d.psych.filter((x) => x.estado === 'cerrado').length) },
+        { label: 'Casos', value: String(psychCol.items.length) },
+        { label: 'En atención', value: String(psychCol.items.filter((x) => x.estado === 'en_atencion').length) },
+        { label: 'Pendientes', value: String(psychCol.items.filter((x) => x.estado === 'pendiente').length) },
       ],
     },
     {
       icon: <DeveloperBoardRegular />, color: '#4A4F55', title: 'Tecnología e innovación',
       metrics: [
         { label: 'Cuentas de usuarios', value: String(users.length) },
-        { label: 'Actividades del plan TIC', value: String(d.tic.length) },
-        { label: 'En progreso', value: String(d.tic.filter((x) => x.status === 'en_progreso').length) },
-        { label: 'Completadas', value: String(d.tic.filter((x) => x.status === 'completada').length) },
+        { label: 'Actividades del plan TIC', value: String(ticCol.items.length) },
+        { label: 'En progreso', value: String(ticCol.items.filter((x) => x.status === 'en_progreso').length) },
+        { label: 'Completadas', value: String(ticCol.items.filter((x) => x.status === 'completada').length) },
       ],
     },
-  ], [teachers.length, students.length, guardians, users.length, schedCol.items.length, d])
+  ], [teachersLvl.length, studentsLvl.length, guardians.length, schedules.length, users.length, ticCol.items, psychCol.items, d])
+
+  const chartData = useMemo(() => [
+    { area: 'Docentes', value: d.impartidas, color: '#0082AD' },
+    { area: 'Estudiantes', value: d.asistencias, color: '#0EA5E9' },
+    { area: 'Coordinación', value: d.realizados, color: '#15803D' },
+    { area: 'Psicología', value: psychCol.items.length, color: '#AD1457' },
+    { area: 'Tecnología', value: ticCol.items.length, color: '#4A4F55' },
+  ], [d, psychCol.items.length, ticCol.items.length])
+
+  const exportExcel = () => {
+    const rows: Array<[string, string]> = [
+      ['Matrícula', String(studentsLvl.length)],
+      ['Docentes', String(teachersLvl.length)],
+      ['Cumplimiento de planificación', `${d.cumplimiento}%`],
+      ['Clases impartidas', String(d.impartidas)],
+      ['Asistencia promedio', `${d.asistencia}%`],
+      ['Rendimiento académico', `${d.promedio}/100`],
+    ]
+    const areaRows: Array<[string, string]> = areas.flatMap((a) => a.metrics.map((m) => [`${a.title} — ${m.label}`, m.value] as [string, string]))
+    const all = [...rows, ['', ''], ...areaRows]
+    const html = `<html xmlns:x="urn:schemas-microsoft-com:office:excel"><head><meta charset="utf-8"></head><body><table border="1"><tr><th>Indicador</th><th>Valor</th></tr>${all.map((r) => `<tr><td>${r[0]}</td><td>${r[1]}</td></tr>`).join('')}</table></body></html>`
+    const blob = new Blob(['\ufeff', html], { type: 'application/vnd.ms-excel;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const el = document.createElement('a')
+    el.href = url
+    el.download = `Informe_institucional_${new Date().toISOString().slice(0, 10)}.xls`
+    document.body.appendChild(el)
+    el.click()
+    document.body.removeChild(el)
+    URL.revokeObjectURL(url)
+  }
 
   return (
     <div>
@@ -149,18 +214,46 @@ export function InformesPage() {
         title="Informes institucionales"
         subtitle="Consolidado de la actividad de todos los portales: docentes, estudiantes, padres, coordinación pedagógica, psicología y tecnología."
         actions={
-          <Button appearance="primary" icon={<PrintRegular />} onClick={() => printReport(areas, students.length, teachers.length)}>
-            Imprimir informe (PDF)
-          </Button>
+          <>
+            <Button appearance="secondary" icon={<DocumentRegular />} onClick={exportExcel}>Exportar Excel</Button>
+            <Button appearance="primary" icon={<PrintRegular />} onClick={() => window.print()}>Imprimir (PDF)</Button>
+          </>
         }
       />
 
-      <div className={styles.kpis}>
-        <StatCard title="Matrícula" value={students.length} icon={<PeopleRegular />} color="#0EA5E9" gradient={gradientes.celeste} sub="Estudiantes registrados" />
-        <StatCard title="Docentes" value={teachers.length} icon={<PersonSupportRegular />} color="#0082AD" gradient={gradientes.azul} sub="Cuerpo docente" />
-        <StatCard title="Cumplimiento" value={`${d.cumplimiento}%`} icon={<CalendarLtrRegular />} color="#15803D" gradient={gradientes.verde} sub={`${d.impartidas} de ${d.planificadas} planificadas`} />
-        <StatCard title="Clases impartidas" value={d.completadas} icon={<DocumentRegular />} color="#EA580C" gradient={gradientes.naranja} sub="Con registro completo" />
+      <div className={styles.controls}>
+        <Select value={levelFilter} onChange={(_, d) => setLevelFilter(d.value as CoordinationLevel | 'Todos')} style={{ minWidth: '180px' }}>
+          {LEVELS.map((l) => (<option key={l} value={l}>{l === 'Todos' ? 'Todos los niveles' : l}</option>))}
+        </Select>
+        <Select value={periodFilter} onChange={(_, d) => setPeriodFilter(d.value as typeof periodFilter)} style={{ minWidth: '170px' }}>
+          {PERIODS.map((p) => (<option key={p.value} value={p.value}>{p.label}</option>))}
+        </Select>
+        {levelFilter !== 'Todos' && <Text size={200} style={{ color: 'var(--texto-suave)' }}>Filtrando por: {levelFilter}</Text>}
       </div>
+
+      <div className={styles.kpis}>
+        <StatCard title="Matrícula" value={studentsLvl.length} icon={<PeopleRegular />} color="#0EA5E9" gradient={gradientes.celeste} sub={levelFilter === 'Todos' ? 'Estudiantes' : `Nivel ${levelFilter}`} />
+        <StatCard title="Docentes" value={teachersLvl.length} icon={<PersonSupportRegular />} color="#0082AD" gradient={gradientes.azul} sub="Cuerpo docente" />
+        <StatCard title="Cumplimiento" value={`${d.cumplimiento}%`} icon={<CalendarLtrRegular />} color="#15803D" gradient={gradientes.verde} sub={`${d.impartidas} de ${d.planificadas} planificadas`} />
+        <StatCard title="Clases registradas" value={d.completadas} icon={<DocumentRegular />} color="#EA580C" gradient={gradientes.naranja} sub="Con registro completo" />
+      </div>
+
+      <Card className={styles.card} style={{ marginBottom: '20px' }}>
+        <Text className={styles.title}>Actividad comparativa por área</Text>
+        <ResponsiveContainer width="100%" height={240}>
+          <BarChart data={chartData} layout="vertical" margin={{ left: 20 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" />
+            <XAxis type="number" allowDecimals={false} fontSize={11} />
+            <YAxis type="category" dataKey="area" width={100} fontSize={12} />
+            <RTooltip />
+            <Legend />
+            <Bar dataKey="value" name="Registros" radius={[0, 4, 4, 0]} barSize={24}>
+              {chartData.map((d, i) => (<Cell key={i} fill={d.color} />))}
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
+        <Text size={200} className={styles.note}>Cantidad de registros/actividades por área en el período seleccionado.</Text>
+      </Card>
 
       <div className={styles.grid}>
         {areas.map((area) => (
@@ -186,39 +279,4 @@ export function InformesPage() {
       </Text>
     </div>
   )
-}
-
-function printReport(areas: AreaData[], students: number, teachers: number): void {
-  const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-  const areaHtml = areas.map((a) => `
-    <div style="break-inside:avoid;border:1px solid #E2E8F0;border-radius:12px;padding:14px 16px;margin-bottom:14px">
-      <h2 style="margin:0 0 8px;color:#0082AD;font-size:15px">${esc(a.title)}</h2>
-      ${a.metrics.map((m) => `<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #eef1f5"><span style="color:#667085">${esc(m.label)}</span><b>${esc(m.value)}</b></div>`).join('')}
-    </div>`).join('')
-
-  const html = `<!doctype html><html lang="es"><head><meta charset="utf-8"/>
-<title>Informe institucional</title><style>
-body{font-family:'Segoe UI',Arial,sans-serif;color:#1B2430;max-width:820px;margin:24px auto;padding:0 20px}
-h1{color:#0A1F2B;border-bottom:3px solid #0082AD;padding-bottom:8px;font-size:22px}
-h2{color:#0082AD;font-size:15px;margin:0 0 8px}
-.kpis{display:flex;gap:14px;flex-wrap:wrap;margin:14px 0 20px}
-.kpi{flex:1;min-width:150px;border:1px solid #E2E8F0;border-radius:12px;padding:12px}
-.kpi label{font-size:11px;color:#667085}.kpi b{font-size:20px;display:block}
-.marca{font-size:11px;color:#667085;text-align:center;margin-top:24px;border-top:1px solid #E2E8F0;padding-top:8px}
-</style></head><body>
-<h1>Informe institucional · Plataforma Virtual</h1>
-<div class="kpis">
-  <div class="kpi"><label>Matrícula</label><b>${students}</b></div>
-  <div class="kpi"><label>Docentes</label><b>${teachers}</b></div>
-</div>
-${areaHtml}
-<p class="marca">Generado por la plataforma el ${new Date().toLocaleString('es-DO')}</p>
-</body></html>`
-
-  const w = window.open('', '_blank', 'noopener,width=900,height=700')
-  if (!w) return
-  w.document.open()
-  w.document.write(html)
-  w.document.close()
-  w.onload = () => { w.focus(); w.print() }
 }
