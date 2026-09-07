@@ -45,7 +45,7 @@ interface ContactSummary {
   unread: number
 }
 
-const ROLE_COLORS: Record<Role, string> = { docente: '#0095C8', estudiante: '#C8102E', padre: '#15803D', admin: '#6B21A8', psicologia: '#AD1457', tecnologia: '#161616' }
+const ROLE_COLORS: Record<Role, string> = { docente: '#0095C8', estudiante: '#C8102E', padre: '#15803D', admin: '#6B21A8', psicologia: '#AD1457', tecnologia: '#161616', coordinacion: '#0082AD' }
 
 function getContactId(a: string, b: string) { return a < b ? `${a}-${b}` : `${b}-${a}` }
 

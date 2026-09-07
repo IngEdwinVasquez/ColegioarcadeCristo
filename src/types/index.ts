@@ -471,3 +471,54 @@ export interface TicActivity {
   createdAt: string
   updatedAt?: string
 }
+
+// ------------------------------ Coordinación Pedagógica ------------------------------
+
+export type CoordinationLevel = 'Inicial' | 'Primaria' | 'Secundaria'
+
+/** Horario de clase de un docente dentro de su nivel (curso, sección y asignatura). */
+export interface ClassSchedule {
+  id: string
+  teacherId: string
+  gradeId: string
+  section: string
+  subjectId: string
+  /** Día de la semana (Lunes, martes…) */
+  day: string
+  /** Hora de inicio (HH:mm) */
+  startTime: string
+  /** Hora de fin (HH:mm) */
+  endTime: string
+  createdAt: string
+}
+
+export type AccompanimentPhase = 'planificacion' | 'ejecucion' | 'evaluacion'
+export type AccompanimentStatus = 'planificado' | 'realizado' | 'seguimiento'
+
+/**
+ * Acompañamiento del coordinador a un docente, tomando como base la planificación
+ * y/o la clase que el docente crea e imparte. Registra observaciones, fortalezas,
+ * mejoras y compromisos de seguimiento.
+ */
+export interface Accompaniment {
+  id: string
+  coordinatorId: string
+  teacherId: string
+  level: CoordinationLevel
+  /** Planificación de referencia (ClassPlan o DailyPlan) */
+  relatedPlanId?: string
+  /** Clase impartida de referencia (SchoolClassRecord) */
+  relatedClassId?: string
+  date: string
+  topic: string
+  phase: AccompanimentPhase
+  observations: string
+  strengths: string
+  improvements: string
+  recommendations: string
+  /** Compromiso acordado con el docente */
+  agreedFollowUp?: string
+  followUpDate?: string
+  status: AccompanimentStatus
+  createdAt: string
+}

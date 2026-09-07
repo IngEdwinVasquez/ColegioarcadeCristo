@@ -19,6 +19,7 @@ const DEFAULT_DESCRIPTIONS: Record<Role, string> = {
   admin: 'Acceso al portal administrativo: dirección, admisiones, académico y catálogos.',
   psicologia: 'Acceso al portal de Psicología y Orientación: ventanilla, casos de seguimiento y talleres.',
   tecnologia: 'Acceso al portal de Tecnología: personas, cuentas de Microsoft 365, usuarios y roles.',
+  coordinacion: 'Acceso al portal de Coordinación Pedagógica: seguimiento docente por nivel, horarios, cumplimiento y acompañamiento.',
 }
 
 const slugify = (value: string) =>
