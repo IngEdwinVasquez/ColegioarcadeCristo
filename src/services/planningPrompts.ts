@@ -151,3 +151,91 @@ export async function generatePlanWithAi(input: {
   if (!parsed) throw new Error('La IA no devolvió una estructura válida. Intente de nuevo.')
   return mapAiPlanToDailyPlan(parsed, input.defaults)
 }
+
+// ------------------------------ Parseo de PDF a planificación ------------------------------
+
+export const PDF_PARSE_PROMPT = `Eres un experto planificador curricular del MINERD (República Dominicana).
+Se te entrega el texto extraído de un documento PDF de planificación de clase (puede venir de Eduplan u otro formato).
+Debes identificar y estructurar la información en un JSON válido con EXACTAMENTE esta estructura:
+
+{
+  "tipo": "diaria" | "unidad",
+  "nivel": "Inicial" | "Primaria" | "Secundaria",
+  "unidad": "nombre de la unidad didáctica",
+  "tema": "tema específico de la sesión",
+  "duracion": "duración (ej. 45 minutos)",
+  "competenciasFundamentales": ["..."],
+  "competenciasEspecificas": ["..."],
+  "ejesTransversales": ["..."],
+  "contenidos": { "conceptuales": "...", "procedimentales": "...", "actitudinales": "..." },
+  "actividades": { "inicio": "...", "desarrollo": "...", "cierre": "..." },
+  "estrategias": ["..."],
+  "recursos": ["..."],
+  "indicadoresLogro": ["..."],
+  "evaluacion": { "tipo": "...", "instrumento": "...", "criterios": "..." }
+}
+
+Reglas:
+- Extrae el nivel, el grado, la asignatura y el tema que aparezcan en el documento.
+- Los campos "actividades" (inicio, desarrollo, cierre) constituyen el cronograma de la sesión; consérvalos íntegros.
+- Si un campo no aparece, complétalo con lo razonable para el contexto del documento, sin inventar datos de grado/asignatura.
+- Responde ÚNICAMENTE el JSON, sin comentarios ni texto adicional.`
+
+/** Convierte el texto de un PDF en un DailyPlan estructurado. */
+export async function parsePdfToPlan(text: string, defaults: Pick<DailyPlan, 'id' | 'teacherId' | 'subjectId' | 'gradeId' | 'section' | 'fecha'>): Promise<DailyPlan> {
+  const { aiChat, parseAiJson } = await import('./ai')
+  const out = await aiChat(
+    [
+      { role: 'system', content: PDF_PARSE_PROMPT },
+      { role: 'user', content: `Contenido del documento PDF:\n\n${text}` },
+    ],
+    { temperature: 0.2, jsonMode: true },
+  )
+  const parsed = parseAiJson<Record<string, unknown>>(out)
+  if (!parsed) throw new Error('No se pudo interpretar el PDF. Verifique que el documento sea legible.')
+  return mapAiPlanToDailyPlan(parsed, defaults)
+}
+
+// ------------------------------ Modificación del plan con IA ------------------------------
+
+export const MODIFY_PLAN_PROMPT = `Eres un planificador curricular asistente del MINERD.
+Recibes una planificación de clase (JSON) y la instrucción de modificación de un docente.
+Debes devolver la planificación COMPLETA, actualizada con la modificación solicitada, manteniendo la MISMA estructura JSON:
+
+{
+  "tipo": "diaria" | "unidad", "nivel": "...", "unidad": "...", "tema": "...", "duracion": "...",
+  "competenciasFundamentales": ["..."], "competenciasEspecificas": ["..."], "ejesTransversales": ["..."],
+  "contenidos": { "conceptuales": "...", "procedimentales": "...", "actitudinales": "..." },
+  "actividades": { "inicio": "...", "desarrollo": "...", "cierre": "..." },
+  "estrategias": ["..."], "recursos": ["..."], "indicadoresLogro": ["..."],
+  "evaluacion": { "tipo": "...", "instrumento": "...", "criterios": "..." }
+}
+
+- Aplica la modificación solicitada (por ejemplo: ajustar duración, agregar/eliminar actividades, incorporar una evaluación, adaptar para estudiantes con NEE, cambiar estrategias).
+- Conserva todo lo que no se pida modificar.
+- Si la instrucción no se puede aplicar con claridad, devuelve el plan casi sin cambios.
+- Responde ÚNICAMENTE el JSON.`
+
+/** Aplica una instrucción de modificación del docente a un plan existente. */
+export async function modifyPlanWithAi(plan: DailyPlan, instruction: string): Promise<DailyPlan> {
+  const { aiChat, parseAiJson } = await import('./ai')
+  const user = `Plan actual:\n${JSON.stringify(plan)}\n\nInstrucción del docente: ${instruction}`
+  const out = await aiChat(
+    [
+      { role: 'system', content: MODIFY_PLAN_PROMPT },
+      { role: 'user', content: user },
+    ],
+    { temperature: 0.3, jsonMode: true },
+  )
+  const parsed = parseAiJson<Record<string, unknown>>(out)
+  if (!parsed) throw new Error('No se pudo aplicar la modificación solicitada.')
+  const updated = mapAiPlanToDailyPlan(parsed, {
+    id: plan.id,
+    teacherId: plan.teacherId,
+    subjectId: plan.subjectId,
+    gradeId: plan.gradeId,
+    section: plan.section,
+    fecha: plan.fecha,
+  })
+  return { ...updated, createdAt: plan.createdAt }
+}
