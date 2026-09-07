@@ -1,6 +1,7 @@
 import { Route, Routes } from 'react-router-dom'
 import { AppShell, type NavItem } from '../components/layout/AppShell'
 import { DireccionPage } from '../modules/administrativo/DireccionPage'
+import { InformesPage } from '../modules/administrativo/InformesPage'
 import { AdmisionesPage } from '../modules/administrativo/AdmisionesPage'
 import { PromocionPage } from '../modules/administrativo/PromocionPage'
 import { CatalogosPage } from '../modules/administrativo/CatalogosPage'
@@ -29,10 +30,12 @@ import {
   MegaphoneRegular,
   ChatRegular,
   SparkleRegular,
+  ClipboardTaskRegular,
 } from '@fluentui/react-icons'
 
 const NAV: NavItem[] = [
   { to: '/administrativo', label: 'Panel Directivo', icon: <PremiumPersonRegular />, end: true, group: 'General' },
+  { to: '/administrativo/informes', label: 'Informes', icon: <ClipboardTaskRegular />, group: 'General' },
   { to: '/administrativo/admisiones', label: 'Admisiones', icon: <PersonAddRegular />, group: 'Gestión' },
   { to: '/administrativo/promocion', label: 'Promoción', icon: <ArrowUpRegular />, group: 'Académico' },
   { to: '/administrativo/asignaciones', label: 'Asignaciones', icon: <LinkSquareRegular />, group: 'Académico' },
@@ -52,6 +55,7 @@ export function AdminPortal() {
     <Routes>
       <Route element={<AppShell nav={NAV} />}>
         <Route index element={<DireccionPage />} />
+        <Route path="informes" element={<InformesPage />} />
         <Route path="admisiones" element={<AdmisionesPage />} />
         <Route path="promocion" element={<PromocionPage />} />
         <Route path="asignaciones" element={<AsignacionesPage />} />
