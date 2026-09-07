@@ -9,9 +9,21 @@ import { ROLE_LABELS, ROLE_PATHS } from '../types/roles'
 import { BrandLogo } from '../components/shared/BrandLogo'
 
 const useStyles = makeStyles({
-  root: { minHeight: '100vh', display: 'flex', flexDirection: 'column', background: '#F5F8FB' },
+  root: { position: 'relative', minHeight: '100vh', display: 'flex', flexDirection: 'column', background: '#F5F8FB' },
+  pageBg: {
+    position: 'fixed',
+    inset: 0,
+    zIndex: 0,
+    backgroundImage: 'url(/images/edificio.jpg)',
+    backgroundSize: 'cover',
+    backgroundPosition: 'center',
+    filter: 'blur(10px) brightness(1.05)',
+    opacity: 0.16,
+    pointerEvents: 'none',
+  },
   hero: {
     position: 'relative',
+    zIndex: 1,
     overflow: 'hidden',
     background: 'linear-gradient(150deg, #005A7A 0%, #0082AD 48%, #1FB6D8 100%)',
     padding: '64px 24px 88px',
@@ -177,6 +189,7 @@ export function PortalSelector() {
 
   return (
     <div className={styles.root}>
+      <div className={styles.pageBg} />
       <div className={styles.hero}>
         <span className={`${styles.orb} ${styles.orbLight}`} />
         <span className={`${styles.orb} ${styles.orbRed}`} />

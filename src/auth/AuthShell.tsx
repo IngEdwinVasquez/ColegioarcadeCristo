@@ -17,7 +17,7 @@ const useStyles = makeStyles({
     overflow: 'hidden',
     flex: '0 0 46%',
     minHeight: '100vh',
-    backgroundImage: 'url(/images/hero-educativo.jpg)',
+    backgroundImage: 'url(/images/edificio.jpg)',
     backgroundSize: 'cover',
     backgroundPosition: 'center',
     color: '#fff',

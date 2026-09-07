@@ -21,6 +21,7 @@ const useStyles = makeStyles({
     boxShadow: '0 8px 28px rgba(0,130,173,0.12)',
   },
   title: { fontWeight: 800, fontSize: '22px', color: 'var(--azul-oscuro)' },
+  logo: { width: '76px', height: '76px', objectFit: 'contain' },
   sub: { color: 'var(--texto-suave)', fontSize: '14px', lineHeight: 1.6 },
   error: { color: '#B42318', fontSize: '13px' },
   microsoftBtn: {
@@ -63,6 +64,7 @@ export function M365Login() {
   return (
     <AuthShell>
       <div className={styles.card}>
+        <img src="/images/logo-arca.jpg" alt="Escudo Arca de Cristo" className={styles.logo} />
         <Text className={styles.title}>Inicie sesión con su cuenta institucional</Text>
         <Text className={styles.sub}>
           Acceso con inicio de sesión único de Microsoft Entra ID. Utilice su cuenta de Microsoft 365 del colegio.
