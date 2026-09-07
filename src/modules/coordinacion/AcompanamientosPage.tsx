@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Button, Input, Select, Table, TableBody, TableCell, TableHeader, TableHeaderCell, TableRow, Text, Textarea, Toolbar, ToolbarButton, makeStyles, tokens } from '@fluentui/react-components'
-import { AddRegular, DeleteRegular, OpenRegular, HeartPulseRegular } from '@fluentui/react-icons'
+import { AddRegular, DeleteRegular, OpenRegular, HeartPulseRegular, PrintRegular, DocumentRegular } from '@fluentui/react-icons'
 import { PageHeader } from '../../components/shared/PageHeader'
 import { StatusBadge } from '../../components/shared/StatusBadge'
 import { EmptyStateView } from '../../components/shared/EmptyStateView'
@@ -11,6 +11,7 @@ import { dataService } from '../../services/dataService'
 import { useCollection } from '../../hooks/useCollection'
 import { NivelSelector } from './NivelSelector'
 import { useCoordinationLevel } from './useCoordinationLevel'
+import { printAcompanamiento, exportAcompanamientoWord } from './exportAcompanamiento'
 import type { Accompaniment, ClassPlan, DailyPlan, SchoolClassRecord } from '../../types'
 import { formatDate, genId, todayIso } from '../../utils/helpers'
 
@@ -118,6 +119,8 @@ export function AcompanamientosPage() {
                 <TableCell className={styles.cell}>
                   <Toolbar size="small" style={{ gap: '4px' }}>
                     <ToolbarButton icon={<OpenRegular />} onClick={() => openEdit(a)}>Editar</ToolbarButton>
+                    <ToolbarButton icon={<DocumentRegular />} onClick={() => exportAcompanamientoWord(a, teacherById(a.teacherId)?.fullName ?? '')}>Word</ToolbarButton>
+                    <ToolbarButton icon={<PrintRegular />} onClick={() => printAcompanamiento(a, teacherById(a.teacherId)?.fullName ?? '')}>PDF</ToolbarButton>
                     <ToolbarButton icon={<DeleteRegular />} onClick={() => void handleDelete(a)}>Eliminar</ToolbarButton>
                   </Toolbar>
                 </TableCell>
