@@ -63,12 +63,6 @@ app.http('aiProxy', {
     const email = await validateAndGetEmail(token)
     if (!email) return json(401, { error: 'Token inválido o sesión expirada. Vuelva a iniciar sesión.' })
 
-    // Solo los correos autorizados (superadministradores) pueden usar el asistente.
-    const admins = (process.env.AI_ADMIN_EMAILS || '').split(',').map((s) => s.trim().toLowerCase()).filter(Boolean)
-    if (admins.length > 0 && !admins.includes(email)) {
-      return json(403, { error: 'Sin permiso para usar el asistente de IA.' })
-    }
-
     const body = await request.json().catch(() => null)
     const messages = body?.messages
     const options = body?.options ?? {}
