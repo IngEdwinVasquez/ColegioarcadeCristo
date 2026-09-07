@@ -38,25 +38,27 @@ darkTheme.fontFamilyMonospace = lightTheme.fontFamilyMonospace
 
 /** Paleta institucional: cian y rojo de la fachada; negro, dorado oliva y vino del escudo. */
 export const institutionalColors = {
-  azul: '#0095C8',
+  azul: '#0082AD',
   azulOscuro: '#0A1F2B',
   azulMedio: '#0B2E3F',
-  rojo: '#E30613',
-  rojoClaro: '#EF3E4A',
+  rojo: '#E62327',
+  rojoClaro: '#EF4B4F',
   vino: '#7D1D24',
   dorado: '#9A9C2E',
   negro: '#161616',
+  gris: '#4A4F55',
+  piedra: '#BBA892',
   blanco: '#FFFFFF',
-  fondo: '#F3F5F8',
+  fondo: '#F8FAFC',
   superficie: '#FFFFFF',
-  borde: '#E4E8EF',
+  borde: '#E2E8F0',
   texto: '#1B2430',
   textoSuave: '#667085',
 }
 
 export const gradientes = {
-  azul: 'linear-gradient(135deg, #0B2E3F 0%, #0095C8 55%, #1AA3D2 100%)',
-  rojo: 'linear-gradient(135deg, #8E0C1F 0%, #E30613 60%, #EF3E4A 100%)',
+  azul: 'linear-gradient(135deg, #00607F 0%, #0082AD 55%, #1AA3CE 100%)',
+  rojo: 'linear-gradient(135deg, #8E0C1F 0%, #E62327 60%, #EF4B4F 100%)',
   verde: 'linear-gradient(135deg, #14532D 0%, #15803D 60%, #22C55E 100%)',
   celeste: 'linear-gradient(135deg, #0C4A6E 0%, #0EA5E9 100%)',
   violeta: 'linear-gradient(135deg, #4C1D95 0%, #7C3AED 100%)',

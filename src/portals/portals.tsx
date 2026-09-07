@@ -28,7 +28,7 @@ export const PORTALS: PortalMeta[] = [
     description:
       'Bienvenido a su centro de trabajo docente. Acceda a la gestión académica, publicación de tareas, registro de evaluaciones, control de asistencia y seguimiento continuo a sus clases virtuales.',
     icon: <PersonSupportRegular />,
-    accent: '#0084B3',
+    accent: '#0082AD',
   },
   {
     role: 'estudiante',
@@ -38,7 +38,7 @@ export const PORTALS: PortalMeta[] = [
     description:
       'Bienvenido a tu Campus Virtual. Encuentra tus asignaturas, consulta las guías de estudio, entrega tus tareas a tiempo y participa activamente en tus actividades escolares.',
     icon: <PersonRegular />,
-    accent: '#C8102E',
+    accent: '#0082AD',
   },
   {
     role: 'padre',
@@ -48,7 +48,7 @@ export const PORTALS: PortalMeta[] = [
     description:
       'Bienvenido al Portal de Familias. Conéctese con el centro educativo, supervise el progreso académico de sus hijos, consulte reportes de asistencia y manténgase al día con las circulares oficiales.',
     icon: <PeopleTeamRegular />,
-    accent: '#0B6E4F',
+    accent: '#E62327',
   },
   {
     role: 'admin',
@@ -58,7 +58,7 @@ export const PORTALS: PortalMeta[] = [
     description:
       'Espacio ejecutivo para el monitoreo institucional, análisis de indicadores de rendimiento académico, supervisión docente y toma de decisiones estratégicas.',
     icon: <PremiumPersonRegular />,
-    accent: '#7D1D24',
+    accent: '#4A4F55',
   },
   {
     role: 'psicologia',
@@ -68,7 +68,7 @@ export const PORTALS: PortalMeta[] = [
     description:
       'Unidad de acompañamiento integral al estudiante: ventanilla de atención, casos de seguimiento, talleres y guías de crianza para las familias.',
     icon: <PeopleCheckmarkRegular />,
-    accent: '#AD1457',
+    accent: '#E62327',
   },
   {
     role: 'tecnologia',
@@ -78,7 +78,7 @@ export const PORTALS: PortalMeta[] = [
     description:
       'Administración de la plataforma: datos de personas, cuentas de Microsoft 365, roles de acceso y configuración técnica de la intranet.',
     icon: <DeveloperBoardRegular />,
-    accent: '#161616',
+    accent: '#4A4F55',
   },
 ]
 

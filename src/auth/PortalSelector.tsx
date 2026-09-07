@@ -13,7 +13,7 @@ const useStyles = makeStyles({
   hero: {
     position: 'relative',
     overflow: 'hidden',
-    background: 'linear-gradient(135deg, #0A1F2B 0%, #0B2E3F 45%, #0095C8 100%)',
+    background: 'linear-gradient(135deg, #00607F 0%, #0082AD 55%, #1AA3CE 100%)',
     padding: '64px 24px 72px',
     color: '#fff',
     textAlign: 'center',
@@ -57,6 +57,7 @@ const useStyles = makeStyles({
     background: '#fff',
     borderRadius: '16px',
     border: '1px solid var(--borde)',
+    borderTop: '3px solid transparent',
     padding: '24px',
     display: 'flex',
     flexDirection: 'column',
@@ -64,8 +65,14 @@ const useStyles = makeStyles({
     cursor: 'pointer',
     minHeight: '240px',
     boxShadow: '0 1px 2px rgba(16,24,40,0.06)',
-    transition: 'transform 0.2s ease, box-shadow 0.2s ease',
-    ':hover': { transform: 'translateY(-4px)', boxShadow: '0 16px 32px rgba(16,24,40,0.12)' },
+    transition: 'transform 0.25s ease, box-shadow 0.25s ease, border-top-color 0.25s ease',
+    ':hover': {
+      transform: 'translateY(-4px)',
+      borderTopColor: '#E62327',
+      boxShadow: '0 10px 25px rgba(0,130,173,0.15)',
+    },
+    ':hover $cta': { color: '#E62327' },
+    ':hover $arrow': { transform: 'translateX(4px)' },
   },
   icon: {
     width: '52px',
@@ -79,7 +86,16 @@ const useStyles = makeStyles({
   },
   cardTitle: { fontWeight: 700, fontSize: '17px', color: 'var(--azul-oscuro)' },
   cardDesc: { fontSize: '13.5px', color: 'var(--texto-suave)', lineHeight: 1.6, flex: 1 },
-  cta: { display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 600, fontSize: '13.5px' },
+  cta: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '6px',
+    fontWeight: 600,
+    fontSize: '13.5px',
+    color: '#0082AD',
+    transition: 'color 0.25s ease',
+  },
+  arrow: { transition: 'transform 0.25s ease' },
   continue: {
     display: 'inline-flex',
     alignItems: 'center',
@@ -144,8 +160,8 @@ export function PortalSelector() {
               </span>
               <div className={styles.cardTitle}>{portal.title}</div>
               <div className={styles.cardDesc}>{portal.description}</div>
-              <div className={styles.cta} style={{ color: portal.accent }}>
-                {role === portal.role ? 'Portal activo' : 'Acceder'} <ArrowRightRegular />
+              <div className={styles.cta}>
+                {role === portal.role ? 'Portal activo' : 'Acceder'} <ArrowRightRegular className={styles.arrow} />
               </div>
             </div>
           ))}
