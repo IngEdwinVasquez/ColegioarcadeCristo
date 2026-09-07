@@ -31,24 +31,45 @@ const useStyles = makeStyles({
   overlay: {
     position: 'absolute',
     inset: 0,
-    background: 'linear-gradient(200deg, rgba(0,84,110,0.96) 0%, rgba(0,130,173,0.90) 50%, rgba(27,164,206,0.86) 100%)',
+    background:
+      'linear-gradient(200deg, rgba(0,84,110,0.92) 0%, rgba(0,130,173,0.82) 52%, rgba(27,164,206,0.78) 100%)',
   },
-  brandRow: { position: 'relative', display: 'flex', alignItems: 'center', gap: '18px' },
+  orb: {
+    position: 'absolute',
+    borderRadius: '50%',
+    filter: 'blur(52px)',
+    opacity: 0.5,
+    pointerEvents: 'none',
+  },
+  orbLight: { width: '340px', height: '340px', top: '-120px', left: '-80px', background: 'radial-gradient(circle, rgba(255,255,255,0.5) 0%, rgba(255,255,255,0) 70%)' },
+  orbRed: { width: '280px', height: '280px', bottom: '-90px', right: '-60px', background: 'radial-gradient(circle, rgba(230,35,39,0.45) 0%, rgba(230,35,39,0) 70%)' },
+  brandRow: { position: 'relative', display: 'flex', alignItems: 'center', gap: '16px' },
   brandName: { fontWeight: 800, fontSize: '22px', color: '#fff', letterSpacing: '-0.01em', lineHeight: 1.25 },
-  brandInstitution: { color: 'rgba(255,255,255,0.65)', fontSize: '12.5px', marginTop: '2px' },
+  brandInstitution: { color: 'rgba(255,255,255,0.72)', fontSize: '12.5px', marginTop: '2px' },
   heroMain: { position: 'relative', display: 'flex', flexDirection: 'column', gap: '14px', maxWidth: '460px' },
   heroTitle: {
     fontWeight: 800,
-    fontSize: '30px',
-    lineHeight: 1.25,
+    fontSize: '31px',
+    lineHeight: 1.22,
     color: '#fff',
     borderLeft: '4px solid #E62327',
-    paddingLeft: '16px',
-    '@media (max-width: 900px)': { fontSize: '22px' },
+    paddingLeft: '18px',
+    '@media (max-width: 900px)': { fontSize: '23px' },
   },
-  heroTagline: { color: 'rgba(255,255,255,0.75)', fontSize: '15px', lineHeight: 1.6 },
-  contactList: { position: 'relative', display: 'flex', flexDirection: 'column', gap: '12px' },
-  contactRow: { display: 'flex', alignItems: 'center', gap: '10px', fontSize: '13.5px', color: 'rgba(255,255,255,0.9)' },
+  heroTagline: { color: 'rgba(255,255,255,0.82)', fontSize: '15px', lineHeight: 1.65 },
+  contactList: { position: 'relative', display: 'flex', flexDirection: 'column', gap: '11px' },
+  contactRow: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '11px',
+    fontSize: '13.5px',
+    color: 'rgba(255,255,255,0.92)',
+    background: 'rgba(255,255,255,0.10)',
+    border: '1px solid rgba(255,255,255,0.16)',
+    borderRadius: '12px',
+    padding: '9px 14px',
+    backdropFilter: 'blur(6px)',
+  },
   contactIcon: {
     width: '30px',
     height: '30px',
@@ -59,6 +80,7 @@ const useStyles = makeStyles({
     alignItems: 'center',
     justifyContent: 'center',
     flexShrink: 0,
+    boxShadow: '0 4px 10px rgba(0,0,0,0.18)',
   },
   panel: {
     flex: 1,
@@ -66,7 +88,8 @@ const useStyles = makeStyles({
     alignItems: 'center',
     justifyContent: 'center',
     padding: '40px 24px',
-    background: 'var(--fondo)',
+    background:
+      'radial-gradient(1200px 700px at 90% -10%, rgba(0,130,173,0.10) 0%, rgba(255,255,255,0) 60%), var(--fondo)',
   },
 })
 
@@ -82,6 +105,8 @@ export function AuthShell({ children, title, subtitle }: AuthShellProps) {
     <div className={styles.root}>
       <div className={styles.hero}>
         <div className={styles.overlay} />
+        <span className={`${styles.orb} ${styles.orbLight}`} />
+        <span className={`${styles.orb} ${styles.orbRed}`} />
         <div className={styles.brandRow}>
           <BrandLogo size={64} />
           <div>
