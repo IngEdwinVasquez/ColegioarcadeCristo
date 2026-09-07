@@ -1,7 +1,7 @@
-export type Role = 'docente' | 'estudiante' | 'padre' | 'admin' | 'psicologia' | 'tecnologia'
+export type Role = 'docente' | 'estudiante' | 'padre' | 'admin' | 'psicologia' | 'tecnologia' | 'coordinacion'
 
 /** Roles con acceso a los módulos académicos compartidos (planificación, clases, encuentros). */
-export const STAFF_ROLES: Role[] = ['admin', 'docente', 'psicologia', 'tecnologia']
+export const STAFF_ROLES: Role[] = ['admin', 'docente', 'psicologia', 'tecnologia', 'coordinacion']
 
 export const ROLE_LABELS: Record<Role, string> = {
   docente: 'Docente',
@@ -10,6 +10,7 @@ export const ROLE_LABELS: Record<Role, string> = {
   admin: 'Administrativo',
   psicologia: 'Psicología y Orientación',
   tecnologia: 'Tecnología',
+  coordinacion: 'Coordinación Pedagógica',
 }
 
 /**
@@ -36,4 +37,5 @@ export const ROLE_PATHS: Record<Role, string> = {
   admin: '/administrativo',
   psicologia: '/psicologia',
   tecnologia: '/tecnologia',
+  coordinacion: '/coordinacion',
 }

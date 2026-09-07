@@ -7,6 +7,7 @@ import {
   PremiumPersonRegular,
   PeopleCheckmarkRegular,
   DeveloperBoardRegular,
+  PersonLightbulbRegular,
 } from '@fluentui/react-icons'
 
 export interface PortalMeta {
@@ -79,6 +80,16 @@ export const PORTALS: PortalMeta[] = [
       'Administración de la plataforma: datos de personas, cuentas de Microsoft 365, roles de acceso y configuración técnica de la intranet.',
     icon: <DeveloperBoardRegular />,
     accent: '#4A4F55',
+  },
+  {
+    role: 'coordinacion',
+    path: '/coordinacion',
+    title: 'Coordinación Pedagógica',
+    shortTitle: 'Coordinación',
+    description:
+      'Coordinación de Inicial, Primaria y Secundaria: seguimiento docente y estudiantil por curso, horarios de clase, acompañamiento a la práctica didáctica alineada al currículo MINERD y registro del cumplimiento.',
+    icon: <PersonLightbulbRegular />,
+    accent: '#0082AD',
   },
 ]
 

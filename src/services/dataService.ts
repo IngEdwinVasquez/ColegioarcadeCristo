@@ -1,4 +1,5 @@
 import type {
+  Accompaniment,
   Activity,
   AdmissionDocument,
   AdmissionEvaluation,
@@ -7,6 +8,7 @@ import type {
   AttendanceRecord,
   ChatMessage,
   ClassPlan,
+  ClassSchedule,
   DailyPlan,
   DocumentRequest,
   DocumentType,
@@ -61,6 +63,8 @@ export const collections = {
   classPlans: collection<ClassPlan>(SPO_LISTS.classPlans),
   dailyPlans: collection<DailyPlan>(SPO_LISTS.dailyPlans),
   teacherConfig: collection<TeacherGradeConfig>(SPO_LISTS.teacherConfig),
+  schedules: collection<ClassSchedule>(SPO_LISTS.schedules),
+  accompaniments: collection<Accompaniment>(SPO_LISTS.accompaniments),
   classes: collection<SchoolClassRecord>(SPO_LISTS.classes),
   attendance: collection<AttendanceRecord>(SPO_LISTS.attendance),
   activities: collection<Activity>(SPO_LISTS.activities),
@@ -113,6 +117,14 @@ export const dataService = {
   getTeacherConfigs: collections.teacherConfig.getAll,
   saveTeacherConfig: collections.teacherConfig.save,
   deleteTeacherConfig: collections.teacherConfig.remove,
+  // Horarios de clase (coordinación pedagógica)
+  getSchedules: collections.schedules.getAll,
+  saveSchedule: collections.schedules.save,
+  deleteSchedule: collections.schedules.remove,
+  // Acompañamientos a docentes (coordinación pedagógica)
+  getAccompaniments: collections.accompaniments.getAll,
+  saveAccompaniment: collections.accompaniments.save,
+  deleteAccompaniment: collections.accompaniments.remove,
   // Repositorio de clases
   getClasses: collections.classes.getAll,
   saveClassRecord: collections.classes.save,
