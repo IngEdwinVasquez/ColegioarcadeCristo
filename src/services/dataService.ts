@@ -16,6 +16,7 @@ import type {
   Grade,
   GradeSection,
   Period,
+  Persona,
   PsychRequest,
   RoleMeta,
   TicActivity,
@@ -65,6 +66,7 @@ export const collections = {
   teacherConfig: collection<TeacherGradeConfig>(SPO_LISTS.teacherConfig),
   schedules: collection<ClassSchedule>(SPO_LISTS.schedules),
   accompaniments: collection<Accompaniment>(SPO_LISTS.accompaniments),
+  personas: collection<Persona>(SPO_LISTS.personas),
   classes: collection<SchoolClassRecord>(SPO_LISTS.classes),
   attendance: collection<AttendanceRecord>(SPO_LISTS.attendance),
   activities: collection<Activity>(SPO_LISTS.activities),
@@ -125,6 +127,10 @@ export const dataService = {
   getAccompaniments: collections.accompaniments.getAll,
   saveAccompaniment: collections.accompaniments.save,
   deleteAccompaniment: collections.accompaniments.remove,
+  // Personas de coordinación / TIC
+  getPersonas: collections.personas.getAll,
+  savePersona: collections.personas.save,
+  deletePersona: collections.personas.remove,
   // Repositorio de clases
   getClasses: collections.classes.getAll,
   saveClassRecord: collections.classes.save,
