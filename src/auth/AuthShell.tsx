@@ -32,7 +32,16 @@ const useStyles = makeStyles({
     position: 'absolute',
     inset: 0,
     background:
-      'linear-gradient(200deg, rgba(0,84,110,0.92) 0%, rgba(0,130,173,0.82) 52%, rgba(27,164,206,0.78) 100%)',
+      'linear-gradient(200deg, rgba(0,80,118,0.92) 0%, rgba(0,130,173,0.80) 52%, rgba(42,169,216,0.76) 100%)',
+  },
+  hexLayer: {
+    position: 'absolute',
+    inset: 0,
+    backgroundImage:
+      "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='49' viewBox='0 0 28 49'%3E%3Cg fill='%23ffffff' fill-opacity='0.05' fill-rule='evenodd'%3E%3Cpath d='M13.99 9.25l13 7.5v15l-13 7.5-13-7.5v-15l13-7.5zM3 17.75v15l10.99 6.2 10.99-6.2v-15L13.99 9.25 3 17.75z'/%3E%3C/g%3E%3C/svg%3E\")",
+    backgroundSize: '28px 49px',
+    opacity: 0.8,
+    pointerEvents: 'none',
   },
   orb: {
     position: 'absolute',
@@ -105,6 +114,7 @@ export function AuthShell({ children, title, subtitle }: AuthShellProps) {
     <div className={styles.root}>
       <div className={styles.hero}>
         <div className={styles.overlay} />
+        <div className={styles.hexLayer} />
         <span className={`${styles.orb} ${styles.orbLight}`} />
         <span className={`${styles.orb} ${styles.orbRed}`} />
         <div className={styles.brandRow}>
