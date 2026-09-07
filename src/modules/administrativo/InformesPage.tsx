@@ -1,5 +1,5 @@
 import { useMemo, useState, type ReactNode } from 'react'
-import { Button, Card, Select, Text, makeStyles, tokens } from '@fluentui/react-components'
+import { Button, Card, Select, Text, Table, TableBody, TableCell, TableHeader, TableHeaderCell, TableRow, makeStyles, tokens } from '@fluentui/react-components'
 import { PrintRegular, DocumentRegular, PeopleRegular, PersonSupportRegular, HeartPulseRegular, PeopleCheckmarkRegular, DeveloperBoardRegular, CalendarLtrRegular } from '@fluentui/react-icons'
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RTooltip, Cell, Legend } from 'recharts'
 import { PageHeader } from '../../components/shared/PageHeader'
@@ -54,7 +54,7 @@ const PERIODS = [
 
 export function InformesPage() {
   const styles = useStyles()
-  const { students, teachers, guardians, users, grades } = useApp()
+  const { students, teachers, guardians, users, grades, subjects } = useApp()
 
   const plansCol = useCollection<ClassPlan>(dataService.getClassPlans)
   const dailyCol = useCollection<DailyPlan>(dataService.getDailyPlans)
@@ -70,6 +70,7 @@ export function InformesPage() {
 
   const [levelFilter, setLevelFilter] = useState<CoordinationLevel | 'Todos'>('Todos')
   const [periodFilter, setPeriodFilter] = useState<'all' | 'month' | 'quarter'>('all')
+  const [subjectFilter, setSubjectFilter] = useState('')
 
   const levelGradeIds = useMemo(() => {
     if (levelFilter === 'Todos') return null
@@ -89,14 +90,15 @@ export function InformesPage() {
 
   const studentsLvl = useMemo(() => students.filter((s) => byLevel(s.gradeId)), [students, levelGradeIds])
   const teachersLvl = useMemo(() => teachers.filter((t) => byLevelTeacher(t.grades)), [teachers, levelGradeIds])
-  const plans = useMemo(() => plansCol.items.filter((p) => byLevel(p.gradeId) && inPeriod(p.date)), [plansCol.items, levelGradeIds, cutoff])
-  const dailies = useMemo(() => dailyCol.items.filter((p) => byLevel(p.gradeId) && inPeriod(p.fecha)), [dailyCol.items, levelGradeIds, cutoff])
-  const classes = useMemo(() => classesCol.items.filter((c) => byLevel(c.gradeId) && inPeriod(c.date)), [classesCol.items, levelGradeIds, cutoff])
-  const attendance = useMemo(() => attendanceCol.items.filter((a) => byLevel(a.gradeId) && inPeriod(a.date)), [attendanceCol.items, levelGradeIds, cutoff])
-  const activities = useMemo(() => activitiesCol.items.filter((a) => byLevel(a.gradeId) && inPeriod(a.publishDate)), [activitiesCol.items, levelGradeIds, cutoff])
+  const bySubject = (subjectId: string) => !subjectFilter || subjectId === subjectFilter
+  const plans = useMemo(() => plansCol.items.filter((p) => byLevel(p.gradeId) && inPeriod(p.date) && bySubject(p.subjectId)), [plansCol.items, levelGradeIds, cutoff, subjectFilter])
+  const dailies = useMemo(() => dailyCol.items.filter((p) => byLevel(p.gradeId) && inPeriod(p.fecha) && bySubject(p.subjectId)), [dailyCol.items, levelGradeIds, cutoff, subjectFilter])
+  const classes = useMemo(() => classesCol.items.filter((c) => byLevel(c.gradeId) && inPeriod(c.date) && bySubject(c.subjectId)), [classesCol.items, levelGradeIds, cutoff, subjectFilter])
+  const attendance = useMemo(() => attendanceCol.items.filter((a) => byLevel(a.gradeId) && inPeriod(a.date) && bySubject(a.subjectId)), [attendanceCol.items, levelGradeIds, cutoff, subjectFilter])
+  const activities = useMemo(() => activitiesCol.items.filter((a) => byLevel(a.gradeId) && inPeriod(a.publishDate) && bySubject(a.subjectId)), [activitiesCol.items, levelGradeIds, cutoff, subjectFilter])
   const meetings = useMemo(() => meetingsCol.items.filter((m) => inPeriod(m.date)), [meetingsCol.items, cutoff])
   const accs = useMemo(() => accsCol.items.filter((a) => (levelFilter === 'Todos' || a.level === levelFilter) && inPeriod(a.date)), [accsCol.items, levelFilter, cutoff])
-  const schedules = useMemo(() => schedCol.items.filter((s) => byLevel(s.gradeId)), [schedCol.items, levelGradeIds])
+  const schedules = useMemo(() => schedCol.items.filter((s) => byLevel(s.gradeId) && bySubject(s.subjectId)), [schedCol.items, levelGradeIds, subjectFilter])
 
   const d = useMemo(() => {
     const planificadas = plans.length
@@ -185,6 +187,45 @@ export function InformesPage() {
     { area: 'Tecnología', value: ticCol.items.length, color: '#4A4F55' },
   ], [d, psychCol.items.length, ticCol.items.length])
 
+  const teacherCumplimiento = useMemo(() => {
+    const map = new Map<string, { plan: number; impartidas: number }>()
+    plans.forEach((p) => {
+      const e = map.get(p.teacherId) ?? { plan: 0, impartidas: 0 }
+      e.plan++
+      if (p.status === 'impartida') e.impartidas++
+      map.set(p.teacherId, e)
+    })
+    return [...map.entries()]
+      .map(([teacherId, v]) => {
+        const fullName = teachers.find((t) => t.id === teacherId)?.fullName
+        if (!fullName) return null
+        return { name: fullName, Planificadas: v.plan, Impartidas: v.impartidas }
+      })
+      .filter((r): r is { name: string; Planificadas: number; Impartidas: number } => !!r)
+      .sort((a, b) => b.Planificadas - a.Planificadas)
+      .slice(0, 12)
+  }, [plans, teachers])
+
+  const nivelComparison = useMemo(() => {
+    return (['Inicial', 'Primaria', 'Secundaria'] as CoordinationLevel[]).map((lvl) => {
+      const gIds = new Set(grades.filter((g) => g.level === lvl).map((g) => g.id))
+      const lvTeachers = teachers.filter((t) => t.grades.some((g) => gIds.has(g)))
+      const lvStudents = students.filter((s) => gIds.has(s.gradeId))
+      const lvPlans = plansCol.items.filter((p) => gIds.has(p.gradeId) && inPeriod(p.date) && bySubject(p.subjectId))
+      const impartidas = lvPlans.filter((p) => p.status === 'impartida').length
+      const lvAccs = accsCol.items.filter((a) => a.level === lvl && inPeriod(a.date))
+      return {
+        nivel: lvl,
+        estudiantes: lvStudents.length,
+        docentes: lvTeachers.length,
+        planificadas: lvPlans.length,
+        impartidas,
+        cumplimiento: lvPlans.length ? Math.round((impartidas / lvPlans.length) * 100) : 0,
+        acs: lvAccs.length,
+      }
+    })
+  }, [teachers, students, grades, plansCol.items, accsCol.items, cutoff, subjectFilter])
+
   const exportExcel = () => {
     const rows: Array<[string, string]> = [
       ['Matrícula', String(studentsLvl.length)],
@@ -228,6 +269,10 @@ export function InformesPage() {
         <Select value={periodFilter} onChange={(_, d) => setPeriodFilter(d.value as typeof periodFilter)} style={{ minWidth: '170px' }}>
           {PERIODS.map((p) => (<option key={p.value} value={p.value}>{p.label}</option>))}
         </Select>
+        <Select value={subjectFilter} onChange={(_, d) => setSubjectFilter(d.value)} style={{ minWidth: '180px' }}>
+          <option value="">Todas las asignaturas</option>
+          {subjects.map((s) => (<option key={s.id} value={s.id}>{s.name}</option>))}
+        </Select>
         {levelFilter !== 'Todos' && <Text size={200} style={{ color: 'var(--texto-suave)' }}>Filtrando por: {levelFilter}</Text>}
       </div>
 
@@ -253,6 +298,55 @@ export function InformesPage() {
           </BarChart>
         </ResponsiveContainer>
         <Text size={200} className={styles.note}>Cantidad de registros/actividades por área en el período seleccionado.</Text>
+      </Card>
+
+      <Card className={styles.card} style={{ marginBottom: '20px' }}>
+        <Text className={styles.title}>Planificación vs. impartida por docente</Text>
+        {teacherCumplimiento.length === 0 ? (
+          <Text size={300} style={{ color: 'var(--texto-suave)' }}>No hay planificaciones para los filtros actuales.</Text>
+        ) : (
+          <ResponsiveContainer width="100%" height={Math.max(220, teacherCumplimiento.length * 34)}>
+            <BarChart data={teacherCumplimiento} layout="vertical" margin={{ left: 60 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" />
+              <XAxis type="number" allowDecimals={false} fontSize={11} />
+              <YAxis type="category" dataKey="name" width={90} fontSize={11} />
+              <RTooltip />
+              <Legend />
+              <Bar dataKey="Planificadas" fill="#0082AD" radius={[0, 3, 3, 0]} barSize={14} />
+              <Bar dataKey="Impartidas" fill="#E62327" radius={[0, 3, 3, 0]} barSize={14} />
+            </BarChart>
+          </ResponsiveContainer>
+        )}
+      </Card>
+
+      <Card className={styles.card} style={{ marginBottom: '20px' }}>
+        <Text className={styles.title}>Comparativo entre niveles</Text>
+        <Table aria-label="Comparativo entre niveles" style={{ marginTop: '8px' }}>
+          <TableHeader>
+            <TableRow>
+              <TableHeaderCell>Nivel</TableHeaderCell>
+              <TableHeaderCell>Estudiantes</TableHeaderCell>
+              <TableHeaderCell>Docentes</TableHeaderCell>
+              <TableHeaderCell>Planificadas</TableHeaderCell>
+              <TableHeaderCell>Impartidas</TableHeaderCell>
+              <TableHeaderCell>% Cumplimiento</TableHeaderCell>
+              <TableHeaderCell>Acompañamientos</TableHeaderCell>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {nivelComparison.map((n) => (
+              <TableRow key={n.nivel}>
+                <TableCell><Text weight="semibold">{n.nivel}</Text></TableCell>
+                <TableCell>{n.estudiantes}</TableCell>
+                <TableCell>{n.docentes}</TableCell>
+                <TableCell>{n.planificadas}</TableCell>
+                <TableCell>{n.impartidas}</TableCell>
+                <TableCell>{n.cumplimiento}%</TableCell>
+                <TableCell>{n.acs}</TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
       </Card>
 
       <div className={styles.grid}>
