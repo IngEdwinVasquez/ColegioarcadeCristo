@@ -34,6 +34,25 @@ const LEVEL_SHORT: Record<string, string> = {
   'Nivel Secundario': 'Secundaria',
 }
 
+const GRADOS = ['1ro', '2do', '3ro', '4to', '5to', '6to']
+const SECCIONES = ['A', 'B', 'C', 'D', 'E', 'F', 'G']
+const CICLOS = ['Primer ciclo', 'Segundo ciclo']
+
+const nivelShort = (level: string) => LEVEL_SHORT[level] ?? level
+
+/** Extrae la sección del curso: del campo `section` o del nombre (1ro.A → A). Por defecto A. */
+const seccionDe = (curso: GradeSection): string => {
+  if (curso.section) return curso.section
+  const m = curso.name.match(/([A-Ga-g])\s*$/)
+  return m ? m[1].toUpperCase() : 'A'
+}
+
+/** Extrae el grado del nombre del curso (1ro.A → 1ro). */
+const gradoDe = (curso: GradeSection): string => {
+  const g = curso.name.replace(/\s*[.\- ]\s*[A-Ga-g]\s*$/, '').replace(/\.$/, '').trim()
+  return g || curso.name
+}
+
 /**
  * RM-008: gestión académica desde Tecnología — cursos y secciones con
  * creación y vinculación del equipo de Microsoft Teams de cada curso.
@@ -118,24 +137,28 @@ export function AcademicaTecPage() {
   }
 
   const save = async (g: GradeSection) => {
-    if (!g.name.trim()) {
+    // Asegura sección (por defecto A) y construye el nombre grado.sección (ej. "1ro.A").
+    const seccion = g.section || seccionDe({ ...g, name: g.name })
+    const nombre = g.name || `${gradoDe(g)}.${seccion}`
+    const next: GradeSection = { ...g, name: nombre, section: seccion, level: g.level || (detectLevel(nombre) ?? 'Nivel Primario') }
+    if (!next.name.trim()) {
       toaster.dispatchToast('Indique el nombre del curso.', { intent: 'error' })
       return
     }
     try {
-      let next = { ...g, level: g.level || (detectLevel(g.name) ?? 'Nivel Primario') }
       const isNew = !gradesCol.items.some((x) => x.id === g.id)
       // Crear el curso también en Teams en el mismo paso.
-      if (isNew && createTeamToo && !next.teamId) {
+      let saved: GradeSection = next
+      if (isNew && createTeamToo && !saved.teamId) {
         try {
-          const team = await createClassTeam(next)
-          next = { ...next, teamId: team.teamId, teamUrl: team.webUrl }
+          const team = await createClassTeam(saved)
+          saved = { ...saved, teamId: team.teamId, teamUrl: team.webUrl }
         } catch (error) {
           toaster.dispatchToast(`El curso se guardará, pero el equipo de Teams falló: ${graphErrorMessage(error)}`, { intent: 'warning' })
         }
       }
-      await gradesCol.save(next)
-      toaster.dispatchToast(next.teamId ? 'Curso guardado con su equipo de Teams' : 'Curso guardado', { intent: 'success' })
+      await gradesCol.save(saved)
+      toaster.dispatchToast(saved.teamId ? 'Curso guardado con su equipo de Teams' : 'Curso guardado', { intent: 'success' })
       setEditing(null)
     } catch (error) {
       toaster.dispatchToast(`No se pudo guardar: ${graphErrorMessage(error)}`, { intent: 'error' })
@@ -165,7 +188,7 @@ export function AcademicaTecPage() {
             <Button appearance="secondary" icon={<ArrowDownloadRegular />} onClick={() => void openImport()}>
               Importar desde Teams
             </Button>
-            <Button appearance="primary" icon={<AddRegular />} onClick={() => setEditing({ id: genId('g'), name: '', level: 'Nivel Primario', section: 'A' })}>
+            <Button appearance="primary" icon={<AddRegular />} onClick={() => setEditing({ id: genId('g'), name: '1ro.A', level: 'Nivel Primario', section: 'A' })}>
               Nuevo curso
             </Button>
           </>
@@ -178,8 +201,9 @@ export function AcademicaTecPage() {
       <Table aria-label="Cursos">
         <TableHeader>
           <TableRow>
-            <TableHeaderCell>Curso</TableHeaderCell>
             <TableHeaderCell>Nivel</TableHeaderCell>
+            <TableHeaderCell>Ciclo</TableHeaderCell>
+            <TableHeaderCell>Grado</TableHeaderCell>
             <TableHeaderCell>Sección</TableHeaderCell>
             <TableHeaderCell>Estudiantes</TableHeaderCell>
             <TableHeaderCell>Microsoft Teams</TableHeaderCell>
@@ -189,9 +213,10 @@ export function AcademicaTecPage() {
         <TableBody>
           {gradesCol.items.map((g) => (
             <TableRow key={g.id}>
-              <TableCell><Text weight="semibold">{g.name}</Text></TableCell>
-              <TableCell>{g.level}</TableCell>
-              <TableCell>{g.section ?? '—'}</TableCell>
+              <TableCell>{nivelShort(g.level)}</TableCell>
+              <TableCell>{g.ciclo || '—'}</TableCell>
+              <TableCell><Text weight="semibold">{gradoDe(g)}</Text></TableCell>
+              <TableCell>{seccionDe(g)}</TableCell>
               <TableCell><Badge appearance="tint" color="brand" icon={<PeopleTeamRegular />}>{studentCount(g.id)}</Badge></TableCell>
               <TableCell>
                 {g.teamId ? (
@@ -300,19 +325,36 @@ export function AcademicaTecPage() {
         {editing && (
           <div>
             <FieldRow>
-              <FormField label="Nombre del curso" required>
-                <Input value={editing.name} onChange={(_, d) => setEditing({ ...editing, name: d.value })} placeholder="Ej. 6to A" />
+              <FormField label="Nivel" required>
+                <Select value={editing.level} onChange={(_, d) => setEditing({ ...editing, level: d.value })}>
+                  <option value="Nivel Inicial">Inicial</option>
+                  <option value="Nivel Primario">Primaria</option>
+                  <option value="Nivel Secundario">Secundaria</option>
+                </Select>
               </FormField>
-              <FormField label="Sección">
-                <Input value={editing.section ?? ''} onChange={(_, d) => setEditing({ ...editing, section: d.value })} placeholder="A" />
+              {(editing.level === 'Nivel Primario' || editing.level === 'Nivel Secundario') && (
+                <FormField label="Ciclo">
+                  <Select value={editing.ciclo ?? ''} onChange={(_, d) => setEditing({ ...editing, ciclo: d.value || undefined })}>
+                    <option value="">Sin ciclo</option>
+                    {CICLOS.map((c) => (<option key={c} value={c}>{c}</option>))}
+                  </Select>
+                </FormField>
+              )}
+            </FieldRow>
+            <FieldRow>
+              <FormField label="Grado" required>
+                <Select value={gradoDe(editing)} onChange={(_, d) => setEditing({ ...editing, name: `${d.value}.${editing.section || seccionDe(editing)}`, section: editing.section || seccionDe(editing) })}>
+                  { (GRADOS.includes(gradoDe(editing)) ? GRADOS : [gradoDe(editing), ...GRADOS]).map((grado) => (<option key={grado} value={grado}>{grado}</option>)) }
+                </Select>
+              </FormField>
+              <FormField label="Sección" required>
+                <Select value={editing.section || seccionDe(editing)} onChange={(_, d) => setEditing({ ...editing, section: d.value, name: `${gradoDe(editing)}.${d.value}` })}>
+                  {SECCIONES.map((s) => (<option key={s} value={s}>{s}</option>))}
+                </Select>
               </FormField>
             </FieldRow>
-            <FormField label="Nivel">
-              <Select value={editing.level} onChange={(_, d) => setEditing({ ...editing, level: d.value })}>
-                <option value="Nivel Inicial">Nivel Inicial</option>
-                <option value="Nivel Primario">Nivel Primario</option>
-                <option value="Nivel Secundario">Nivel Secundario</option>
-              </Select>
+            <FormField label="Nombre del curso" hint="Se construye automáticamente con grado + sección (ej. 1ro.A). Puede ajustarlo.">
+              <Input value={editing.name} onChange={(_, d) => setEditing({ ...editing, name: d.value })} placeholder="Ej. 1ro.A" />
             </FormField>
             {!gradesCol.items.some((x) => x.id === editing.id) && (
               <Checkbox
