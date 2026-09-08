@@ -1,19 +1,19 @@
 import { useMemo, useRef, useState } from 'react'
-import { Button, Input, Select, Spinner, Table, TableBody, TableCell, TableHeader, TableHeaderCell, TableRow, Text, Textarea, Toolbar, ToolbarButton, makeStyles, tokens } from '@fluentui/react-components'
+import { Button, Input, Select, Spinner, Table, TableBody, TableCell, TableHeader, TableHeaderCell, TableRow, Text, Toolbar, ToolbarButton, makeStyles, tokens } from '@fluentui/react-components'
 import { AddRegular, SparkleRegular, OpenRegular, DeleteRegular, SearchRegular, DocumentRegular, PrintRegular, CalendarLtrRegular, CloudArrowUpRegular, ChatRegular } from '@fluentui/react-icons'
 import { PageHeader } from '../../components/shared/PageHeader'
 import { StatusBadge } from '../../components/shared/StatusBadge'
 import { EmptyStateView } from '../../components/shared/EmptyStateView'
 import { ModalForm } from '../../components/shared/ModalForm'
 import { useApp } from '../../context/useApp'
-import { isAdminEmail } from '../../config/appConfig'
 import { dataService } from '../../services/dataService'
 import { useCollection } from '../../hooks/useCollection'
 import { extractPdfText } from '../../services/pdf'
-import { parsePdfToPlan, modifyPlanWithAi } from '../../services/planningPrompts'
+import { parsePdfToPlan } from '../../services/planningPrompts'
 import { isAiConfigured } from '../../services/ai'
 import { PlanDiarioForm } from './PlanDiarioForm'
 import { AsistenteIA } from './AsistenteIA'
+import { ModifyChatPanel } from './ModifyChatPanel'
 import { exportPlanWord, printPlan } from './exportPlan'
 import type { DailyPlan } from '../../types'
 import { formatDate, genId, todayIso } from '../../utils/helpers'
@@ -30,7 +30,6 @@ const EDUPLAN_URL = 'https://eduplan.educando.edu.do/'
 export function PlanificacionPage() {
   const styles = useStyles()
   const { user, subjects, grades, subjectById, gradeById, role } = useApp()
-  const isSuperadmin = isAdminEmail(user?.email)
   const configured = isAiConfigured()
 
   const plansCol = useCollection<DailyPlan>(dataService.getDailyPlans, dataService.saveDailyPlan, dataService.deleteDailyPlan)
@@ -44,8 +43,7 @@ export function PlanificacionPage() {
   const [editing, setEditing] = useState<DailyPlan | null>(null)
   const [parsing, setParsing] = useState(false)
   const [modifyTarget, setModifyTarget] = useState<DailyPlan | null>(null)
-  const [modifyInstruction, setModifyInstruction] = useState('')
-  const [modifying, setModifying] = useState(false)
+  const [modifyOpen, setModifyOpen] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
 
   const isStaff = role === 'admin' || role === 'psicologia' || role === 'tecnologia'
@@ -98,24 +96,7 @@ export function PlanificacionPage() {
     }
   }
 
-  const openModify = (plan: DailyPlan) => { setModifyTarget(plan); setModifyInstruction('') }
-
-  /** Aplica la instrucción del docente al plan mediante IA y lo abre para revisión. */
-  const applyModify = async () => {
-    if (!modifyTarget || !modifyInstruction.trim()) return
-    setModifying(true)
-    try {
-      const updated = await modifyPlanWithAi(modifyTarget, modifyInstruction.trim())
-      setEditing(updated)
-      setFormOpen(true)
-      setModifyTarget(null)
-      setModifyInstruction('')
-    } catch (e) {
-      window.alert(e instanceof Error ? e.message : 'No se pudo aplicar la modificación.')
-    } finally {
-      setModifying(false)
-    }
-  }
+  const openModify = (plan: DailyPlan) => { setModifyTarget(plan); setModifyOpen(true) }
 
   return (
     <div>
@@ -130,11 +111,9 @@ export function PlanificacionPage() {
             <Button appearance="secondary" icon={parsing ? <Spinner size="tiny" /> : <CloudArrowUpRegular />} onClick={() => fileRef.current?.click()} disabled={parsing}>
               {parsing ? 'Leyendo PDF…' : 'Cargar planificación (PDF)'}
             </Button>
-            {isSuperadmin && (
-              <Button appearance="secondary" icon={<SparkleRegular />} onClick={() => setAsistenteOpen(true)}>
-                Generar con IA
-              </Button>
-            )}
+            <Button appearance="secondary" icon={<SparkleRegular />} onClick={() => setAsistenteOpen(true)}>
+              Generar con IA
+            </Button>
             <Button appearance="primary" icon={<AddRegular />} onClick={openNew}>
               Nueva planificación
             </Button>
@@ -227,28 +206,12 @@ export function PlanificacionPage() {
 
       <AsistenteIA open={asistenteOpen} onOpenChange={setAsistenteOpen} onGenerated={handleAiGenerated} />
 
-      <ModalForm open={!!modifyTarget} onOpenChange={(o) => !o && setModifyTarget(null)} title="Modificar planificación con IA" subtitle={modifyTarget ? `${subjectById(modifyTarget.subjectId)?.name ?? ''} · ${modifyTarget.tema}` : ''} width={640}>
-        {modifyTarget && (
-          <div>
-            <Text size={300} block style={{ marginBottom: '12px', color: 'var(--texto-suave)' }}>
-              Pida a la IA las modificaciones que desee (ej: <i>"ajusta a 40 minutos", "agrega una rúbrica de evaluación", "hazla más práctica"</i>) y se aplicarán automáticamente al plan para que lo revise y guarde.
-            </Text>
-            <Textarea
-              value={modifyInstruction}
-              onChange={(_, d) => setModifyInstruction(d.value)}
-              resize="vertical"
-              rows={4}
-              placeholder="Describa la modificación deseada…"
-            />
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '16px' }}>
-              <Button appearance="secondary" onClick={() => setModifyTarget(null)}>Cancelar</Button>
-              <Button appearance="primary" icon={modifying ? <Spinner size="tiny" /> : <SparkleRegular />} onClick={() => void applyModify()} disabled={modifying || !modifyInstruction.trim()}>
-                {modifying ? 'Aplicando…' : 'Aplicar modificación'}
-              </Button>
-            </div>
-          </div>
-        )}
-      </ModalForm>
+      <ModifyChatPanel
+        open={modifyOpen}
+        onOpenChange={setModifyOpen}
+        plan={modifyTarget}
+        onPlanUpdated={(plan) => { setEditing(plan); setFormOpen(true); setModifyOpen(false) }}
+      />
     </div>
   )
 }
