@@ -1,9 +1,10 @@
 import { useState } from 'react'
-import { Input, Select, Text, Textarea, makeStyles, tokens } from '@fluentui/react-components'
+import { Button, Input, Select, Text, Textarea, makeStyles, tokens } from '@fluentui/react-components'
+import { AddRegular, DismissRegular } from '@fluentui/react-icons'
 import { FormActions, FormField, FieldRow } from '../../components/shared/form'
 import { MultiSelect } from '../../components/shared/MultiSelect'
 import { useApp } from '../../context/useApp'
-import type { DailyPlan } from '../../types'
+import type { DailyPlan, SecuenciaCurricular } from '../../types'
 import { genId, todayIso } from '../../utils/helpers'
 import {
   COMPETENCIAS_FUNDAMENTALES,
@@ -229,6 +230,27 @@ export function PlanDiarioForm({ initial, onSave, onCancel, submitting = false }
         </FormField>
       </div>
 
+      <div className={styles.section}>
+        <Text size={400} weight="semibold" className={styles.sectionTitle}>Estructura de Unidad de Aprendizaje (Eduplan · MINERD)</Text>
+        <FormField label="Secuencias curriculares correspondientes">
+          <SecuenciasEditor value={form.secuenciasCurriculares ?? []} onChange={(s) => set('secuenciasCurriculares', s)} />
+        </FormField>
+        <FormField label="Recuerda (saberes previos)">
+          <Textarea value={form.recuerda ?? ''} onChange={(_, d) => set('recuerda', d.value)} resize="vertical" rows={3} />
+        </FormField>
+        <FormField label="Situación de aprendizaje">
+          <Textarea value={form.situacionAprendizaje ?? ''} onChange={(_, d) => set('situacionAprendizaje', d.value)} resize="vertical" rows={3} />
+        </FormField>
+        <FieldRow>
+          <FormField label="Materiales necesarios" hint="Una por línea.">
+            <Textarea value={joinLines(form.materiales ?? [])} onChange={(_, d) => set('materiales', splitLines(d.value))} resize="vertical" rows={3} />
+          </FormField>
+          <FormField label="Recursos didácticos digitales" hint="Una por línea.">
+            <Textarea value={joinLines(form.recursosDigitales ?? [])} onChange={(_, d) => set('recursosDigitales', splitLines(d.value))} resize="vertical" rows={3} />
+          </FormField>
+        </FieldRow>
+      </div>
+
       {form.generadoPorIA && (
         <Text size={200} style={{ color: tokens.colorPaletteGreenForeground1, marginTop: '8px', display: 'block' }}>
           ✨ Contenido generado con IA. Revise y ajuste antes de guardar.
@@ -236,6 +258,25 @@ export function PlanDiarioForm({ initial, onSave, onCancel, submitting = false }
       )}
 
       <FormActions onCancel={onCancel} onSubmit={submit} saving={submitting} submitLabel={initial ? 'Actualizar planificación' : 'Guardar planificación'} />
+    </div>
+  )
+}
+
+function SecuenciasEditor({ value, onChange }: { value: SecuenciaCurricular[]; onChange: (v: SecuenciaCurricular[]) => void }) {
+  const set = (i: number, patch: Partial<SecuenciaCurricular>) => onChange(value.map((s, idx) => (idx === i ? { ...s, ...patch } : s)))
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+      {value.map((s, i) => (
+        <div key={i} style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+          <Input placeholder="Área (ej. Ciencias)" value={s.area} onChange={(_, d) => set(i, { area: d.value })} style={{ flex: 2 }} />
+          <Input placeholder="SC 12" value={s.codigo} onChange={(_, d) => set(i, { codigo: d.value })} style={{ width: '80px' }} />
+          <Input placeholder="Título de la secuencia" value={s.titulo} onChange={(_, d) => set(i, { titulo: d.value })} style={{ flex: 3 }} />
+          <Button appearance="subtle" icon={<DismissRegular />} aria-label="Quitar" onClick={() => onChange(value.filter((_, idx) => idx !== i))} />
+        </div>
+      ))}
+      <Button appearance="subtle" icon={<AddRegular />} onClick={() => onChange([...value, { area: '', codigo: '', titulo: '' }])}>
+        Añadir secuencia curricular
+      </Button>
     </div>
   )
 }

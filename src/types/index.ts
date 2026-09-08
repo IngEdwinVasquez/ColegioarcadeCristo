@@ -103,6 +103,41 @@ export interface PlanEvaluacion {
   criterios: string
 }
 
+// ------------------------------ Estructura Unidad de Aprendizaje (Eduplan / MINERD) ------------------------------
+
+export interface SecuenciaCurricular {
+  /** Área/asignatura (ej. Ciencias de la Naturaleza) */
+  area: string
+  /** Código de la secuencia curricular (ej. SC 12) */
+  codigo: string
+  /** Título de la secuencia */
+  titulo: string
+}
+
+export interface ActividadDidactica {
+  titulo: string
+  fase: 'inicio' | 'desarrollo' | 'cierre'
+  descripcion: string
+  /** Orientaciones para el docente */
+  orientaciones: string
+  /** Duración (ej. 00:45) */
+  duracion: string
+  /** Estrategias/técnicas aplicadas */
+  estrategias: string[]
+}
+
+export interface ApoyoDiferencial {
+  /** "Si observas…" */
+  observacion: string
+  /** "Trata de…" */
+  tratamiento: string
+}
+
+export interface Anexo {
+  titulo: string
+  contenido: string
+}
+
 /**
  * Planificación académica (diaria o de unidad) con la estructura del diseño
  * curricular del MINERD (República Dominicana): competencias, ejes
@@ -132,6 +167,23 @@ export interface DailyPlan {
   generadoPorIA: boolean
   createdAt: string
   updatedAt?: string
+  // --- Estructura "Unidad de Aprendizaje" (Eduplan / MINERD) ---
+  /** Secuencias curriculares con las que se conecta la unidad */
+  secuenciasCurriculares?: SecuenciaCurricular[]
+  /** Apartado "Recuerda" (saberes previos) */
+  recuerda?: string
+  /** Situación de aprendizaje (contexto que motiva la unidad) */
+  situacionAprendizaje?: string
+  /** Materiales necesarios para las actividades */
+  materiales?: string[]
+  /** Recursos didácticos digitales (enlaces) */
+  recursosDigitales?: string[]
+  /** Secuencia didáctica desglosada por actividad */
+  actividadesDetalle?: ActividadDidactica[]
+  /** Apoyo diferenciado: "Si observas…, trata de…" */
+  apoyos?: ApoyoDiferencial[]
+  /** Anexos */
+  anexos?: Anexo[]
 }
 
 /**
