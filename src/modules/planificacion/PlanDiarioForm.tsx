@@ -4,7 +4,7 @@ import { AddRegular, DismissRegular } from '@fluentui/react-icons'
 import { FormActions, FormField, FieldRow } from '../../components/shared/form'
 import { MultiSelect } from '../../components/shared/MultiSelect'
 import { useApp } from '../../context/useApp'
-import type { DailyPlan, SecuenciaCurricular } from '../../types'
+import type { ActividadDidactica, Anexo, ApoyoDiferencial, DailyPlan, SecuenciaCurricular } from '../../types'
 import { genId, todayIso } from '../../utils/helpers'
 import {
   COMPETENCIAS_FUNDAMENTALES,
@@ -251,6 +251,22 @@ export function PlanDiarioForm({ initial, onSave, onCancel, submitting = false }
         </FieldRow>
       </div>
 
+      <div className={styles.section}>
+        <Text size={400} weight="semibold" className={styles.sectionTitle}>Secuencia didáctica (detalle por actividad)</Text>
+        <Text size={200} style={{ color: 'var(--texto-suave)', marginBottom: '10px' }}>Cada actividad con su fase, descripción, orientaciones para el docente, duración y estrategias. (Si se deja vacío, el documento usa Inicio/Desarrollo/Cierre.)</Text>
+        <ActividadesEditor value={form.actividadesDetalle ?? []} onChange={(v) => set('actividadesDetalle', v)} />
+      </div>
+
+      <div className={styles.section}>
+        <Text size={400} weight="semibold" className={styles.sectionTitle}>Acompañamiento diferenciado "Si observas…, trata de…"</Text>
+        <ApoyosEditor value={form.apoyos ?? []} onChange={(v) => set('apoyos', v)} />
+      </div>
+
+      <div className={styles.section}>
+        <Text size={400} weight="semibold" className={styles.sectionTitle}>Anexos</Text>
+        <AnexosEditor value={form.anexos ?? []} onChange={(v) => set('anexos', v)} />
+      </div>
+
       {form.generadoPorIA && (
         <Text size={200} style={{ color: tokens.colorPaletteGreenForeground1, marginTop: '8px', display: 'block' }}>
           ✨ Contenido generado con IA. Revise y ajuste antes de guardar.
@@ -276,6 +292,77 @@ function SecuenciasEditor({ value, onChange }: { value: SecuenciaCurricular[]; o
       ))}
       <Button appearance="subtle" icon={<AddRegular />} onClick={() => onChange([...value, { area: '', codigo: '', titulo: '' }])}>
         Añadir secuencia curricular
+      </Button>
+    </div>
+  )
+}
+
+function ActividadesEditor({ value, onChange }: { value: ActividadDidactica[]; onChange: (v: ActividadDidactica[]) => void }) {
+  const set = (i: number, patch: Partial<ActividadDidactica>) => onChange(value.map((a, idx) => (idx === i ? { ...a, ...patch } : a)))
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+      {value.map((a, i) => (
+        <div key={i} style={{ border: '1px solid var(--borde)', borderRadius: '12px', padding: '14px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+            <Text weight="semibold">Actividad {i + 1}</Text>
+            <Select value={a.fase} onChange={(_, d) => set(i, { fase: d.value as ActividadDidactica['fase'] })}>
+              <option value="inicio">Inicio</option><option value="desarrollo">Desarrollo</option><option value="cierre">Cierre</option>
+            </Select>
+            <Button appearance="subtle" icon={<DismissRegular />} aria-label="Quitar" onClick={() => onChange(value.filter((_, idx) => idx !== i))} style={{ marginLeft: 'auto' }} />
+          </div>
+          <Input value={a.titulo} onChange={(_, d) => set(i, { titulo: d.value })} placeholder="Título de la actividad" />
+          <Textarea value={a.descripcion} onChange={(_, d) => set(i, { descripcion: d.value })} resize="vertical" rows={2} placeholder="Descripción / indicaciones de la actividad" />
+          <Textarea value={a.orientaciones} onChange={(_, d) => set(i, { orientaciones: d.value })} resize="vertical" rows={2} placeholder="Orientaciones para la o el docente" />
+          <FieldRow>
+            <FormField label="Duración">
+              <Input value={a.duracion} onChange={(_, d) => set(i, { duracion: d.value })} placeholder="00:45" />
+            </FormField>
+            <FormField label="Estrategias" hint="Una por línea.">
+              <Textarea value={joinLines(a.estrategias)} onChange={(_, d) => set(i, { estrategias: splitLines(d.value) })} resize="vertical" rows={2} />
+            </FormField>
+          </FieldRow>
+        </div>
+      ))}
+      <Button appearance="subtle" icon={<AddRegular />} onClick={() => onChange([...value, { titulo: '', fase: 'inicio', descripcion: '', orientaciones: '', duracion: '', estrategias: [] }])}>
+        Añadir actividad
+      </Button>
+    </div>
+  )
+}
+
+function ApoyosEditor({ value, onChange }: { value: ApoyoDiferencial[]; onChange: (v: ApoyoDiferencial[]) => void }) {
+  const set = (i: number, patch: Partial<ApoyoDiferencial>) => onChange(value.map((a, idx) => (idx === i ? { ...a, ...patch } : a)))
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+      {value.map((a, i) => (
+        <div key={i} style={{ display: 'flex', gap: '8px', alignItems: 'flex-start' }}>
+          <Textarea value={a.observacion} onChange={(_, d) => set(i, { observacion: d.value })} resize="vertical" rows={2} placeholder="Si observas…" style={{ flex: 1 }} />
+          <Textarea value={a.tratamiento} onChange={(_, d) => set(i, { tratamiento: d.value })} resize="vertical" rows={2} placeholder="Trata de…" style={{ flex: 1 }} />
+          <Button appearance="subtle" icon={<DismissRegular />} aria-label="Quitar" onClick={() => onChange(value.filter((_, idx) => idx !== i))} />
+        </div>
+      ))}
+      <Button appearance="subtle" icon={<AddRegular />} onClick={() => onChange([...value, { observacion: '', tratamiento: '' }])}>
+        Añadir apoyo diferenciado
+      </Button>
+    </div>
+  )
+}
+
+function AnexosEditor({ value, onChange }: { value: Anexo[]; onChange: (v: Anexo[]) => void }) {
+  const set = (i: number, patch: Partial<Anexo>) => onChange(value.map((a, idx) => (idx === i ? { ...a, ...patch } : a)))
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+      {value.map((a, i) => (
+        <div key={i} style={{ border: '1px solid var(--borde)', borderRadius: '12px', padding: '12px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+            <Input value={a.titulo} onChange={(_, d) => set(i, { titulo: d.value })} placeholder="Título del anexo" style={{ flex: 1 }} />
+            <Button appearance="subtle" icon={<DismissRegular />} aria-label="Quitar" onClick={() => onChange(value.filter((_, idx) => idx !== i))} />
+          </div>
+          <Textarea value={a.contenido} onChange={(_, d) => set(i, { contenido: d.value })} resize="vertical" rows={4} placeholder="Contenido / texto del anexo" />
+        </div>
+      ))}
+      <Button appearance="subtle" icon={<AddRegular />} onClick={() => onChange([...value, { titulo: '', contenido: '' }])}>
+        Añadir anexo
       </Button>
     </div>
   )
