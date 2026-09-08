@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { Button, Input, Select, Tab, TabList, Table, TableBody, TableCell, TableHeader, TableHeaderCell, TableRow, Text, Toolbar, ToolbarButton, makeStyles, tokens } from '@fluentui/react-components'
-import { AddRegular, OpenRegular, DeleteRegular, PeopleRegular, ArrowLeftRegular, CalendarLtrRegular } from '@fluentui/react-icons'
+import { AddRegular, OpenRegular, DeleteRegular, PeopleRegular, ArrowLeftRegular, CalendarLtrRegular, CalendarCheckmarkRegular, FolderRegular } from '@fluentui/react-icons'
 import { PageHeader } from '../../components/shared/PageHeader'
 import { StatusBadge } from '../../components/shared/StatusBadge'
 import { EmptyStateView } from '../../components/shared/EmptyStateView'
@@ -30,11 +30,10 @@ export function MisClasesPage() {
   const unidadesCol = useCollection<DailyPlan>(dataService.getDailyPlans)
   const plansCol = useCollection<ClassPlan>(dataService.getClassPlans, dataService.saveClassPlan, dataService.deleteClassPlan)
 
-  const [subjectId, gradeId, section] = useMemo(() => {
-    const raw = params.key ?? ''
-    const [s, g, sec] = raw.split('|').map((x) => decodeURIComponent(x))
-    return [s ?? '', g ?? '', sec ?? '']
-  }, [params.key])
+  const subjectId = params.subjectId ?? ''
+  const gradeId = params.gradeId ?? ''
+  const section = decodeURIComponent(params.section ?? '')
+  const navigateToClass = (id: string) => navigate(`/docentes/aulas/${gradeId}/${encodeURIComponent(section)}/${subjectId}/clase/${id}`)
 
   const teacher = teacherById(user?.teacherId)
   const subjectName = subjectById(subjectId)?.name ?? 'Asignatura'
@@ -90,12 +89,19 @@ export function MisClasesPage() {
 
   return (
     <div>
-      <Button appearance="subtle" icon={<ArrowLeftRegular />} onClick={() => navigate('/docentes/aulas')} style={{ marginBottom: '12px' }}>Volver a Mis Aulas</Button>
+      <Button appearance="subtle" icon={<ArrowLeftRegular />} onClick={() => navigate(`/docentes/aulas/${gradeId}/${encodeURIComponent(section)}`)} style={{ marginBottom: '12px' }}>Volver a la asignatura</Button>
       <PageHeader
         title={`Mis Clases · ${subjectName}`}
         subtitle={`${gradeName}${section ? ` · Sección ${section}` : ''} · Cree clases a partir de las Unidades de Aprendizaje de su Planificación Anual.`}
         actions={<Button appearance="primary" icon={<AddRegular />} onClick={() => { setNewUnidadId(unidades[0]?.id ?? ''); setCreateOpen(true) }}>Crear clase</Button>}
       />
+
+      <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '16px' }}>
+        <Button appearance="outline" size="small" icon={<CalendarLtrRegular />} onClick={() => navigate('/docentes/planificaciones')}>Planificación Anual</Button>
+        <Button appearance="outline" size="small" icon={<CalendarLtrRegular />} onClick={() => navigate('/docentes/planificador')}>Planificador semanal</Button>
+        <Button appearance="outline" size="small" icon={<CalendarCheckmarkRegular />} onClick={() => navigate('/docentes/asistencia')}>Asistencia</Button>
+        <Button appearance="outline" size="small" icon={<FolderRegular />} onClick={() => navigate('/docentes/recursos')}>Recursos</Button>
+      </div>
 
       <div className={styles.controls}>
         <Text size={200} style={{ color: 'var(--texto-suave)' }}>{classList.length} clase(s) · {classStudents.length} estudiante(s) del aula</Text>
@@ -135,7 +141,7 @@ export function MisClasesPage() {
                 <TableCell className={styles.cell}><StatusBadge status={c.status} /></TableCell>
                 <TableCell className={styles.cell}>
                   <Toolbar size="small" style={{ gap: '4px' }}>
-                    <ToolbarButton icon={<OpenRegular />} onClick={() => navigate(`/docentes/aulas/${encodeURIComponent(`${subjectId}|${gradeId}|${section}`)}/clase/${c.id}`)}>Abrir</ToolbarButton>
+                    <ToolbarButton icon={<OpenRegular />} onClick={() => navigateToClass(c.id)}>Abrir</ToolbarButton>
                     <ToolbarButton icon={<PeopleRegular />} onClick={() => setRosterTarget(c)}>Estudiantes</ToolbarButton>
                     <ToolbarButton icon={<DeleteRegular />} onClick={() => { if (window.confirm('¿Eliminar esta clase?')) void classesCol.remove(c.id) }}>Eliminar</ToolbarButton>
                   </Toolbar>

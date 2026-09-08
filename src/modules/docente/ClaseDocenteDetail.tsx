@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { Button, Card, Select, Tab, TabList, Text, Textarea, makeStyles } from '@fluentui/react-components'
 import { ArrowLeftRegular, SaveRegular, PrintRegular, VideoRegular } from '@fluentui/react-icons'
@@ -26,11 +26,10 @@ export function ClaseDocenteDetail() {
   const params = useParams()
   const { subjectById, gradeById, students } = useApp()
   const classId = params.classId ?? ''
-  const [subjectId, gradeId, section] = useMemo(() => {
-    const raw = params.key ?? ''
-    const [s, g, sec] = raw.split('|').map((x) => decodeURIComponent(x))
-    return [s ?? '', g ?? '', sec ?? '']
-  }, [params.key])
+  const subjectId = params.subjectId ?? ''
+  const gradeId = params.gradeId ?? ''
+  const section = decodeURIComponent(params.section ?? '')
+  const backTo = `/docentes/aulas/${gradeId}/${encodeURIComponent(section)}/${subjectId}`
 
   const classesCol = useCollection<SchoolClassRecord>(dataService.getClasses, dataService.saveClassRecord)
   const unidadesCol = useCollection<DailyPlan>(dataService.getDailyPlans)
@@ -73,7 +72,7 @@ export function ClaseDocenteDetail() {
 
   return (
     <div>
-      <Button appearance="subtle" icon={<ArrowLeftRegular />} onClick={() => navigate(`/docentes/aulas/${encodeURIComponent(`${subjectId}|${gradeId}|${section}`)}`)} style={{ marginBottom: '12px' }}>Volver a Mis Clases</Button>
+      <Button appearance="subtle" icon={<ArrowLeftRegular />} onClick={() => navigate(backTo)} style={{ marginBottom: '12px' }}>Volver a Mis Clases</Button>
       <PageHeader
         title="Clase"
         subtitle={cls ? `${subjectById(cls.subjectId)?.name ?? ''} · ${gradeById(cls.gradeId)?.name ?? ''}${section ? ` · ${section}` : ''} · ${cls.title} · ${cls.period}` : 'Cargando…'}
