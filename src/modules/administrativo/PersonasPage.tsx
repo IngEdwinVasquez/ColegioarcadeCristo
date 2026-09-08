@@ -51,6 +51,14 @@ const LINK_OF: Record<TipoOp, (id: string) => LinkTarget> = {
 }
 const labelOf = (t: TipoOp) => PERSON_TYPES.find((p) => p.value === t)?.label ?? t
 
+/** Agrupa los tipos de persona por categoría para el selector. */
+const TIPO_GROUPS: Array<{ label: string; values: TipoOp[] }> = [
+  { label: 'Estudiantes', values: ['estudiante'] },
+  { label: 'Docentes', values: ['docente'] },
+  { label: 'Personal', values: ['coordinador', 'tic', 'director', 'administrador', 'siger', 'apoyo', 'psicologia'] },
+  { label: 'Familias', values: ['padre'] },
+]
+
 interface BasePerson { id: string; fullName: string; userId?: string }
 
 export function PersonasPage() {
@@ -118,7 +126,11 @@ export function PersonasPage() {
         void convertPersona(item, current, t)
       }
     }}>
-      {PERSON_TYPES.map((p) => (<option key={p.value} value={p.value}>{p.label}</option>))}
+      {TIPO_GROUPS.map((g) => (
+        <optgroup key={g.label} label={g.label}>
+          {g.values.map((v) => (<option key={v} value={v}>{labelOf(v)}</option>))}
+        </optgroup>
+      ))}
     </Select>
   )
 
