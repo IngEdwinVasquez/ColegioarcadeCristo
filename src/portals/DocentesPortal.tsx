@@ -5,6 +5,7 @@ import { PlanificacionPage } from '../modules/planificacion/PlanificacionPage'
 import { PlanificadorSemanal } from '../modules/planificacion/PlanificadorSemanal'
 import { GradosSeccionesPage } from '../modules/planificacion/GradosSeccionesPage'
 import { MisAulasPage } from '../modules/docente/MisAulasPage'
+import { AulaPage } from '../modules/docente/AulaPage'
 import { MisClasesPage } from '../modules/docente/MisClasesPage'
 import { ClaseDocenteDetail } from '../modules/docente/ClaseDocenteDetail'
 import { RecursosPage } from '../modules/docente/RecursosPage'
@@ -17,27 +18,16 @@ import { ChatPage } from '../modules/chat/ChatPage'
 import { CopilotPage } from '../modules/copilot/CopilotPage'
 import {
   HomeRegular,
-  CalendarLtrRegular,
-  CalendarCheckmarkRegular,
   VideoPersonRegular,
   MegaphoneRegular,
   ChatRegular,
   SparkleRegular,
-  GridRegular,
-  FolderRegular,
-  BriefcaseRegular,
   VideoRegular,
 } from '@fluentui/react-icons'
 
 const NAV: NavItem[] = [
   { to: '/docentes', label: 'Inicio', icon: <HomeRegular />, end: true, group: 'General' },
-  { to: '/docentes/planificaciones', label: 'Planificación Anual', icon: <CalendarLtrRegular />, group: 'Académico' },
-  { to: '/docentes/planificador', label: 'Planificador semanal', icon: <GridRegular />, group: 'Académico' },
-  { to: '/docentes/grados-secciones', label: 'Grados y Secciones', icon: <GridRegular />, group: 'Académico' },
   { to: '/docentes/aulas', label: 'Mis Aulas', icon: <VideoRegular />, group: 'Académico' },
-  { to: '/docentes/asistencia', label: 'Registro de Asistencia', icon: <CalendarCheckmarkRegular />, group: 'Académico' },
-  { to: '/docentes/recursos', label: 'Recursos e Interactivos', icon: <FolderRegular />, group: 'Académico' },
-  { to: '/docentes/portafolio', label: 'Portafolio y Agenda', icon: <BriefcaseRegular />, group: 'Académico' },
   { to: '/docentes/encuentros', label: 'Encuentros Virtuales', icon: <VideoPersonRegular />, group: 'Comunidad' },
   { to: '/docentes/comunicados', label: 'Comunicados', icon: <MegaphoneRegular />, group: 'Comunidad' },
   { to: '/docentes/chat', label: 'Mensajería', icon: <ChatRegular />, group: 'Comunidad' },
@@ -49,12 +39,13 @@ export function DocentesPortal() {
     <Routes>
       <Route element={<AppShell nav={NAV} />}>
         <Route index element={<DocenteDashboard />} />
+        <Route path="aulas" element={<MisAulasPage />} />
+        <Route path="aulas/:gradeId/:section" element={<AulaPage />} />
+        <Route path="aulas/:gradeId/:section/:subjectId" element={<MisClasesPage />} />
+        <Route path="aulas/:gradeId/:section/:subjectId/clase/:classId" element={<ClaseDocenteDetail />} />
         <Route path="planificaciones" element={<PlanificacionPage />} />
         <Route path="planificador" element={<PlanificadorSemanal />} />
         <Route path="grados-secciones" element={<GradosSeccionesPage />} />
-        <Route path="aulas" element={<MisAulasPage />} />
-        <Route path="aulas/:key" element={<MisClasesPage />} />
-        <Route path="aulas/:key/clase/:classId" element={<ClaseDocenteDetail />} />
         <Route path="asistencia" element={<AsistenciaPage />} />
         <Route path="recursos" element={<RecursosPage />} />
         <Route path="portafolio" element={<PortafolioPage />} />
