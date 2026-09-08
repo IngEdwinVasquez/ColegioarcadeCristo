@@ -10,7 +10,7 @@ import { useCollection } from '../../hooks/useCollection'
 import { printPlan } from '../planificacion/exportPlan'
 import { ProyectarUnidad } from '../planificacion/ProyectarUnidad'
 import type { AttendanceRecord, DailyPlan, SchoolClassRecord } from '../../types'
-import { genId } from '../../utils/helpers'
+import { genId, aulaLabel } from '../../utils/helpers'
 
 const useStyles = makeStyles({
   tabsWrap: { background: 'var(--superficie)', borderRadius: '14px', border: '1px solid var(--borde)', padding: '20px', marginTop: '16px' },
@@ -75,7 +75,7 @@ export function ClaseDocenteDetail() {
       <Button appearance="subtle" icon={<ArrowLeftRegular />} onClick={() => navigate(backTo)} style={{ marginBottom: '12px' }}>Volver a Mis Clases</Button>
       <PageHeader
         title="Clase"
-        subtitle={cls ? `${subjectById(cls.subjectId)?.name ?? ''} · ${gradeById(cls.gradeId)?.name ?? ''}${section ? ` · ${section}` : ''} · ${cls.title} · ${cls.period}` : 'Cargando…'}
+        subtitle={cls ? `${subjectById(cls.subjectId)?.name ?? ''} · ${aulaLabel(gradeById(cls.gradeId), section)} · ${cls.title} · ${cls.period}` : 'Cargando…'}
         actions={cls && unidad ? (
           <>
             <Button appearance="secondary" icon={<VideoRegular />} onClick={() => setProyectar(true)}>Proyectar en pizarra</Button>
