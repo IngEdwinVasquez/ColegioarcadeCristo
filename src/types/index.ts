@@ -235,6 +235,10 @@ export interface SchoolClassRecord {
   during: ClassDuringSection
   after: ClassAfterSection
   attendanceId?: string
+  /** Unidad de Aprendizaje (DailyPlan) de referencia */
+  unidadId?: string
+  /** Lista de estudiantes inscritos en esta clase */
+  roster?: string[]
   createdAt: string
 }
 

@@ -1,0 +1,172 @@
+import { useMemo, useState } from 'react'
+import { useNavigate, useParams } from 'react-router-dom'
+import { Button, Input, Select, Table, TableBody, TableCell, TableHeader, TableHeaderCell, TableRow, Text, Toolbar, ToolbarButton, makeStyles, tokens } from '@fluentui/react-components'
+import { AddRegular, OpenRegular, DeleteRegular, PeopleRegular, ArrowLeftRegular, CalendarLtrRegular } from '@fluentui/react-icons'
+import { PageHeader } from '../../components/shared/PageHeader'
+import { StatusBadge } from '../../components/shared/StatusBadge'
+import { EmptyStateView } from '../../components/shared/EmptyStateView'
+import { ModalForm } from '../../components/shared/ModalForm'
+import { FormField, FieldRow, FormActions } from '../../components/shared/form'
+import { useApp } from '../../context/useApp'
+import { dataService } from '../../services/dataService'
+import { useCollection } from '../../hooks/useCollection'
+import type { DailyPlan, SchoolClassRecord } from '../../types'
+import { formatDate, genId, todayIso } from '../../utils/helpers'
+
+const useStyles = makeStyles({
+  controls: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '14px', flexWrap: 'wrap', marginBottom: '18px' },
+  cell: { verticalAlign: 'middle' },
+  small: { color: tokens.colorNeutralForeground2 },
+  roster: { display: 'flex', flexWrap: 'wrap', gap: '6px', maxHeight: '220px', overflowY: 'auto' },
+  chip: { padding: '4px 12px', borderRadius: '999px', background: 'rgba(0,130,173,0.10)', color: '#0082AD', fontSize: '12.5px', fontWeight: 600 },
+})
+
+export function MisClasesPage() {
+  const styles = useStyles()
+  const navigate = useNavigate()
+  const params = useParams()
+  const { user, students, subjectById, gradeById, teacherById } = useApp()
+  const classesCol = useCollection<SchoolClassRecord>(dataService.getClasses, dataService.saveClassRecord, dataService.deleteClassRecord)
+  const unidadesCol = useCollection<DailyPlan>(dataService.getDailyPlans)
+
+  const [subjectId, gradeId, section] = useMemo(() => {
+    const raw = params.key ?? ''
+    const [s, g, sec] = raw.split('|').map((x) => decodeURIComponent(x))
+    return [s ?? '', g ?? '', sec ?? '']
+  }, [params.key])
+
+  const teacher = teacherById(user?.teacherId)
+  const subjectName = subjectById(subjectId)?.name ?? 'Asignatura'
+  const gradeName = gradeById(gradeId)?.name ?? ''
+
+  const [createOpen, setCreateOpen] = useState(false)
+  const [rosterTarget, setRosterTarget] = useState<SchoolClassRecord | null>(null)
+  const [newDate, setNewDate] = useState(todayIso())
+  const [newPeriod, setNewPeriod] = useState('07:45 - 08:30')
+  const [newUnidadId, setNewUnidadId] = useState('')
+
+  const classList = useMemo(() => classesCol.items.filter((c) => c.subjectId === subjectId && c.gradeId === gradeId).sort((a, b) => (a.date < b.date ? 1 : -1)), [classesCol.items, subjectId, gradeId])
+
+  const unidades = useMemo(() => unidadesCol.items.filter((u) => u.subjectId === subjectId && u.gradeId === gradeId && u.tipo === 'unidad'), [unidadesCol.items, subjectId, gradeId])
+  const classStudents = useMemo(() => students.filter((s) => s.gradeId === gradeId && (!section || s.section === section)), [students, gradeId, section])
+
+  const seleccionada = unidades.find((u) => u.id === newUnidadId)
+
+  const createClass = async () => {
+    if (!newUnidadId || !newDate) { window.alert('Seleccione la Unidad de Aprendizaje y la fecha.'); return }
+    const u = seleccionada!
+    const records: SchoolClassRecord = {
+      id: genId('class'),
+      planId: '',
+      subjectId, gradeId, teacherId: teacher?.id ?? '', date: newDate, period: newPeriod,
+      title: u.tema, status: 'programada', unidadId: u.id,
+      roster: classStudents.map((s) => s.id),
+      before: { objectives: u.competenciasEspecificas.join(', ') || u.tema, content: u.contenidos.conceptuales, activities: `${u.actividades.inicio}\n${u.actividades.desarrollo}\n${u.actividades.cierre}`, resources: (u.recursos.length ? u.recursos : (u.materiales ?? [])).join(', '), cronograma: `${newPeriod}: ${u.tema}` },
+      during: { development: '', participation: '', observations: '' },
+      after: { reflection: '', achieved: '', toImprove: '', report: '' },
+      createdAt: new Date().toISOString(),
+    }
+    await classesCol.save(records)
+    setCreateOpen(false)
+    setNewUnidadId('')
+  }
+
+  const addStudent = (id: string) => {
+    if (!rosterTarget) return
+    const current = rosterTarget.roster ?? []
+    if (current.includes(id)) return
+    void classesCol.save({ ...rosterTarget, roster: [...current, id] }).then(() => setRosterTarget(null))
+  }
+  const removeStudent = (id: string) => {
+    if (!rosterTarget) return
+    const current = rosterTarget.roster ?? []
+    void classesCol.save({ ...rosterTarget, roster: current.filter((x) => x !== id) }).then(() => setRosterTarget(null))
+  }
+
+  return (
+    <div>
+      <Button appearance="subtle" icon={<ArrowLeftRegular />} onClick={() => navigate('/docentes/aulas')} style={{ marginBottom: '12px' }}>Volver a Mis Aulas</Button>
+      <PageHeader
+        title={`Mis Clases · ${subjectName}`}
+        subtitle={`${gradeName}${section ? ` · Sección ${section}` : ''} · Cree clases a partir de las Unidades de Aprendizaje de su Planificación Anual.`}
+        actions={<Button appearance="primary" icon={<AddRegular />} onClick={() => { setNewUnidadId(unidades[0]?.id ?? ''); setCreateOpen(true) }}>Crear clase</Button>}
+      />
+
+      <div className={styles.controls}>
+        <Text size={200} style={{ color: 'var(--texto-suave)' }}>{classList.length} clase(s) · {classStudents.length} estudiante(s) del aula</Text>
+      </div>
+
+      {classList.length === 0 && !classesCol.loading && (
+        <EmptyStateView title="Sin clases" message="Cree una clase seleccionando una Unidad de Aprendizaje de su Planificación Anual." icon={<CalendarLtrRegular />} action={<Button appearance="primary" icon={<AddRegular />} onClick={() => setCreateOpen(true)}>Crear clase</Button>} />
+      )}
+
+      {classList.length > 0 && (
+        <Table aria-label="Mis clases">
+          <TableHeader>
+            <TableRow>
+              <TableHeaderCell>Fecha</TableHeaderCell>
+              <TableHeaderCell>Unidad / Tema</TableHeaderCell>
+              <TableHeaderCell>Estudiantes</TableHeaderCell>
+              <TableHeaderCell>Estado</TableHeaderCell>
+              <TableHeaderCell>Acciones</TableHeaderCell>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {classList.map((c) => (
+              <TableRow key={c.id}>
+                <TableCell className={styles.cell}>
+                  <Text size={300} weight="semibold">{formatDate(c.date)}</Text>
+                  <Text size={200} block className={styles.small}>{c.period}</Text>
+                </TableCell>
+                <TableCell className={styles.cell}>{c.title}</TableCell>
+                <TableCell className={styles.cell}><span className={styles.chip}>{c.roster?.length ?? 0} estudiantes</span></TableCell>
+                <TableCell className={styles.cell}><StatusBadge status={c.status} /></TableCell>
+                <TableCell className={styles.cell}>
+                  <Toolbar size="small" style={{ gap: '4px' }}>
+                    <ToolbarButton icon={<OpenRegular />} onClick={() => navigate(`/docentes/aulas/${encodeURIComponent(`${subjectId}|${gradeId}|${section}`)}/clase/${c.id}`)}>Abrir</ToolbarButton>
+                    <ToolbarButton icon={<PeopleRegular />} onClick={() => setRosterTarget(c)}>Estudiantes</ToolbarButton>
+                    <ToolbarButton icon={<DeleteRegular />} onClick={() => { if (window.confirm('¿Eliminar esta clase?')) void classesCol.remove(c.id) }}>Eliminar</ToolbarButton>
+                  </Toolbar>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      )}
+
+      <ModalForm open={createOpen} onOpenChange={setCreateOpen} title="Crear clase" subtitle={`${subjectName} · ${gradeName}${section ? ` · ${section}` : ''}`} width={620}>
+        <FormField label="Unidad de Aprendizaje" required>
+          <Select value={newUnidadId} onChange={(_, d) => setNewUnidadId(d.value)}>
+            <option value="">Seleccione…</option>
+            {unidades.map((u) => (<option key={u.id} value={u.id}>{u.tema}</option>))}
+          </Select>
+        </FormField>
+        <FieldRow>
+          <FormField label="Fecha" required>
+            <Input type="date" value={newDate} onChange={(_, d) => setNewDate(d.value)} />
+          </FormField>
+          <FormField label="Periodo / Hora">
+            <Input value={newPeriod} onChange={(_, d) => setNewPeriod(d.value)} />
+          </FormField>
+        </FieldRow>
+        <FormActions onSubmit={() => void createClass()} onCancel={() => setCreateOpen(false)} submitLabel="Crear clase" />
+      </ModalForm>
+
+      <ModalForm open={!!rosterTarget} onOpenChange={(o) => !o && setRosterTarget(null)} title="Estudiantes de la clase" subtitle={rosterTarget?.title ?? ''} width={520}>
+        {rosterTarget && (
+          <div>
+            <Text size={300} block style={{ marginBottom: '10px' }}>Agregar / quitar estudiantes del aula:</Text>
+            <div className={styles.roster}>
+              {classStudents.map((s) => (
+                <span key={s.id} className={styles.chip} onClick={() => (rosterTarget.roster ?? []).includes(s.id) ? removeStudent(s.id) : addStudent(s.id)} style={{ cursor: 'pointer', background: (rosterTarget.roster ?? []).includes(s.id) ? 'rgba(0,130,173,0.22)' : 'rgba(0,130,173,0.10)' }}>
+                  {(rosterTarget.roster ?? []).includes(s.id) ? '✓ ' : '+ '}{s.fullName}
+                </span>
+              ))}
+              {classStudents.length === 0 && <Text size={200} style={{ color: 'var(--texto-suave)' }}>No hay estudiantes en este curso/sección.</Text>}
+            </div>
+          </div>
+        )}
+      </ModalForm>
+    </div>
+  )
+}
