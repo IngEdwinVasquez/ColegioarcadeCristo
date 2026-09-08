@@ -40,6 +40,8 @@ const CICLOS = ['Primer ciclo', 'Segundo ciclo']
 
 const nivelShort = (level: string) => LEVEL_SHORT[level] ?? level
 
+const GRADO_RE = /^(1ro|2do|3ro|4to|5to|6to)\b/i
+
 /** Extrae la sección del curso: del campo `section` o del nombre (1ro.A → A). Por defecto A. */
 const seccionDe = (curso: GradeSection): string => {
   if (curso.section) return curso.section
@@ -47,10 +49,31 @@ const seccionDe = (curso: GradeSection): string => {
   return m ? m[1].toUpperCase() : 'A'
 }
 
-/** Extrae el grado del nombre del curso (1ro.A → 1ro). */
+/** Extrae el grado (1ro, 2do…) del nombre del curso. */
 const gradoDe = (curso: GradeSection): string => {
-  const g = curso.name.replace(/\s*[.\- ]\s*[A-Ga-g]\s*$/, '').replace(/\.$/, '').trim()
-  return g || curso.name
+  const m = curso.name.match(GRADO_RE)
+  return m ? m[1] : ''
+}
+
+/** Grado + sección (ej. 1ro.A). */
+const cursoGrado = (curso: GradeSection): string => {
+  const g = gradoDe(curso)
+  const s = seccionDe(curso)
+  return g ? `${g}.${s}` : s
+}
+
+/** Extrae la asignatura del nombre del curso (quita grado, sección y nivel). */
+const asignaturaDe = (curso: GradeSection): string => {
+  let s = curso.name
+  const g = s.match(GRADO_RE)
+  if (g) s = s.slice(g[0].length)
+  s = s.replace(/^[.\- ]?[A-Ga-g][.\- ]+/, '')   // sección inicial (".A ", " A ", "-A ")
+  s = s.replace(/^[.\- ]+/, '')                  // separadores
+  s = s.replace(/^de\s+/i, '')                   // "de ..."
+  s = s.replace(/\s*\[?copia\]?\s*$/i, '')       // "[copia]"
+  s = s.replace(/^\s*(inicial|primaria|secundaria)\b\.?\s*/i, '') // nivel al inicio
+  s = s.replace(/\s+/g, ' ').trim()
+  return s || '—'
 }
 
 /**
@@ -201,9 +224,10 @@ export function AcademicaTecPage() {
       <Table aria-label="Cursos">
         <TableHeader>
           <TableRow>
+            <TableHeaderCell>Asignatura</TableHeaderCell>
             <TableHeaderCell>Nivel</TableHeaderCell>
             <TableHeaderCell>Ciclo</TableHeaderCell>
-            <TableHeaderCell>Grado</TableHeaderCell>
+            <TableHeaderCell>Grado/curso</TableHeaderCell>
             <TableHeaderCell>Sección</TableHeaderCell>
             <TableHeaderCell>Estudiantes</TableHeaderCell>
             <TableHeaderCell>Microsoft Teams</TableHeaderCell>
@@ -213,9 +237,10 @@ export function AcademicaTecPage() {
         <TableBody>
           {gradesCol.items.map((g) => (
             <TableRow key={g.id}>
+              <TableCell><Text weight="semibold">{asignaturaDe(g)}</Text></TableCell>
               <TableCell>{nivelShort(g.level)}</TableCell>
               <TableCell>{g.ciclo || '—'}</TableCell>
-              <TableCell><Text weight="semibold">{gradoDe(g)}</Text></TableCell>
+              <TableCell>{cursoGrado(g)}</TableCell>
               <TableCell>{seccionDe(g)}</TableCell>
               <TableCell><Badge appearance="tint" color="brand" icon={<PeopleTeamRegular />}>{studentCount(g.id)}</Badge></TableCell>
               <TableCell>
