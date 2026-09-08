@@ -49,10 +49,20 @@ export function MisAulasPage() {
     )
   }
 
+  const sinGrados = teacher.grades.length === 0 && (!teacherConfig?.selection?.length)
+
   return (
     <div>
       <PageHeader title="Mis Aulas" subtitle="Aulas (grupos por grado y sección) asignadas desde el portal de Tecnología. Entre a un aula para ver sus asignaturas." />
-      {aulas.length === 0 && <EmptyStateView title="Sin aulas asignadas" message="No tiene aulas asignadas. Solicite a Tecnología la asignación de cursos y materias." icon={<VideoRegular />} />}
+      {aulas.length === 0 && (
+        <EmptyStateView
+          title="Sin aulas"
+          message={sinGrados
+            ? 'Su ficha de docente no tiene grados/secciones asignados. Desde Tecnología → Personal → Docentes → Editar, complete "Grados y cursos a su cargo", y en su portal "Grados y Secciones" marque las secciones. Sin un grado/sección no se crean las aulas.'
+            : 'No tiene aulas asignadas. Solicite a Tecnología la asignación de cursos y materias.'}
+          icon={<VideoRegular />}
+        />
+      )}
       <div className={styles.grid}>
         {aulas.map((a) => {
           const grade = gradeById(a.gradeId)
