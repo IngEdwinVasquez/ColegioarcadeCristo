@@ -11,6 +11,7 @@ import { getDirectoryUsers } from '../../services/userLinks'
 import { appConfig } from '../../config/appConfig'
 import { ROLE_LABELS } from '../../types/roles'
 import { gradientes } from '../../theme'
+import type { Persona } from '../../types'
 
 const useStyles = makeStyles({
   kpis: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 220px), 1fr))', gap: '16px', margin: '20px 0' },
@@ -29,6 +30,7 @@ export function TecnologiaDashboard() {
   const studentsCol = useCollection(dataService.getStudents)
   const teachersCol = useCollection(dataService.getTeachers)
   const guardiansCol = useCollection(dataService.getGuardians)
+  const personasCol = useCollection<Persona>(dataService.getPersonas)
   const users = usersCol.items
   const students = studentsCol.items
   const teachers = teachersCol.items
@@ -54,6 +56,22 @@ export function TecnologiaDashboard() {
   )
   const sinRol = useMemo(() => users.filter((u) => u.roles.length === 0).length, [users])
 
+  const personalByTipo = useMemo(() => {
+    const map = new Map<string, number>()
+    for (const p of personasCol.items) map.set(p.tipo, (map.get(p.tipo) ?? 0) + 1)
+    return map
+  }, [personasCol.items])
+
+  const personalCat = [
+    { tipo: 'coordinador', label: 'Coordinador pedagógico', path: '/tecnologia/personas' },
+    { tipo: 'tic', label: 'Tecnología (TIC)', path: '/tecnologia/personas' },
+    { tipo: 'director', label: 'Directores', path: '/tecnologia/directores' },
+    { tipo: 'administrador', label: 'Administradores', path: '/tecnologia/administradores' },
+    { tipo: 'siger', label: 'SIGER', path: '/tecnologia/siger' },
+    { tipo: 'apoyo', label: 'Personal de apoyo', path: '/tecnologia/apoyo' },
+    { tipo: 'psicologia', label: 'Orientación y Psicología', path: '/tecnologia/personas' },
+  ] as const
+
   return (
     <div>
       <WelcomeHero
@@ -61,7 +79,7 @@ export function TecnologiaDashboard() {
         subtitle="Administración de la plataforma: personas, cuentas de Microsoft 365, roles de acceso y estado de la integración."
         actions={
           <>
-            <Button appearance="primary" icon={<PeopleTeamRegular />} onClick={() => navigate('/tecnologia/personas')}>Personas</Button>
+            <Button appearance="primary" icon={<PeopleTeamRegular />} onClick={() => navigate('/tecnologia/personas')}>Personal</Button>
             <Button appearance="secondary" icon={<ShieldPersonRegular />} onClick={() => navigate('/tecnologia/usuarios')}>Usuarios y roles</Button>
           </>
         }
@@ -75,6 +93,19 @@ export function TecnologiaDashboard() {
       </div>
 
       <div className={styles.grid}>
+        <Card className={styles.card}>
+          <Text weight="semibold" size={400}><PeopleTeamRegular /> Personal institucional por categoría</Text>
+          {personalCat.map((c) => (
+            <div key={c.tipo} className={styles.row}>
+              <Text size={300}>{c.label}</Text>
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                <Text size={300} weight="semibold">{personalByTipo.get(c.tipo) ?? 0}</Text>
+                <Button appearance="subtle" size="small" icon={<ArrowRightRegular />} onClick={() => navigate(c.path)} />
+              </div>
+            </div>
+          ))}
+        </Card>
+
         <Card className={styles.card}>
           <Text weight="semibold" size={400}>Usuarios por rol</Text>
           {[...byRole.entries()].map(([r, count]) => (
