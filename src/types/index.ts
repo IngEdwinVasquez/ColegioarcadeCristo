@@ -20,6 +20,10 @@ export interface GradeSection {
   id: string
   name: string
   level: string
+  /** Nivel: Inicial | Primaria | Secundaria */
+  nivel?: string
+  /** Ciclo (solo Primaria/Secundaria): Primer ciclo | Segundo ciclo */
+  ciclo?: string
   /** Seccion (A, B, ...) si se administra por separado */
   section?: string
   /** Equipo de Microsoft Teams vinculado al curso */

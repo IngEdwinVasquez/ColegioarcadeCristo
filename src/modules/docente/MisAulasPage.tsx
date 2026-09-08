@@ -8,7 +8,6 @@ import { useApp } from '../../context/useApp'
 import { dataService } from '../../services/dataService'
 import { useCollection } from '../../hooks/useCollection'
 import type { TeacherGradeConfig } from '../../types'
-
 const useStyles = makeStyles({
   grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 300px), 1fr))', gap: '18px' },
   card: { padding: '22px', display: 'flex', flexDirection: 'column', gap: '12px', cursor: 'pointer', transition: 'transform 0.2s ease, box-shadow 0.2s ease', ':hover': { transform: 'translateY(-4px)', boxShadow: '0 12px 28px rgba(0,130,173,0.18)' } },
@@ -22,7 +21,7 @@ const useStyles = makeStyles({
 export function MisAulasPage() {
   const styles = useStyles()
   const navigate = useNavigate()
-  const { user, gradeById, teacherById } = useApp()
+  const { user, subjectById, gradeById, teacherById } = useApp()
   const configsCol = useCollection<TeacherGradeConfig>(dataService.getTeacherConfigs)
 
   const teacher = teacherById(user?.teacherId)
@@ -56,12 +55,23 @@ export function MisAulasPage() {
       <PageHeader title="Mis Aulas" subtitle="Aulas (grupos por grado y sección) asignadas desde el portal de Tecnología. Entre a un aula para ver sus asignaturas." />
       {aulas.length === 0 && (
         <EmptyStateView
-          title="Sin aulas"
+          title="Sin aulas configuradas"
           message={sinGrados
-            ? 'Su ficha de docente no tiene grados/secciones asignados. Desde Tecnología → Personal → Docentes → Editar, complete "Grados y cursos a su cargo", y en su portal "Grados y Secciones" marque las secciones. Sin un grado/sección no se crean las aulas.'
+            ? 'Aún no tiene aulas (grado/sección) asignadas. Solicite a Tecnología que agregue el Nivel (Inicial, Primaria o Secundaria; en Primaria/Secundaria el Ciclo: Primer o Segundo), el Grado y la Sección de cada asignatura. Mientras tanto, sus asignaturas se muestran abajo.'
             : 'No tiene aulas asignadas. Solicite a Tecnología la asignación de cursos y materias.'}
           icon={<VideoRegular />}
         />
+      )}
+      {aulas.length === 0 && subjects.length > 0 && (
+        <div style={{ marginBottom: '18px' }}>
+          <Text weight="semibold" size={400} block style={{ marginBottom: '10px' }}>Mis asignaturas (pendientes de aula)</Text>
+          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+            {subjects.map((id) => {
+              const s = subjectById(id)
+              return <span key={id} className={styles.chip}>{s?.name ?? id}</span>
+            })}
+          </div>
+        </div>
       )}
       <div className={styles.grid}>
         {aulas.map((a) => {
