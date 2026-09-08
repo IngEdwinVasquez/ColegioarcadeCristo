@@ -1,13 +1,14 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { Button, Card, Select, Tab, TabList, Text, Textarea, makeStyles } from '@fluentui/react-components'
-import { ArrowLeftRegular, SaveRegular, PrintRegular } from '@fluentui/react-icons'
+import { ArrowLeftRegular, SaveRegular, PrintRegular, VideoRegular } from '@fluentui/react-icons'
 import { PageHeader } from '../../components/shared/PageHeader'
 import { FormField, FieldRow } from '../../components/shared/form'
 import { useApp } from '../../context/useApp'
 import { dataService } from '../../services/dataService'
 import { useCollection } from '../../hooks/useCollection'
 import { printPlan } from '../planificacion/exportPlan'
+import { ProyectarUnidad } from '../planificacion/ProyectarUnidad'
 import type { AttendanceRecord, DailyPlan, SchoolClassRecord } from '../../types'
 import { genId } from '../../utils/helpers'
 
@@ -41,6 +42,7 @@ export function ClaseDocenteDetail() {
   const rosterStudents = students.filter((s) => rosterIds.includes(s.id))
 
   const [tab, setTab] = useState<'unidad' | 'lista' | 'informe'>('unidad')
+  const [proyectar, setProyectar] = useState(false)
   const [statuses, setStatuses] = useState<Record<string, string>>({})
   const [editable, setEditable] = useState<SchoolClassRecord | null>(null)
 
@@ -76,9 +78,12 @@ export function ClaseDocenteDetail() {
         title="Clase"
         subtitle={cls ? `${subjectById(cls.subjectId)?.name ?? ''} · ${gradeById(cls.gradeId)?.name ?? ''}${section ? ` · ${section}` : ''} · ${cls.title} · ${cls.period}` : 'Cargando…'}
         actions={cls && unidad ? (
-          <Button appearance="secondary" icon={<PrintRegular />} onClick={() => void printPlan(unidad, subjectById(cls.subjectId)?.name ?? '', gradeById(cls.gradeId)?.name ?? '')}>
-            Proyectar / Imprimir Unidad
-          </Button>
+          <>
+            <Button appearance="secondary" icon={<VideoRegular />} onClick={() => setProyectar(true)}>Proyectar en pizarra</Button>
+            <Button appearance="secondary" icon={<PrintRegular />} onClick={() => void printPlan(unidad, subjectById(cls.subjectId)?.name ?? '', gradeById(cls.gradeId)?.name ?? '')}>
+              Imprimir Unidad
+            </Button>
+          </>
         ) : null}
       />
 
@@ -182,6 +187,8 @@ export function ClaseDocenteDetail() {
           </div>
         </div>
       )}
+
+      <ProyectarUnidad open={proyectar} onClose={() => setProyectar(false)} unidad={unidad ?? null} subjectName={subjectById(cls?.subjectId ?? '')?.name ?? ''} gradeName={gradeById(cls?.gradeId ?? '')?.name ?? ''} />
     </div>
   )
 }

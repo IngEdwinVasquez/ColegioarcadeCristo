@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState } from 'react'
 import { Button, Input, Select, Spinner, Table, TableBody, TableCell, TableHeader, TableHeaderCell, TableRow, Text, Toolbar, ToolbarButton, makeStyles, tokens } from '@fluentui/react-components'
-import { AddRegular, SparkleRegular, OpenRegular, DeleteRegular, SearchRegular, DocumentRegular, PrintRegular, CalendarLtrRegular, CloudArrowUpRegular, ChatRegular, CopyRegular } from '@fluentui/react-icons'
+import { AddRegular, SparkleRegular, OpenRegular, DeleteRegular, SearchRegular, DocumentRegular, PrintRegular, CalendarLtrRegular, CloudArrowUpRegular, ChatRegular, CopyRegular, VideoRegular } from '@fluentui/react-icons'
 import { PageHeader } from '../../components/shared/PageHeader'
 import { StatusBadge } from '../../components/shared/StatusBadge'
 import { EmptyStateView } from '../../components/shared/EmptyStateView'
@@ -14,6 +14,7 @@ import { isAiConfigured } from '../../services/ai'
 import { PlanDiarioForm } from './PlanDiarioForm'
 import { AsistenteIA } from './AsistenteIA'
 import { ModifyChatPanel } from './ModifyChatPanel'
+import { ProyectarUnidad } from './ProyectarUnidad'
 import { exportPlanWord, printPlan } from './exportPlan'
 import type { DailyPlan } from '../../types'
 import { formatDate, genId, todayIso } from '../../utils/helpers'
@@ -44,6 +45,7 @@ export function PlanificacionPage() {
   const [parsing, setParsing] = useState(false)
   const [modifyTarget, setModifyTarget] = useState<DailyPlan | null>(null)
   const [modifyOpen, setModifyOpen] = useState(false)
+  const [projecting, setProjecting] = useState<DailyPlan | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
 
   const isStaff = role === 'admin' || role === 'psicologia' || role === 'tecnologia'
@@ -186,6 +188,7 @@ export function PlanificacionPage() {
                 <Toolbar size="small" style={{ gap: '4px' }}>
                   <ToolbarButton icon={<OpenRegular />} onClick={() => openEdit(plan)}>Editar</ToolbarButton>
                   <ToolbarButton icon={<CopyRegular />} onClick={() => handleDuplicate(plan)}>Duplicar</ToolbarButton>
+                  <ToolbarButton icon={<VideoRegular />} onClick={() => setProjecting(plan)}>Proyectar</ToolbarButton>
                   <ToolbarButton icon={<ChatRegular />} onClick={() => openModify(plan)} disabled={!configured}>Modificar con IA</ToolbarButton>
                   <ToolbarButton icon={<DocumentRegular />} onClick={() => exportPlanWord(plan, subjectById(plan.subjectId)?.name ?? '', gradeById(plan.gradeId)?.name ?? '')}>Word</ToolbarButton>
                   <ToolbarButton icon={<PrintRegular />} onClick={() => printPlan(plan, subjectById(plan.subjectId)?.name ?? '', gradeById(plan.gradeId)?.name ?? '')}>PDF</ToolbarButton>
@@ -218,6 +221,8 @@ export function PlanificacionPage() {
         plan={modifyTarget}
         onPlanUpdated={(plan) => { setEditing(plan); setFormOpen(true); setModifyOpen(false) }}
       />
+
+      <ProyectarUnidad open={!!projecting} onClose={() => setProjecting(null)} unidad={projecting} subjectName={subjectById(projecting?.subjectId ?? '')?.name ?? ''} gradeName={gradeById(projecting?.gradeId ?? '')?.name ?? ''} />
     </div>
   )
 }
