@@ -49,3 +49,11 @@ export function relativeDay(iso: string): string {
   if (diff === 1) return 'Mañana'
   return formatDate(iso)
 }
+
+/** Nombre de un aula: grado + sección + nivel (ej. "1ro.A de secundaria"). */
+export function aulaLabel(grade: { name?: string; level?: string; nivel?: string } | undefined, section?: string): string {
+  if (!grade?.name) return 'Aula'
+  const base = `${grade.name}${section ? `.${section}` : ''}`
+  const nivel = (grade.nivel ?? grade.level ?? '').toLowerCase()
+  return nivel ? `${base} de ${nivel}` : base
+}
