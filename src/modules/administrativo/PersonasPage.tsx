@@ -27,17 +27,25 @@ const PERSON_TYPES = [
   { value: 'padre', label: 'Padre / Tutor' },
   { value: 'coordinador', label: 'Coordinador pedagógico' },
   { value: 'tic', label: 'Tecnología (TIC)' },
+  { value: 'director', label: 'Director' },
+  { value: 'administrador', label: 'Administrador' },
+  { value: 'siger', label: 'SIGER' },
+  { value: 'apoyo', label: 'Personal de apoyo' },
 ] as const
 
 type TipoOp = (typeof PERSON_TYPES)[number]['value']
 
-const ROLE_OF: Record<TipoOp, Role> = { estudiante: 'estudiante', docente: 'docente', padre: 'padre', coordinador: 'coordinacion', tic: 'tecnologia' }
+const ROLE_OF: Record<TipoOp, Role> = { estudiante: 'estudiante', docente: 'docente', padre: 'padre', coordinador: 'coordinacion', tic: 'tecnologia', director: 'admin', administrador: 'admin', siger: 'admin', apoyo: 'admin' }
 const LINK_OF: Record<TipoOp, (id: string) => LinkTarget> = {
   estudiante: (id) => ({ studentId: id }),
   docente: (id) => ({ teacherId: id }),
   padre: () => ({}),
   coordinador: () => ({}),
   tic: () => ({}),
+  director: () => ({}),
+  administrador: () => ({}),
+  siger: () => ({}),
+  apoyo: () => ({}),
 }
 const labelOf = (t: TipoOp) => PERSON_TYPES.find((p) => p.value === t)?.label ?? t
 
@@ -240,7 +248,7 @@ export function PersonasPage() {
   const personaColumns: CrudColumn<Persona>[] = [
     { header: 'Nombre', render: (p) => <Text weight="semibold">{p.fullName}</Text> },
     { header: 'Correo', render: (p) => p.email || '—' },
-    { header: 'Tipo', render: (p) => <StatusBadge status={p.tipo}>{p.tipo === 'coordinador' ? 'Coordinador' : 'TIC'}</StatusBadge> },
+    { header: 'Tipo', render: (p) => <StatusBadge status={p.tipo}>{labelOf(p.tipo)}</StatusBadge> },
     { header: 'Cambiar a', render: (p) => tipoCell(p.tipo, p) },
   ]
 
@@ -260,7 +268,7 @@ export function PersonasPage() {
         <Tab value="estudiantes">Estudiantes ({students.length})</Tab>
         <Tab value="docentes">Docentes ({teachers.length})</Tab>
         <Tab value="padres">Padres ({guardiansCol.items.length})</Tab>
-        <Tab value="personas">Coordinación / TIC ({personasCol.items.length})</Tab>
+        <Tab value="personas">Personal institucional ({personasCol.items.length})</Tab>
       </TabList>
 
       {tab === 'estudiantes' && (
@@ -393,12 +401,12 @@ export function PersonasPage() {
 
       {tab === 'personas' && (
         <EntityCrud<Persona>
-          title="Coordinación y TIC"
+          title="Personal institucional"
           items={personasCol.items}
           loading={personasCol.loading}
           columns={personaColumns}
           searchText={(p) => `${p.fullName} ${p.email} ${p.tipo}`}
-          newLabel="Nuevo staff"
+          newLabel="Nuevo personal"
           createDefault={() => ({ id: genId('p'), fullName: '', email: '', userId: undefined, tipo: 'coordinador', createdAt: new Date().toISOString() })}
           renderForm={(p, set) => (
             <div>
@@ -409,19 +417,18 @@ export function PersonasPage() {
                 value={p.userId}
                 takenIds={takenPersonaUsers}
                 onChange={(u) => set({ ...p, userId: u?.id, email: u ? entraEmail(u) : '', fullName: u?.displayName ?? p.fullName })}
-                hint="Obligatorio. La cuenta recibirá el rol Coordinación Pedagógica o Tecnología."
+                hint="Obligatorio. La cuenta recibirá el rol según el tipo (Coordinación, Tecnología o Administrativo)."
               />
-              <FormField label="Tipo">
+              <FormField label="Posición / Tipo">
                 <Select value={p.tipo} onChange={(_, d) => set({ ...p, tipo: d.value as Persona['tipo'] })}>
-                  <option value="coordinador">Coordinador pedagógico</option>
-                  <option value="tic">Tecnología (TIC)</option>
+                  {['coordinador', 'tic', 'director', 'administrador', 'siger', 'apoyo'].map((t) => (<option key={t} value={t}>{labelOf(t as TipoOp)}</option>))}
                 </Select>
               </FormField>
             </div>
           )}
           onSave={savePersona}
           onDelete={deletePersona}
-          emptyMessage="Registre a los coordinadores pedagógicos y al personal de tecnología."
+          emptyMessage="Registre a coordinadores, TIC, dirección y personal de apoyo."
         />
       )}
     </div>
