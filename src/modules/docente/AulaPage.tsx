@@ -7,6 +7,7 @@ import { EmptyStateView } from '../../components/shared/EmptyStateView'
 import { useApp } from '../../context/useApp'
 import { dataService } from '../../services/dataService'
 import { useCollection } from '../../hooks/useCollection'
+import { aulaLabel } from '../../utils/helpers'
 import type { TeacherGradeConfig } from '../../types'
 
 const useStyles = makeStyles({
@@ -45,7 +46,7 @@ export function AulaPage() {
       <button style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--azul)', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '6px', marginBottom: '12px' }} onClick={() => navigate('/docentes/aulas')}>
         <ArrowLeftRegular /> Volver a Mis Aulas
       </button>
-      <PageHeader title={`Aula · ${grade?.name ?? ''}${section ? ` · Sección ${section}` : ''}`} subtitle="Asignaturas que imparte en este curso. Seleccione una para gestionar sus clases, planificación y más." />
+      <PageHeader title={`Aula ${aulaLabel(grade, section)}`} subtitle="Asignaturas que imparte en este curso. Seleccione una para gestionar sus clases, planificación y más." />
       {subjects.length === 0 && <EmptyStateView title="Sin asignaturas" message="No tiene asignaturas asignadas a este curso. Solicite a Tecnología su asignación." icon={<BookOpenRegular />} />}
       <div className={styles.grid}>
         {subjects.map((s) => (
