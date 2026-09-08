@@ -125,6 +125,16 @@ export function mapAiPlanToDailyPlan(
     },
     generadoPorIA: true,
     createdAt: new Date().toISOString(),
+    recuerda: str(raw.recuerda) || undefined,
+    situacionAprendizaje: str(raw.situacionAprendizaje) || undefined,
+    materiales: list(raw.materiales).length ? list(raw.materiales) : undefined,
+    recursosDigitales: list(raw.recursosDigitales).length ? list(raw.recursosDigitales) : undefined,
+    secuenciasCurriculares: Array.isArray(raw.secuenciasCurriculares)
+      ? (raw.secuenciasCurriculares as Array<Record<string, unknown>>)
+          .filter((s) => s && typeof s === 'object')
+          .map((s) => ({ area: str(s.area), codigo: str(s.codigo), titulo: str(s.titulo) }))
+          .filter((s) => s.area || s.titulo)
+      : undefined,
   }
 }
 
