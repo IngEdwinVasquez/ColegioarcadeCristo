@@ -14,7 +14,7 @@ const NAV: NavItem[] = [
   { to: '/tecnologia', label: 'Panel de Tecnología', icon: <DeveloperBoardRegular />, end: true, group: 'General' },
   { to: '/tecnologia/gestion-tic', label: 'Gestión TIC', icon: <ClipboardTaskRegular />, group: 'Coordinación TIC' },
   { to: '/tecnologia/academica', label: 'Gestión académica', icon: <BookRegular />, group: 'Coordinación TIC' },
-  { to: '/tecnologia/personas', label: 'Personas', icon: <PeopleTeamRegular />, group: 'Personas' },
+  { to: '/tecnologia/personas', label: 'Personal', icon: <PeopleTeamRegular />, group: 'Personas' },
   { to: '/tecnologia/usuarios', label: 'Usuarios y roles', icon: <ShieldPersonRegular />, group: 'Personas' },
   { to: '/tecnologia/roles', label: 'Roles', icon: <ShieldCheckmarkRegular />, group: 'Personas' },
   { to: '/tecnologia/chat', label: 'Mensajería', icon: <ChatRegular />, group: 'Comunidad' },
