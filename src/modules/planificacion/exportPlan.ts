@@ -6,12 +6,45 @@ const list = (items?: string[]) => (items?.length ? `<ul>${items.map((i) => `<li
 const section = (title: string, body: string) => `<h2>${esc(title)}</h2>${body}`
 const metaRow = (label: string, value: string) => `<tr><th>${esc(label)}</th><td>${esc(value)}</td></tr>`
 
+/** Obtiene el logo institucional como data URI para incrustarlo en el documento. */
+async function getLogoDataUri(): Promise<string> {
+  try {
+    const res = await fetch('/images/logo-arca.jpg')
+    if (!res.ok) return ''
+    const blob = await res.blob()
+    return await new Promise<string>((resolve) => {
+      const r = new FileReader()
+      r.onload = () => resolve(r.result as string)
+      r.onerror = () => resolve('')
+      r.readAsDataURL(blob)
+    })
+  } catch {
+    return ''
+  }
+}
+
+/** Cabecera institucional con logo y colores del colegio. */
+function headerHtml(logo: string): string {
+  if (!logo) return ''
+  return `<div class="hdr">
+    <img class="logo" src="${logo}" alt="Escudo Arca de Cristo"/>
+    <div>
+      <div class="school">${esc(appConfig.shortName)}</div>
+      <div class="sub">${esc(appConfig.institution)} · ${esc(appConfig.city)}</div>
+    </div>
+  </div>`
+}
+
 const STYLE = `<style>
   body{font-family:'Segoe UI',Arial,sans-serif;color:#1B2430;max-width:860px;margin:24px auto;padding:0 20px;line-height:1.55}
+  .hdr{display:flex;align-items:center;gap:14px;border-bottom:3px solid #0082AD;padding-bottom:10px;margin-bottom:14px}
+  .hdr .logo{width:60px;height:60px;object-fit:contain;border-radius:8px}
+  .hdr .school{font-weight:800;color:#0A1F2B;font-size:20px;letter-spacing:-0.01em}
+  .hdr .sub{color:#667085;font-size:12px}
   h1{color:#0A1F2B;border-bottom:3px solid #0082AD;padding-bottom:8px;margin-bottom:4px;font-size:22px}
+  h2{color:#0082AD;font-size:14px;margin:16px 0 6px;border-left:4px solid #E62327;padding-left:8px;text-transform:uppercase;letter-spacing:.02em}
   .kicker{color:#0082AD;font-weight:800;font-size:12px;letter-spacing:.14em;text-transform:uppercase;margin-bottom:2px}
   .title{color:#0A1F2B;font-weight:800;font-size:20px;margin:0 0 2px}
-  h2{color:#0082AD;font-size:14px;margin:16px 0 6px;border-left:4px solid #0082AD;padding-left:8px;text-transform:uppercase;letter-spacing:.02em}
   .meta{color:#667085;font-size:12.5px;margin-bottom:10px}
   table{width:100%;border-collapse:collapse;margin:10px 0}
   td,th{border:1px solid #E2E8F0;padding:6px 10px;text-align:left;font-size:12.5px;vertical-align:top}
@@ -21,14 +54,13 @@ const STYLE = `<style>
   .act .n{color:#0082AD;font-weight:800;font-size:12px;text-transform:uppercase;letter-spacing:.08em}
   .act .t{font-weight:700;font-size:14px}
   .orient{background:#F3F8FB;border-radius:8px;padding:8px 10px;color:#0B2E3F;font-size:12.5px;margin:8px 0}
-  .badge{display:inline-block;background:#E8F3F8;color:#0082AD;border-radius:999px;padding:2px 10px;font-size:11px;font-weight:700;margin:2px 2px 0 0}
   .recuerda{border:1px solid #F0D9A8;background:#FFF9ED;border-radius:10px;padding:12px 14px}
   .situacion{border-left:4px solid #E62327;padding:4px 0 4px 14px;color:#0B2E3F}
   .marca{font-size:11px;color:#667085;text-align:center;margin-top:24px;border-top:1px solid #E2E8F0;padding-top:8px}
 </style>`
 
 /** HTML de una Unidad de Aprendizaje con la estructura del currículo dominicano (Eduplan/MINERD). */
-function unidadToHtml(plan: DailyPlan, subjectName: string, gradeName: string): string {
+function unidadToHtml(plan: DailyPlan, subjectName: string, gradeName: string, logo: string): string {
   const areas = plan.secuenciasCurriculares?.length
     ? plan.secuenciasCurriculares.map((s) => esc(`${s.area} ${s.codigo ? `SC ${s.codigo}` : ''}`).trim()).join(' · ')
     : subjectName
@@ -62,6 +94,7 @@ function unidadToHtml(plan: DailyPlan, subjectName: string, gradeName: string): 
     : ''
 
   return `<!doctype html><html lang="es"><head><meta charset="utf-8"/><title>Unidad de Aprendizaje · ${esc(plan.tema)}</title>${STYLE}</head><body>
+${headerHtml(logo)}
 <div class="kicker">Propuesta didáctica: Unidad de Aprendizaje</div>
 <div class="title">UA · ${esc(plan.tema)}</div>
 <p class="meta">${esc(gradeName)} ${esc(plan.section || '')} · ${esc(areas)} · ${esc(appConfig.institution)}</p>
@@ -95,8 +128,9 @@ ${section('Evaluación', `Tipo: ${esc(plan.evaluacion.tipo)} · Instrumento: ${e
 }
 
 /** HTML estándar de una planificación diaria. */
-function diariaToHtml(plan: DailyPlan, subjectName: string, gradeName: string): string {
+function diariaToHtml(plan: DailyPlan, subjectName: string, gradeName: string, logo: string): string {
   return `<!doctype html><html lang="es"><head><meta charset="utf-8"/><title>Planificación ${esc(plan.tema)}</title>${STYLE}</head><body>
+${headerHtml(logo)}
 <div class="kicker">Planificación de clase</div>
 <div class="title">${esc(plan.tema)}</div>
 <p class="meta">${esc(gradeName)} ${esc(plan.section || '')} · ${esc(subjectName)} · ${esc(appConfig.institution)}</p>
@@ -114,13 +148,14 @@ ${section('Evaluación', `Tipo: ${esc(plan.evaluacion.tipo)} · Instrumento: ${e
 </body></html>`
 }
 
-function planToHtml(plan: DailyPlan, subjectName: string, gradeName: string): string {
-  return plan.tipo === 'unidad' ? unidadToHtml(plan, subjectName, gradeName) : diariaToHtml(plan, subjectName, gradeName)
+function planToHtml(plan: DailyPlan, subjectName: string, gradeName: string, logo: string): string {
+  return plan.tipo === 'unidad' ? unidadToHtml(plan, subjectName, gradeName, logo) : diariaToHtml(plan, subjectName, gradeName, logo)
 }
 
 /** Descarga la planificación como documento Word (.doc, compatible con Word/Google Docs). */
-export function exportPlanWord(plan: DailyPlan, subjectName: string, gradeName: string): void {
-  const html = planToHtml(plan, subjectName, gradeName)
+export async function exportPlanWord(plan: DailyPlan, subjectName: string, gradeName: string): Promise<void> {
+  const logo = await getLogoDataUri()
+  const html = planToHtml(plan, subjectName, gradeName, logo)
   const blob = new Blob(['\ufeff', html], { type: 'application/msword;charset=utf-8' })
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
@@ -133,8 +168,9 @@ export function exportPlanWord(plan: DailyPlan, subjectName: string, gradeName: 
 }
 
 /** Abre la planificación en una ventana de impresión (permite guardar como PDF). */
-export function printPlan(plan: DailyPlan, subjectName: string, gradeName: string): void {
-  const html = planToHtml(plan, subjectName, gradeName)
+export async function printPlan(plan: DailyPlan, subjectName: string, gradeName: string): Promise<void> {
+  const logo = await getLogoDataUri()
+  const html = planToHtml(plan, subjectName, gradeName, logo)
   const w = window.open('', '_blank', 'noopener,width=900,height=700')
   if (!w) return
   w.document.open()
