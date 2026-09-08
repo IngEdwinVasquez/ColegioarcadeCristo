@@ -167,6 +167,11 @@ function PlanDetail({ row, styles }: { row: Row; styles: ReturnType<typeof useSt
         <span className={styles.kvLabel}>Actividades</span><span><b>Inicio:</b> {d.actividades.inicio}<br /><b>Desarrollo:</b> {d.actividades.desarrollo}<br /><b>Cierre:</b> {d.actividades.cierre}</span>
         <span className={styles.kvLabel}>Indicadores</span><span>{d.indicadoresLogro.join(' • ') || '—'}</span>
         <span className={styles.kvLabel}>Evaluación</span><span>{d.evaluacion.tipo} · {d.evaluacion.instrumento}<br />{d.evaluacion.criterios}</span>
+        {d.secuenciasCurriculares?.length ? <><span className={styles.kvLabel}>Secuencias curriculares</span><span>{d.secuenciasCurriculares.map((s) => `${s.area}${s.codigo ? ` SC ${s.codigo}` : ''}: ${s.titulo}`).join(' · ')}</span></> : null}
+        {d.recuerda ? <><span className={styles.kvLabel}>Recuerda</span><span>{d.recuerda}</span></> : null}
+        {d.situacionAprendizaje ? <><span className={styles.kvLabel}>Situación de aprendizaje</span><span>{d.situacionAprendizaje}</span></> : null}
+        {d.materiales?.length ? <><span className={styles.kvLabel}>Materiales</span><span>{d.materiales.join(', ')}</span></> : null}
+        {d.recursosDigitales?.length ? <><span className={styles.kvLabel}>Recursos digitales</span><span>{d.recursosDigitales.join(' • ')}</span></> : null}
       </div>
     )
   }
