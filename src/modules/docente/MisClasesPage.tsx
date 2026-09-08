@@ -11,7 +11,7 @@ import { useApp } from '../../context/useApp'
 import { dataService } from '../../services/dataService'
 import { useCollection } from '../../hooks/useCollection'
 import type { ClassPlan, DailyPlan, SchoolClassRecord } from '../../types'
-import { formatDate, genId, todayIso } from '../../utils/helpers'
+import { formatDate, genId, todayIso, aulaLabel } from '../../utils/helpers'
 
 const useStyles = makeStyles({
   controls: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '14px', flexWrap: 'wrap', marginBottom: '18px' },
@@ -38,6 +38,7 @@ export function MisClasesPage() {
   const teacher = teacherById(user?.teacherId)
   const subjectName = subjectById(subjectId)?.name ?? 'Asignatura'
   const gradeName = gradeById(gradeId)?.name ?? ''
+  const aula = aulaLabel(gradeById(gradeId), section)
 
   const [createOpen, setCreateOpen] = useState(false)
   const [rosterTarget, setRosterTarget] = useState<SchoolClassRecord | null>(null)
@@ -92,7 +93,7 @@ export function MisClasesPage() {
       <Button appearance="subtle" icon={<ArrowLeftRegular />} onClick={() => navigate(`/docentes/aulas/${gradeId}/${encodeURIComponent(section)}`)} style={{ marginBottom: '12px' }}>Volver a la asignatura</Button>
       <PageHeader
         title={`Mis Clases · ${subjectName}`}
-        subtitle={`${gradeName}${section ? ` · Sección ${section}` : ''} · Cree clases a partir de las Unidades de Aprendizaje de su Planificación Anual.`}
+        subtitle={`${aula} · Cree clases a partir de las Unidades de Aprendizaje de su Planificación Anual.`}
         actions={<Button appearance="primary" icon={<AddRegular />} onClick={() => { setNewUnidadId(unidades[0]?.id ?? ''); setCreateOpen(true) }}>Crear clase</Button>}
       />
 
