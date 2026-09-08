@@ -7,6 +7,7 @@ import { EmptyStateView } from '../../components/shared/EmptyStateView'
 import { useApp } from '../../context/useApp'
 import { dataService } from '../../services/dataService'
 import { useCollection } from '../../hooks/useCollection'
+import { aulaLabel } from '../../utils/helpers'
 import type { TeacherGradeConfig } from '../../types'
 const useStyles = makeStyles({
   grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 300px), 1fr))', gap: '18px' },
@@ -75,11 +76,10 @@ export function MisAulasPage() {
       )}
       <div className={styles.grid}>
         {aulas.map((a) => {
-          const grade = gradeById(a.gradeId)
           return (
             <Card key={`${a.gradeId}-${a.section}`} className={styles.card} onClick={() => navigate(`/docentes/aulas/${a.gradeId}/${encodeURIComponent(a.section)}`)}>
               <span className={styles.icon} style={{ background: 'linear-gradient(135deg, #0082AD, #2AA9D8)' }}><VideoRegular /></span>
-              <Text weight="semibold" size={400}>{grade?.name}</Text>
+              <Text weight="semibold" size={400}>{aulaLabel(gradeById(a.gradeId), a.section)}</Text>
               <div className={styles.chips}><span className={styles.chip}>Sección {a.section || 'Toda'}</span><span className={styles.chip}>{subjects.length} asignatura(s)</span></div>
               <span className={styles.link}>Abrir aula <ArrowRightRegular /></span>
             </Card>
