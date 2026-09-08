@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { Button, Input, Select, Table, TableBody, TableCell, TableHeader, TableHeaderCell, TableRow, Text, Toolbar, ToolbarButton, makeStyles, tokens } from '@fluentui/react-components'
+import { Button, Input, Select, Tab, TabList, Table, TableBody, TableCell, TableHeader, TableHeaderCell, TableRow, Text, Toolbar, ToolbarButton, makeStyles, tokens } from '@fluentui/react-components'
 import { AddRegular, OpenRegular, DeleteRegular, PeopleRegular, ArrowLeftRegular, CalendarLtrRegular } from '@fluentui/react-icons'
 import { PageHeader } from '../../components/shared/PageHeader'
 import { StatusBadge } from '../../components/shared/StatusBadge'
@@ -10,7 +10,7 @@ import { FormField, FieldRow, FormActions } from '../../components/shared/form'
 import { useApp } from '../../context/useApp'
 import { dataService } from '../../services/dataService'
 import { useCollection } from '../../hooks/useCollection'
-import type { DailyPlan, SchoolClassRecord } from '../../types'
+import type { ClassPlan, DailyPlan, SchoolClassRecord } from '../../types'
 import { formatDate, genId, todayIso } from '../../utils/helpers'
 
 const useStyles = makeStyles({
@@ -28,6 +28,7 @@ export function MisClasesPage() {
   const { user, students, subjectById, gradeById, teacherById } = useApp()
   const classesCol = useCollection<SchoolClassRecord>(dataService.getClasses, dataService.saveClassRecord, dataService.deleteClassRecord)
   const unidadesCol = useCollection<DailyPlan>(dataService.getDailyPlans)
+  const plansCol = useCollection<ClassPlan>(dataService.getClassPlans, dataService.saveClassPlan, dataService.deleteClassPlan)
 
   const [subjectId, gradeId, section] = useMemo(() => {
     const raw = params.key ?? ''
@@ -44,8 +45,12 @@ export function MisClasesPage() {
   const [newDate, setNewDate] = useState(todayIso())
   const [newPeriod, setNewPeriod] = useState('07:45 - 08:30')
   const [newUnidadId, setNewUnidadId] = useState('')
+  const [tab, setTab] = useState<'clases' | 'anual'>('clases')
+  const [planOpen, setPlanOpen] = useState(false)
+  const [planEditing, setPlanEditing] = useState<ClassPlan | null>(null)
 
   const classList = useMemo(() => classesCol.items.filter((c) => c.subjectId === subjectId && c.gradeId === gradeId).sort((a, b) => (a.date < b.date ? 1 : -1)), [classesCol.items, subjectId, gradeId])
+  const planList = useMemo(() => plansCol.items.filter((p) => p.subjectId === subjectId && p.gradeId === gradeId).sort((a, b) => (a.date < b.date ? 1 : -1)), [plansCol.items, subjectId, gradeId])
 
   const unidades = useMemo(() => unidadesCol.items.filter((u) => u.subjectId === subjectId && u.gradeId === gradeId && u.tipo === 'unidad'), [unidadesCol.items, subjectId, gradeId])
   const classStudents = useMemo(() => students.filter((s) => s.gradeId === gradeId && (!section || s.section === section)), [students, gradeId, section])
@@ -96,6 +101,13 @@ export function MisClasesPage() {
         <Text size={200} style={{ color: 'var(--texto-suave)' }}>{classList.length} clase(s) · {classStudents.length} estudiante(s) del aula</Text>
       </div>
 
+      <TabList selectedValue={tab} onTabSelect={(_, d) => setTab(d.value as typeof tab)} style={{ marginBottom: '16px' }}>
+        <Tab value="clases">Mis Clases ({classList.length})</Tab>
+        <Tab value="anual">Planificación Anual ({planList.length})</Tab>
+      </TabList>
+
+      {tab === 'clases' && (
+      <>
       {classList.length === 0 && !classesCol.loading && (
         <EmptyStateView title="Sin clases" message="Cree una clase seleccionando una Unidad de Aprendizaje de su Planificación Anual." icon={<CalendarLtrRegular />} action={<Button appearance="primary" icon={<AddRegular />} onClick={() => setCreateOpen(true)}>Crear clase</Button>} />
       )}
@@ -133,6 +145,50 @@ export function MisClasesPage() {
           </TableBody>
         </Table>
       )}
+      </>
+      )}
+
+      {tab === 'anual' && (
+        <>
+          <div style={{ marginBottom: '12px' }}>
+            <Button appearance="primary" icon={<AddRegular />} onClick={() => { setPlanEditing(null); setPlanOpen(true) }}>Nueva clase del cronograma</Button>
+          </div>
+          {planList.length === 0 && <EmptyStateView title="Sin planificación anual" message="Registre las clases programadas del cronograma anual de esta asignatura." icon={<CalendarLtrRegular />} />}
+          {planList.length > 0 && (
+            <Table aria-label="Planificación anual">
+              <TableHeader>
+                <TableRow>
+                  <TableHeaderCell>Fecha</TableHeaderCell>
+                  <TableHeaderCell>Periodo</TableHeaderCell>
+                  <TableHeaderCell>Tema</TableHeaderCell>
+                  <TableHeaderCell>Estado</TableHeaderCell>
+                  <TableHeaderCell>Acciones</TableHeaderCell>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {planList.map((p) => (
+                  <TableRow key={p.id}>
+                    <TableCell className={styles.cell}>{formatDate(p.date)}</TableCell>
+                    <TableCell className={styles.cell}>{p.period}</TableCell>
+                    <TableCell className={styles.cell}>{p.topic}</TableCell>
+                    <TableCell className={styles.cell}><StatusBadge status={p.status} /></TableCell>
+                    <TableCell className={styles.cell}>
+                      <Toolbar size="small" style={{ gap: '4px' }}>
+                        <ToolbarButton icon={<OpenRegular />} onClick={() => { setPlanEditing(p); setPlanOpen(true) }}>Editar</ToolbarButton>
+                        <ToolbarButton icon={<DeleteRegular />} onClick={() => { if (window.confirm('¿Eliminar esta clase del cronograma?')) void plansCol.remove(p.id) }}>Eliminar</ToolbarButton>
+                      </Toolbar>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </>
+      )}
+
+      <ModalForm open={planOpen} onOpenChange={setPlanOpen} title={planEditing ? 'Editar clase del cronograma' : 'Nueva clase del cronograma'} subtitle={`${subjectName} · ${gradeName}`} width={560}>
+        <CronogramaForm initial={planEditing} subjectId={subjectId} gradeId={gradeId} teacherId={teacher?.id ?? ''} onSave={(p) => { void plansCol.save(p); setPlanOpen(false) }} onCancel={() => setPlanOpen(false)} />
+      </ModalForm>
 
       <ModalForm open={createOpen} onOpenChange={setCreateOpen} title="Crear clase" subtitle={`${subjectName} · ${gradeName}${section ? ` · ${section}` : ''}`} width={620}>
         <FormField label="Unidad de Aprendizaje" required>
@@ -167,6 +223,40 @@ export function MisClasesPage() {
           </div>
         )}
       </ModalForm>
+    </div>
+  )
+}
+
+function CronogramaForm({ initial, subjectId, gradeId, teacherId, onSave, onCancel }: { initial: ClassPlan | null; subjectId: string; gradeId: string; teacherId: string; onSave: (p: ClassPlan) => void; onCancel: () => void }) {
+  const [form, setForm] = useState<ClassPlan>(() => initial ?? { id: genId('plan'), subjectId, teacherId, gradeId, date: todayIso(), period: '07:45 - 08:30', topic: '', objective: '', content: '', strategy: '', resources: '', evaluation: '', status: 'planificada' })
+  const set = <K extends keyof ClassPlan>(k: K, v: ClassPlan[K]) => setForm((f) => ({ ...f, [k]: v }))
+  const submit = () => {
+    if (!form.topic || !form.date) { window.alert('Complete el tema y la fecha.'); return }
+    onSave(form)
+  }
+  return (
+    <div>
+      <FieldRow>
+        <FormField label="Fecha" required>
+          <Input type="date" value={form.date} onChange={(_, d) => set('date', d.value)} />
+        </FormField>
+        <FormField label="Periodo / Hora">
+          <Input value={form.period} onChange={(_, d) => set('period', d.value)} />
+        </FormField>
+      </FieldRow>
+      <FormField label="Tema de la clase" required>
+        <Input value={form.topic} onChange={(_, d) => set('topic', d.value)} placeholder="Ej. Los números enteros" />
+      </FormField>
+      <FormField label="Objetivo">
+        <Input value={form.objective} onChange={(_, d) => set('objective', d.value)} />
+      </FormField>
+      <FormField label="Contenido">
+        <Input value={form.content} onChange={(_, d) => set('content', d.value)} />
+      </FormField>
+      <FormField label="Recursos">
+        <Input value={form.resources} onChange={(_, d) => set('resources', d.value)} />
+      </FormField>
+      <FormActions onSubmit={submit} onCancel={onCancel} submitLabel={initial ? 'Actualizar' : 'Guardar'} />
     </div>
   )
 }
