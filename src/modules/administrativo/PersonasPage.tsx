@@ -270,7 +270,7 @@ export function PersonasPage() {
     <div>
       <PageHeader
         title="Datos institucionales"
-        subtitle="Mantenimiento de estudiantes, docentes, padres y personal de coordinación/TIC. Use la columna 'Tipo' para cambiar la categoría de una persona."
+        subtitle="Mantenimiento de estudiantes, docentes, familias y personal institucional. Use la columna 'Tipo' para cambiar la categoría del personal."
         actions={
           <Button appearance="primary" icon={<CloudArrowDownRegular />} onClick={() => setImportOpen(true)}>
             Importar desde Microsoft 365
@@ -281,8 +281,8 @@ export function PersonasPage() {
       <TabList className={styles.tabs} selectedValue={tab} onTabSelect={(_, d) => setTab(String(d.value))}>
         <Tab value="estudiantes">Estudiantes ({students.length})</Tab>
         <Tab value="docentes">Docentes ({teachers.length})</Tab>
-        <Tab value="padres">Padres ({guardiansCol.items.length})</Tab>
-        <Tab value="personas">Personal institucional ({personasCol.items.length})</Tab>
+        <Tab value="padres">Familias ({guardiansCol.items.length})</Tab>
+        <Tab value="personas">Personal ({personasCol.items.length})</Tab>
       </TabList>
 
       {tab === 'estudiantes' && (
@@ -415,7 +415,7 @@ export function PersonasPage() {
 
       {tab === 'personas' && (
         <EntityCrud<Persona>
-          title="Personal institucional"
+          title="Personal"
           items={personasCol.items}
           loading={personasCol.loading}
           columns={personaColumns}
@@ -442,7 +442,7 @@ export function PersonasPage() {
           )}
           onSave={savePersona}
           onDelete={deletePersona}
-          emptyMessage="Registre a coordinadores, TIC, dirección y personal de apoyo."
+          emptyMessage="Registre al personal institucional: coordinadores, TIC, dirección, administración, SIGER, apoyo y orientación/psicología."
         />
       )}
     </div>
