@@ -157,7 +157,7 @@ export function DocenteDashboard() {
 
   const heroActions = (
     <div className={styles.heroActions}>
-      <Button appearance="secondary" icon={<PlayRegular />} style={{ background: '#fff', color: 'var(--azul)', fontWeight: 600 }} onClick={() => navigate('/docentes/planificacion')}>
+      <Button appearance="secondary" icon={<PlayRegular />} style={{ background: '#fff', color: 'var(--azul)', fontWeight: 600 }} onClick={() => navigate('/docentes/planificaciones')}>
         Impartir clase
       </Button>
       <Button appearance="secondary" icon={<CalendarCheckmarkRegular />} style={{ background: 'rgba(255,255,255,0.14)', color: '#fff', fontWeight: 600 }} onClick={() => navigate('/docentes/asistencia')}>
@@ -195,7 +195,7 @@ export function DocenteDashboard() {
         <div className="panel">
           <div className={styles.panelHead}>
             <Text weight="semibold" size={400}>Horario del día</Text>
-            <Button appearance="subtle" size="small" onClick={() => navigate('/docentes/planificacion')}>
+            <Button appearance="subtle" size="small" onClick={() => navigate('/docentes/planificaciones')}>
               Ver todo <ArrowRightRegular />
             </Button>
           </div>
@@ -239,7 +239,7 @@ export function DocenteDashboard() {
         <div className="panel">
           <div className={styles.panelHead}>
             <Text weight="semibold" size={400}>Próximas clases</Text>
-            <Button appearance="subtle" size="small" onClick={() => navigate('/docentes/planificacion')}>
+            <Button appearance="subtle" size="small" onClick={() => navigate('/docentes/planificaciones')}>
               Ver todo <ArrowRightRegular />
             </Button>
           </div>
