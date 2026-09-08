@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState } from 'react'
 import { Button, Input, Select, Spinner, Table, TableBody, TableCell, TableHeader, TableHeaderCell, TableRow, Text, Toolbar, ToolbarButton, makeStyles, tokens } from '@fluentui/react-components'
-import { AddRegular, SparkleRegular, OpenRegular, DeleteRegular, SearchRegular, DocumentRegular, PrintRegular, CalendarLtrRegular, CloudArrowUpRegular, ChatRegular } from '@fluentui/react-icons'
+import { AddRegular, SparkleRegular, OpenRegular, DeleteRegular, SearchRegular, DocumentRegular, PrintRegular, CalendarLtrRegular, CloudArrowUpRegular, ChatRegular, CopyRegular } from '@fluentui/react-icons'
 import { PageHeader } from '../../components/shared/PageHeader'
 import { StatusBadge } from '../../components/shared/StatusBadge'
 import { EmptyStateView } from '../../components/shared/EmptyStateView'
@@ -70,6 +70,11 @@ export function PlanificacionPage() {
   const handleDelete = async (plan: DailyPlan) => {
     if (!window.confirm('¿Desea eliminar esta planificación?')) return
     try { await plansCol.remove(plan.id) } catch { /* error del hook */ }
+  }
+  const handleDuplicate = (plan: DailyPlan) => {
+    const copy: DailyPlan = { ...plan, id: genId('pdia'), createdAt: new Date().toISOString() }
+    setEditing(copy)
+    setFormOpen(true)
   }
 
   /** Carga un PDF de planificación, extrae su texto y crea un plan con IA. */
@@ -180,6 +185,7 @@ export function PlanificacionPage() {
               <TableCell className={styles.cell}>
                 <Toolbar size="small" style={{ gap: '4px' }}>
                   <ToolbarButton icon={<OpenRegular />} onClick={() => openEdit(plan)}>Editar</ToolbarButton>
+                  <ToolbarButton icon={<CopyRegular />} onClick={() => handleDuplicate(plan)}>Duplicar</ToolbarButton>
                   <ToolbarButton icon={<ChatRegular />} onClick={() => openModify(plan)} disabled={!configured}>Modificar con IA</ToolbarButton>
                   <ToolbarButton icon={<DocumentRegular />} onClick={() => exportPlanWord(plan, subjectById(plan.subjectId)?.name ?? '', gradeById(plan.gradeId)?.name ?? '')}>Word</ToolbarButton>
                   <ToolbarButton icon={<PrintRegular />} onClick={() => printPlan(plan, subjectById(plan.subjectId)?.name ?? '', gradeById(plan.gradeId)?.name ?? '')}>PDF</ToolbarButton>
