@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Button, Input, Select, Table, TableBody, TableCell, TableHeader, TableHeaderCell, TableRow, Text, makeStyles } from '@fluentui/react-components'
+import { Button, Input, Select, Table, TableBody, TableCell, TableHeader, TableHeaderCell, TableRow, makeStyles } from '@fluentui/react-components'
 import { AddRegular, CalendarLtrRegular, OpenRegular, DeleteRegular, WandRegular } from '@fluentui/react-icons'
 import { PageHeader } from '../../components/shared/PageHeader'
 import { ModalForm } from '../../components/shared/ModalForm'
@@ -15,39 +15,36 @@ import { formatDate, genId } from '../../utils/helpers'
 const useStyles = makeStyles({
   controls: { display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center', marginBottom: '16px' },
   monthChip: { display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', padding: '12px', borderRadius: '12px', background: 'linear-gradient(135deg, #00607F 0%, #0082AD 100%)', color: '#fff', fontWeight: 800, fontSize: '18px', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '14px' },
-  weekHead: { background: 'rgba(0,130,173,0.08)' },
-  weekCell: { minWidth: '140px' },
+  weekHead: { background: 'rgba(0,130,173,0.08)', textAlign: 'center' },
+  weekCell: { minWidth: '150px' },
+  subjectCell: { verticalAlign: 'top', minWidth: '180px', fontWeight: 700 },
   unit: { display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 10px', borderRadius: '8px', fontSize: '13px', fontWeight: 600, color: '#fff', cursor: 'pointer', wordBreak: 'break-word', transition: 'transform 0.15s ease', ':hover': { transform: 'translateY(-1px)' }, marginBottom: '6px' },
-  unitDelete: { marginLeft: 'auto', color: 'rgba(255,255,255,0.7)', ':hover': { color: '#fff' } },
-  addBtn: { alignSelf: 'flex-start' },
-  catalog: { marginTop: '18px', padding: '16px', borderRadius: '12px', border: '1px solid var(--borde)', background: 'var(--superficie)' },
-  catalogTitle: { fontWeight: 700, marginBottom: '10px' },
-  chipWrap: { display: 'flex', flexWrap: 'wrap', gap: '8px' },
-  tag: { padding: '6px 12px', borderRadius: '999px', background: 'rgba(0,130,173,0.10)', color: '#0082AD', fontWeight: 600, fontSize: '12.5px', cursor: 'pointer', ':hover': { background: 'rgba(0,130,173,0.18)' } },
+  unitDelete: { marginLeft: 'auto', color: 'rgba(255,255,255,0.75)', ':hover': { color: '#fff' } },
+  addBtn: { marginTop: '4px' },
+  empty: { fontSize: '12px', color: 'var(--texto-suave)' },
   kv: { display: 'grid', gridTemplateColumns: '150px 1fr', gap: '8px 14px', fontSize: '13.5px', lineHeight: 1.5 },
   kvLabel: { color: 'var(--texto-suave)', fontWeight: 600 },
 })
 
 interface Week { label: string; startDay: number; endDay: number }
+interface AddTarget { subjectId: string; subjectName: string; weekIndex: number }
+
+const SUBJECT_COLORS = ['#0082AD', '#2AA9D8', '#0EA5E9', '#0B6E4F', '#E62327', '#AD1457', '#7D1D24', '#9A9C2E']
 
 export function PlanificadorSemanal() {
   const styles = useStyles()
-  const { user, subjects, grades, subjectById, gradeById } = useApp()
+  const { user, subjects, grades, gradeById, subjectById } = useApp()
   const col = useCollection<DailyPlan>(dataService.getDailyPlans, dataService.saveDailyPlan, dataService.deleteDailyPlan)
 
   const now = new Date()
   const defaultMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
-  const [subjectId, setSubjectId] = useState(subjects[0]?.id ?? '')
   const [gradeId, setGradeId] = useState(grades[0]?.id ?? '')
   const [section, setSection] = useState('')
   const [month, setMonth] = useState(defaultMonth)
-  const [weekModal, setWeekModal] = useState<number | null>(null)
+  const [addTarget, setAddTarget] = useState<AddTarget | null>(null)
   const [newSeqCustom, setNewSeqCustom] = useState('')
   const [viewing, setViewing] = useState<DailyPlan | null>(null)
   const [editOpen, setEditOpen] = useState(false)
-
-  const subjectName = subjectById(subjectId)?.name ?? ''
-  const topics = secuenciasDeAsignatura(subjectName)
 
   const weeks = useMemo<Week[]>(() => {
     const [y, m] = month.split('-').map(Number)
@@ -57,78 +54,70 @@ export function PlanificadorSemanal() {
     return arr
   }, [month])
 
-  const unitsOfMonth = useMemo(() => {
-    return col.items.filter((p) => p.tipo === 'unidad' && (subjectId ? p.subjectId === subjectId : true) && (gradeId ? p.gradeId === gradeId : true) && p.fecha.startsWith(month))
-  }, [col.items, subjectId, gradeId, month])
+  const unitsOfMonth = useMemo(() => col.items.filter((p) => p.tipo === 'unidad' && (gradeId ? p.gradeId === gradeId : true) && p.fecha.startsWith(month)), [col.items, gradeId, month])
 
-  const unitsInWeek = (week: Week) => {
-    return unitsOfMonth.filter((p) => {
-      const d = Number(p.fecha.slice(8, 10))
-      return d >= week.startDay && d <= week.endDay && p.fecha === `${month}-${String(d).padStart(2, '0')}`
-    }).sort((a, b) => (a.fecha > b.fecha ? 1 : -1))
+  const unitsIn = (subjectId: string, week: Week) => {
+    return unitsOfMonth
+      .filter((p) => p.subjectId === subjectId)
+      .filter((p) => {
+        const d = Number(p.fecha.slice(8, 10))
+        return d >= week.startDay && d <= week.endDay && p.fecha === `${month}-${String(d).padStart(2, '0')}`
+      })
+      .sort((a, b) => (a.fecha > b.fecha ? 1 : -1))
   }
 
   const dateForWeek = (week: Week) => `${month}-${String(week.startDay).padStart(2, '0')}`
 
-  const createUnit = async (topic: string, week: Week) => {
-    const plan: DailyPlan = {
-      id: genId('pdia'),
-      teacherId: user?.teacherId ?? '',
-      subjectId,
-      gradeId,
-      section,
-      nivel: gradeById(gradeId)?.level ?? 'Primaria',
-      tipo: 'unidad',
-      unidad: topic,
-      tema: topic,
-      fecha: dateForWeek(week),
-      duracion: '45 minutos',
-      competenciasFundamentales: [],
-      competenciasEspecificas: [],
-      ejesTransversales: [],
-      contenidos: { conceptuales: '', procedimentales: '', actitudinales: '' },
-      actividades: { inicio: '', desarrollo: '', cierre: '' },
-      estrategias: [],
-      recursos: [],
-      indicadoresLogro: [],
-      evaluacion: { tipo: 'formativa', instrumento: '', criterios: '' },
-      generadoPorIA: false,
-      createdAt: new Date().toISOString(),
-    }
+  const buildUnit = (subjectId: string, topic: string, week: Week): DailyPlan => ({
+    id: genId('pdia'),
+    teacherId: user?.teacherId ?? '',
+    subjectId,
+    gradeId,
+    section,
+    nivel: gradeById(gradeId)?.level ?? 'Primaria',
+    tipo: 'unidad',
+    unidad: topic,
+    tema: topic,
+    fecha: dateForWeek(week),
+    duracion: '45 minutos',
+    competenciasFundamentales: [],
+    competenciasEspecificas: [],
+    ejesTransversales: [],
+    contenidos: { conceptuales: '', procedimentales: '', actitudinales: '' },
+    actividades: { inicio: '', desarrollo: '', cierre: '' },
+    estrategias: [],
+    recursos: [],
+    indicadoresLogro: [],
+    evaluacion: { tipo: 'formativa', instrumento: '', criterios: '' },
+    generadoPorIA: false,
+    createdAt: new Date().toISOString(),
+  })
+
+  const addSequence = async (subjectId: string, topic: string, week: Week) => {
+    const plan = buildUnit(subjectId, topic, week)
     await col.save(plan)
     setViewing(plan)
-    setWeekModal(null)
+    setAddTarget(null)
   }
 
   const fillDefault = async () => {
-    for (let i = 0; i < weeks.length && i < topics.length; i++) {
-      const topic = topics[i]
-      const exists = unitsInWeek(weeks[i]).some((u) => u.tema === topic)
-      if (exists) continue
-      await createUnitSilent(topic, weeks[i])
+    for (const subj of subjects) {
+      const topics = secuenciasDeAsignatura(subj.name)
+      for (let i = 0; i < weeks.length && i < topics.length; i++) {
+        const topic = topics[i]
+        const exists = unitsIn(subj.id, weeks[i]).some((u) => u.tema === topic)
+        if (exists) continue
+        const plan = buildUnit(subj.id, topic, weeks[i])
+        await col.save(plan)
+      }
     }
   }
 
-  const createUnitSilent = async (topic: string, week: Week) => {
-    const plan: DailyPlan = {
-      id: genId('pdia'), teacherId: user?.teacherId ?? '', subjectId, gradeId, section, nivel: gradeById(gradeId)?.level ?? 'Primaria',
-      tipo: 'unidad', unidad: topic, tema: topic, fecha: dateForWeek(week), duracion: '45 minutos',
-      competenciasFundamentales: [], competenciasEspecificas: [], ejesTransversales: [],
-      contenidos: { conceptuales: '', procedimentales: '', actitudinales: '' }, actividades: { inicio: '', desarrollo: '', cierre: '' },
-      estrategias: [], recursos: [], indicadoresLogro: [], evaluacion: { tipo: 'formativa', instrumento: '', criterios: '' },
-      generadoPorIA: false, createdAt: new Date().toISOString(),
-    }
-    await col.save(plan)
-  }
-
-  const addFromCatalog = (topic: string) => {
-    if (weekModal == null) return
-    void createUnit(topic, weeks[weekModal])
-  }
+  const activeTopics = addTarget ? secuenciasDeAsignatura(addTarget.subjectName) : []
 
   const addCustom = () => {
-    if (weekModal == null || !newSeqCustom.trim()) return
-    void createUnit(newSeqCustom.trim(), weeks[weekModal])
+    if (!addTarget || !newSeqCustom.trim()) return
+    void addSequence(addTarget.subjectId, newSeqCustom.trim(), weeks[addTarget.weekIndex])
     setNewSeqCustom('')
   }
 
@@ -136,19 +125,16 @@ export function PlanificadorSemanal() {
     <div>
       <PageHeader
         title="Planificador semanal"
-        subtitle={`Organice las secuencias (unidades) de cada asignatura por semana, como en el Eduplan. Cada secuencia se despliega en el plan completo del MINERD. · ${anioEscolar()}`}
+        subtitle={`Todas las asignaturas por semana, como el Eduplan. Cada secuencia se despliega en el plan completo del MINERD. · ${anioEscolar()}`}
         actions={<Button appearance="secondary" icon={<WandRegular />} onClick={() => void fillDefault()}>Rellenar por defecto</Button>}
       />
 
       <div className={styles.controls}>
-        <Select value={subjectId} onChange={(_, d) => setSubjectId(d.value)} style={{ minWidth: '200px' }}>
-          {subjects.map((s) => (<option key={s.id} value={s.id}>{s.name}</option>))}
-        </Select>
-        <Select value={gradeId} onChange={(_, d) => setGradeId(d.value)} style={{ minWidth: '150px' }}>
+        <Select value={gradeId} onChange={(_, d) => setGradeId(d.value)} style={{ minWidth: '160px' }}>
           {grades.map((g) => (<option key={g.id} value={g.id}>{g.name}</option>))}
         </Select>
-        <Select value={section} onChange={(_, d) => setSection(d.value)} style={{ minWidth: '100px' }}>
-          <option value="">Todas</option>
+        <Select value={section} onChange={(_, d) => setSection(d.value)} style={{ minWidth: '110px' }}>
+          <option value="">Toda la sección</option>
           {['A', 'B', 'C', 'D'].map((s) => (<option key={s} value={s}>{s}</option>))}
         </Select>
         <Input type="month" value={month} onChange={(_, d) => setMonth(d.value)} style={{ minWidth: '170px' }} />
@@ -156,7 +142,7 @@ export function PlanificadorSemanal() {
 
       <div className={styles.monthChip}><CalendarLtrRegular /> {new Date(`${month}-01T00:00:00`).toLocaleDateString('es-DO', { month: 'long', year: 'numeric' })}</div>
 
-      <Table aria-label="Planificador semanal">
+      <Table aria-label="Planificador semanal por asignatura">
         <TableHeader>
           <TableRow>
             <TableHeaderCell>Asignatura</TableHeaderCell>
@@ -164,50 +150,49 @@ export function PlanificadorSemanal() {
           </TableRow>
         </TableHeader>
         <TableBody>
-          <TableRow>
-            <TableCell>
-              <Text weight="semibold" block>{subjectName}</Text>
-              <Text size={200} style={{ color: 'var(--texto-suave)' }}>{gradeById(gradeId)?.name ?? ''}{section ? ` · ${section}` : ''}</Text>
-            </TableCell>
-            {weeks.map((w, wi) => (
-              <TableCell key={w.label} className={styles.weekCell}>
-                {unitsInWeek(w).map((u) => (
-                  <div key={u.id} className={styles.unit} style={{ background: 'linear-gradient(135deg, #0082AD, #2AA9D8)' }} onClick={() => setViewing(u)}>
-                    {u.tema}
-                    <span className={styles.unitDelete} onClick={(e) => { e.stopPropagation(); if (window.confirm('¿Eliminar esta secuencia?')) void col.remove(u.id) }}><DeleteRegular /></span>
-                  </div>
-                ))}
-                <Button size="small" appearance="subtle" icon={<AddRegular />} className={styles.addBtn} onClick={() => { setWeekModal(wi); setNewSeqCustom('') }}>
-                  Añadir secuencia
-                </Button>
+          {subjects.map((subj, si) => (
+            <TableRow key={subj.id}>
+              <TableCell className={styles.subjectCell}>
+                <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{ width: '12px', height: '12px', borderRadius: '50%', background: subj.color ?? SUBJECT_COLORS[si % SUBJECT_COLORS.length] }} />
+                  {subj.name}
+                </span>
               </TableCell>
-            ))}
-          </TableRow>
+              {weeks.map((w, wi) => {
+                const units = unitsIn(subj.id, w)
+                return (
+                  <TableCell key={w.label} className={styles.weekCell}>
+                    {units.length === 0 && <div className={styles.empty}>—</div>}
+                    {units.map((u) => (
+                      <div key={u.id} className={styles.unit} style={{ background: `linear-gradient(135deg, ${subj.color ?? SUBJECT_COLORS[si % SUBJECT_COLORS.length]}, ${subj.color ?? SUBJECT_COLORS[si % SUBJECT_COLORS.length]}cc)` }} onClick={() => setViewing(u)}>
+                        {u.tema}
+                        <span className={styles.unitDelete} onClick={(e) => { e.stopPropagation(); if (window.confirm('¿Eliminar esta secuencia?')) void col.remove(u.id) }}><DeleteRegular /></span>
+                      </div>
+                    ))}
+                    <Button size="small" appearance="subtle" icon={<AddRegular />} className={styles.addBtn} onClick={() => { setAddTarget({ subjectId: subj.id, subjectName: subj.name, weekIndex: wi }); setNewSeqCustom('') }}>
+                      Añadir secuencia
+                    </Button>
+                  </TableCell>
+                )
+              })}
+            </TableRow>
+          ))}
         </TableBody>
       </Table>
 
-      {topics.length > 0 && (
-        <div className={styles.catalog}>
-          <Text className={styles.catalogTitle}>Catálogo de secuencias · {subjectName}</Text>
-          <div className={styles.chipWrap}>
-            {topics.map((t) => (<span key={t} className={styles.tag} onClick={() => weekModal == null ? void createUnit(t, weeks[0]) : addFromCatalog(t)}>{t}</span>))}
-          </div>
-        </div>
-      )}
-
-      <ModalForm open={weekModal != null} onOpenChange={(o) => !o && setWeekModal(null)} title="Añadir secuencia" subtitle={`Establecer en ${weekModal != null ? weeks[weekModal].label : ''}`} width={560}>
-        {weekModal != null && (
+      <ModalForm open={!!addTarget} onOpenChange={(o) => !o && setAddTarget(null)} title="Añadir secuencia" subtitle={`${addTarget?.subjectName ?? ''} · ${addTarget ? weeks[addTarget.weekIndex].label : ''}`} width={560}>
+        {addTarget && (
           <div>
             <FormField label="Elegir del catálogo">
-              <Select onChange={(_, d) => d.value && addFromCatalog(d.value)}>
+              <Select onChange={(_, d) => d.value && void addSequence(addTarget.subjectId, d.value, weeks[addTarget.weekIndex])}>
                 <option value="">…</option>
-                {topics.map((t) => (<option key={t} value={t}>{t}</option>))}
+                {activeTopics.map((t) => (<option key={t} value={t}>{t}</option>))}
               </Select>
             </FormField>
             <FormField label="O escribir una nueva">
               <Input value={newSeqCustom} onChange={(_, d) => setNewSeqCustom(d.value)} placeholder="Ej. La célula y sus partes" />
             </FormField>
-            <FormActions onSubmit={addCustom} submitLabel="Crear y desarrollar" onCancel={() => setWeekModal(null)} />
+            <FormActions onSubmit={addCustom} submitLabel="Crear y desarrollar" onCancel={() => setAddTarget(null)} />
           </div>
         )}
       </ModalForm>
