@@ -3,6 +3,7 @@ import { AppShell, type NavItem } from '../components/layout/AppShell'
 import { DocenteDashboard } from '../modules/dashboard/DocenteDashboard'
 import { AnualPlanPage } from '../modules/anualPlan/AnualPlanPage'
 import { PlanificacionPage } from '../modules/planificacion/PlanificacionPage'
+import { PlanificadorSemanal } from '../modules/planificacion/PlanificadorSemanal'
 import { GradosSeccionesPage } from '../modules/planificacion/GradosSeccionesPage'
 import { ClasesPage } from '../modules/clases/ClasesPage'
 import { ClaseDetail } from '../modules/clases/ClaseDetail'
@@ -34,6 +35,7 @@ import {
 const NAV: NavItem[] = [
   { to: '/docentes', label: 'Inicio', icon: <HomeRegular />, end: true, group: 'General' },
   { to: '/docentes/planificaciones', label: 'Planificaciones', icon: <CalendarLtrRegular />, group: 'Académico' },
+  { to: '/docentes/planificador', label: 'Planificador semanal', icon: <GridRegular />, group: 'Académico' },
   { to: '/docentes/planificacion', label: 'Planificación Anual', icon: <CalendarTodayRegular />, group: 'Académico' },
   { to: '/docentes/grados-secciones', label: 'Grados y Secciones', icon: <GridRegular />, group: 'Académico' },
   { to: '/docentes/clases', label: 'Mis Clases', icon: <NotebookRegular />, group: 'Académico' },
@@ -53,6 +55,7 @@ export function DocentesPortal() {
       <Route element={<AppShell nav={NAV} />}>
         <Route index element={<DocenteDashboard />} />
         <Route path="planificaciones" element={<PlanificacionPage />} />
+        <Route path="planificador" element={<PlanificadorSemanal />} />
         <Route path="planificacion" element={<AnualPlanPage />} />
         <Route path="grados-secciones" element={<GradosSeccionesPage />} />
         <Route path="clases" element={<ClasesPage />} />
