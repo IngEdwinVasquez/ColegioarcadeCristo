@@ -581,7 +581,7 @@ export interface Accompaniment {
 
 // ------------------------------ Personas (Coordinación / TIC / Staff) ------------------------------
 
-export type PersonaTipo = 'coordinador' | 'tic' | 'director' | 'administrador' | 'siger' | 'apoyo'
+export type PersonaTipo = 'coordinador' | 'tic' | 'director' | 'administrador' | 'siger' | 'apoyo' | 'psicologia'
 
 /**
  * Registro de una persona de staff de coordinación (pedagógica), tecnología (TIC),

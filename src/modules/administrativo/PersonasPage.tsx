@@ -31,11 +31,12 @@ const PERSON_TYPES = [
   { value: 'administrador', label: 'Administrador' },
   { value: 'siger', label: 'SIGER' },
   { value: 'apoyo', label: 'Personal de apoyo' },
+  { value: 'psicologia', label: 'Orientación y Psicología' },
 ] as const
 
 type TipoOp = (typeof PERSON_TYPES)[number]['value']
 
-const ROLE_OF: Record<TipoOp, Role> = { estudiante: 'estudiante', docente: 'docente', padre: 'padre', coordinador: 'coordinacion', tic: 'tecnologia', director: 'admin', administrador: 'admin', siger: 'admin', apoyo: 'admin' }
+const ROLE_OF: Record<TipoOp, Role> = { estudiante: 'estudiante', docente: 'docente', padre: 'padre', coordinador: 'coordinacion', tic: 'tecnologia', director: 'admin', administrador: 'admin', siger: 'admin', apoyo: 'admin', psicologia: 'psicologia' }
 const LINK_OF: Record<TipoOp, (id: string) => LinkTarget> = {
   estudiante: (id) => ({ studentId: id }),
   docente: (id) => ({ teacherId: id }),
@@ -46,6 +47,7 @@ const LINK_OF: Record<TipoOp, (id: string) => LinkTarget> = {
   administrador: () => ({}),
   siger: () => ({}),
   apoyo: () => ({}),
+  psicologia: () => ({}),
 }
 const labelOf = (t: TipoOp) => PERSON_TYPES.find((p) => p.value === t)?.label ?? t
 
@@ -421,7 +423,7 @@ export function PersonasPage() {
               />
               <FormField label="Posición / Tipo">
                 <Select value={p.tipo} onChange={(_, d) => set({ ...p, tipo: d.value as Persona['tipo'] })}>
-                  {['coordinador', 'tic', 'director', 'administrador', 'siger', 'apoyo'].map((t) => (<option key={t} value={t}>{labelOf(t as TipoOp)}</option>))}
+                  {['coordinador', 'tic', 'director', 'administrador', 'siger', 'apoyo', 'psicologia'].map((t) => (<option key={t} value={t}>{labelOf(t as TipoOp)}</option>))}
                 </Select>
               </FormField>
             </div>
