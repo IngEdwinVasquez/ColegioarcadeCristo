@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Button, Input, Select, Tab, TabList, Text, makeStyles, useToastController } from '@fluentui/react-components'
 import { CloudArrowDownRegular } from '@fluentui/react-icons'
 import { PageHeader } from '../../components/shared/PageHeader'
@@ -72,6 +72,15 @@ export function PersonasPage() {
 
   const [tab, setTab] = useState('estudiantes')
   const [importOpen, setImportOpen] = useState(false)
+  const [nivelFilter, setNivelFilter] = useState('')
+  const [cicloFilter, setCicloFilter] = useState('')
+
+  const filteredGrades = useMemo(() => {
+    return grades
+      .filter((g) => !nivelFilter || g.level === nivelFilter)
+      .filter((g) => !cicloFilter || g.ciclo === cicloFilter)
+  }, [grades, nivelFilter, cicloFilter])
+  const cicloOpciones = nivelFilter === 'Primaria' || nivelFilter === 'Secundaria' ? ['Primer ciclo', 'Segundo ciclo'] : []
 
   /** Convierte una persona de un tipo a otro: cambia el registro de lista y su rol de Entra ID. */
   async function convertPersona(base: BasePerson, sourceType: TipoOp, targetType: TipoOp) {
@@ -355,7 +364,35 @@ export function PersonasPage() {
                 Marque las asignaturas y los grados: al guardar se crean automáticamente las asignaciones (grado × asignatura) del período escolar activo.
               </Text>
               <MultiSelect label="Asignaturas que imparte" placeholder="Filtrar asignaturas…" options={subjects.map((sub) => ({ id: sub.id, label: sub.name, detail: sub.shortName }))} selected={t.subjects} onChange={(ids) => set({ ...t, subjects: ids })} emptyMessage="Cree las asignaturas en Catálogos." />
-              <MultiSelect label="Grados y cursos a su cargo" placeholder="Filtrar cursos…" options={grades.map((g) => ({ id: g.id, label: g.name, detail: g.level }))} selected={t.grades} onChange={(ids) => set({ ...t, grades: ids })} emptyMessage="Cree los cursos en Catálogos." />
+              <FieldRow>
+                <FormField label="Nivel">
+                  <Select value={nivelFilter} onChange={(_, d) => { setNivelFilter(d.value); setCicloFilter('') }}>
+                    <option value="">Todos los niveles</option>
+                    <option value="Inicial">Inicial</option>
+                    <option value="Primaria">Primaria</option>
+                    <option value="Secundaria">Secundaria</option>
+                  </Select>
+                </FormField>
+                {cicloOpciones.length > 0 && (
+                  <FormField label="Ciclo">
+                    <Select value={cicloFilter} onChange={(_, d) => setCicloFilter(d.value)}>
+                      <option value="">Todos los ciclos</option>
+                      {cicloOpciones.map((c) => (<option key={c} value={c}>{c}</option>))}
+                    </Select>
+                  </FormField>
+                )}
+              </FieldRow>
+              <MultiSelect
+                label="Grados y cursos a su cargo"
+                placeholder="Filtrar cursos…"
+                options={filteredGrades.map((g) => ({ id: g.id, label: `${g.name}${g.ciclo ? ` · ${g.ciclo}` : ''}`, detail: `${g.nivel ?? g.level}${g.ciclo ? ` · ${g.ciclo}` : ''}` }))}
+                selected={t.grades}
+                onChange={(ids) => set({ ...t, grades: ids })}
+                emptyMessage={filteredGrades.length === 0 ? 'No hay cursos para el nivel/ciclo seleccionado. Cree cursos en Catálogos.' : 'Cree los cursos en Catálogos.'}
+              />
+              <Text size={200} block style={{ color: 'var(--texto-suave)', marginTop: '8px' }}>
+                La Sección (A, B, C, D) se asigna en el portal del docente → "Grados y Secciones". Solicite a Tecnología completar nivel, ciclo, grado y sección de cada asignatura.
+              </Text>
             </div>
           )}
           onSave={saveTeacher}
