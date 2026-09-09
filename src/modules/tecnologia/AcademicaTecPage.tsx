@@ -62,8 +62,19 @@ const cursoGrado = (curso: GradeSection): string => {
   return g ? `${g}.${s}` : s
 }
 
+/** Ciclo según el grado: 1-3 → Primer ciclo, 4-6 → Segundo ciclo (Primaria/Secundaria). */
+const cicloFromGrade = (level: string, grado: string): string | undefined => {
+  if (level !== 'Nivel Primario' && level !== 'Nivel Secundario') return undefined
+  const n = parseInt(grado, 10)
+  if (!Number.isFinite(n)) return undefined
+  if (n >= 1 && n <= 3) return 'Primer ciclo'
+  if (n >= 4 && n <= 6) return 'Segundo ciclo'
+  return undefined
+}
+
 /** Extrae la asignatura del nombre del curso (quita grado, sección y nivel). */
 const asignaturaDe = (curso: GradeSection): string => {
+  if (curso.asignatura) return curso.asignatura
   let s = curso.name
   const g = s.match(GRADO_RE)
   if (g) s = s.slice(g[0].length)
@@ -160,10 +171,20 @@ export function AcademicaTecPage() {
   }
 
   const save = async (g: GradeSection) => {
-    // Asegura sección (por defecto A) y construye el nombre grado.sección (ej. "1ro.A").
-    const seccion = g.section || seccionDe({ ...g, name: g.name })
-    const nombre = g.name || `${gradoDe(g)}.${seccion}`
-    const next: GradeSection = { ...g, name: nombre, section: seccion, level: g.level || (detectLevel(nombre) ?? 'Nivel Primario') }
+    // Normaliza: nombre = grado.sección (ej. 1ro.A), asignatura separada y ciclo por grado.
+    const seccion = g.section || seccionDe(g)
+    const grado = gradoDe(g) || '1ro'
+    const nombre = `${grado}.${seccion}`
+    const asignatura = (g.asignatura || asignaturaDe(g)) === '—' ? '' : g.asignatura || asignaturaDe(g)
+    const next: GradeSection = {
+      ...g,
+      name: nombre,
+      section: seccion,
+      nivel: (g.level || (detectLevel(g.name) ?? 'Nivel Primario')).replace('Nivel ', ''),
+      level: g.level || (detectLevel(g.name) ?? 'Nivel Primario'),
+      asignatura: asignatura,
+      ciclo: g.ciclo || cicloFromGrade(g.level || (detectLevel(g.name) ?? 'Nivel Primario'), grado),
+    }
     if (!next.name.trim()) {
       toaster.dispatchToast('Indique el nombre del curso.', { intent: 'error' })
       return

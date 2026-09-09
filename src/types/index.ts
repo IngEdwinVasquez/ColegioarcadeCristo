@@ -26,6 +26,8 @@ export interface GradeSection {
   ciclo?: string
   /** Seccion (A, B, ...) si se administra por separado */
   section?: string
+  /** Nombre de la asignatura (sin el grado) del curso */
+  asignatura?: string
   /** Equipo de Microsoft Teams vinculado al curso */
   teamId?: string
   teamUrl?: string
