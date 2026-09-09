@@ -118,21 +118,19 @@ export function CronogramaTrabajoPage() {
   const [viewing, setViewing] = useState<WorkCronograma | null>(null)
   const [printDoc, setPrintDoc] = useState<WorkCronograma | null>(null)
 
-  // Garantiza los cinco años escolares estándar: crea los que faltan y renombra
-  // registros existentes que tengan ruido (p. ej. «(PRUEBA)») al nombre canónico.
+  // Elimina períodos de prueba y garantiza los cinco años escolares estándar.
   useEffect(() => {
     if (periodCol.loading) return
+    for (const x of periodCol.items) {
+      if (/prueba/i.test(x.name)) void periodCol.remove(x.id)
+    }
     for (const p of schoolYears()) {
       const y = Number(p.id.split('-')[1])
-      const match = periodCol.items.find((x) => {
+      const exists = periodCol.items.some((x) => {
         const m = x.name.match(/(\d{4})\s*-\s*(\d{4})/)
-        return m && Number(m[1]) === y && Number(m[2]) === y + 1
+        return m && Number(m[1]) === y && Number(m[2]) === y + 1 && !/prueba/i.test(x.name)
       })
-      if (match) {
-        if (match.name !== p.name) void periodCol.save({ ...match, name: p.name, startDate: p.startDate, endDate: p.endDate })
-      } else {
-        void periodCol.save(p)
-      }
+      if (!exists) void periodCol.save(p)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [periodCol.loading])
