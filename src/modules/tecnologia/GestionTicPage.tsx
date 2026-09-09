@@ -5,7 +5,7 @@ import {
 } from '@fluentui/react-components'
 import {
   AddRegular, AttachRegular, CalendarAddRegular, DeleteRegular, DocumentPdfRegular, EditRegular,
-  ImageRegular, NoteAddRegular, OpenRegular, PrintRegular,
+  ImageRegular, NoteAddRegular, OpenRegular, PrintRegular, SparkleRegular, CloudArrowUpRegular,
 } from '@fluentui/react-icons'
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RTooltip, PieChart, Pie, Cell, Legend } from 'recharts'
 import { PageHeader } from '../../components/shared/PageHeader'
@@ -19,6 +19,9 @@ import { dataService } from '../../services/dataService'
 import { useCollection } from '../../hooks/useCollection'
 import { uploadAndShare } from '../../services/onedrive'
 import { graphRequest, graphErrorMessage } from '../../services/graph'
+import { extractPdfText } from '../../services/pdf'
+import { generateTicPlanWithAi } from '../../services/ticAi'
+import { isAiConfigured } from '../../services/ai'
 import { appConfig } from '../../config/appConfig'
 import { formatDate, genId, pct, todayIso } from '../../utils/helpers'
 import { gradientes } from '../../theme'
@@ -68,6 +71,13 @@ export function GestionTicPage() {
   const [uploading, setUploading] = useState(false)
   const fileInput = useRef<HTMLInputElement>(null)
   const [reportMonth, setReportMonth] = useState(todayIso().slice(0, 7))
+  const [aiOpen, setAiOpen] = useState(false)
+  const [aiSource, setAiSource] = useState('')
+  const [aiScope, setAiScope] = useState<TicScope>('mensual')
+  const [aiCategory, setAiCategory] = useState<TicCategory>('plataforma')
+  const [aiStage, setAiStage] = useState<TicStage>('inicio')
+  const [aiGenerating, setAiGenerating] = useState(false)
+  const aiFileRef = useRef<HTMLInputElement>(null)
 
   const filtered = useMemo(
     () =>
@@ -136,6 +146,38 @@ export function GestionTicPage() {
     }
   }
 
+  /** Extrae el texto de un PDF y lo añade al campo de la IA. */
+  const onAiPdf = async (file: File | undefined) => {
+    if (!file) return
+    try {
+      const text = await extractPdfText(file)
+      setAiSource((s) => (s ? `${s}\n\n${text}` : text))
+    } catch (error) {
+      toaster.dispatchToast(`No se pudo leer el PDF: ${error instanceof Error ? error.message : ''}`, { intent: 'error' })
+    }
+    if (aiFileRef.current) aiFileRef.current.value = ''
+  }
+
+  /** Genera un plan de trabajo TIC con IA y lo abre en el formulario de edición. */
+  const generar = async () => {
+    if (!aiSource.trim()) {
+      toaster.dispatchToast('Escriba un texto o cargue un documento para generar el plan.', { intent: 'error' })
+      return
+    }
+    setAiGenerating(true)
+    try {
+      const plan = await generateTicPlanWithAi({ source: aiSource, scope: aiScope, category: aiCategory, stage: aiStage, responsible: user?.displayName ?? '' })
+      setEditing(plan)
+      setAiOpen(false)
+      setAiSource('')
+      toaster.dispatchToast('Plan generado con IA. Revíselo y guárdelo.', { intent: 'success' })
+    } catch (error) {
+      toaster.dispatchToast(`No se pudo generar: ${error instanceof Error ? error.message : 'error'}`, { intent: 'error' })
+    } finally {
+      setAiGenerating(false)
+    }
+  }
+
   const addLog = async () => {
     if (!detail || !note.trim()) return
     const next: TicActivity = {
@@ -200,7 +242,16 @@ export function GestionTicPage() {
       <PageHeader
         title="Gestión del Coordinador TIC"
         subtitle="Planificación anual, mensual y semanal; seguimiento por etapas (Inicio, Desarrollo, Finalización), evidencias en OneDrive, bitácora e informes automáticos."
-        actions={<Button appearance="primary" icon={<AddRegular />} onClick={() => setEditing(newActivity())}>Nueva actividad</Button>}
+        actions={
+          <>
+            <Button appearance="secondary" icon={<SparkleRegular />} onClick={() => setAiOpen(true)} disabled={!isAiConfigured()}>
+              Generar con IA
+            </Button>
+            <Button appearance="primary" icon={<AddRegular />} onClick={() => setEditing(newActivity())}>
+              Nueva actividad
+            </Button>
+          </>
+        }
       />
 
       <TabList selectedValue={tab} onTabSelect={(_, d) => setTab(String(d.value))} style={{ marginBottom: '16px' }}>
@@ -472,6 +523,42 @@ export function GestionTicPage() {
             <Button appearance="primary" size="small" icon={<NoteAddRegular />} onClick={() => void addLog()} disabled={!note.trim()}>Añadir a la bitácora</Button>
           </div>
         )}
+      </ModalForm>
+
+      <input ref={aiFileRef} type="file" accept="application/pdf" style={{ display: 'none' }} onChange={(e) => void onAiPdf(e.target.files?.[0])} />
+      <ModalForm open={aiOpen} onOpenChange={setAiOpen} title="Generar plan de trabajo con IA" subtitle="A partir de un texto, documento (PDF) o describiendo una imagen/audio/video." width={720}>
+        <div>
+          <FormField label="Texto / descripción" hint="Escriba o pegue el contenido. Para imagen, audio o video, descríbalo aquí; para un documento, use el botón de PDF.">
+            <Textarea value={aiSource} onChange={(_, d) => setAiSource(d.value)} resize="vertical" rows={8} placeholder="Describa la iniciativa, el problema, el objetivo o pegue un documento…" />
+          </FormField>
+          <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center', marginBottom: '12px' }}>
+            <Button appearance="secondary" icon={<CloudArrowUpRegular />} onClick={() => aiFileRef.current?.click()}>Cargar documento (PDF)</Button>
+            <Text size={200} style={{ color: 'var(--texto-suave)' }}>Se extrae el texto y se añade al campo.</Text>
+          </div>
+          <FieldRow>
+            <FormField label="Ámbito">
+              <Select value={aiScope} onChange={(_, d) => setAiScope(d.value as TicScope)}>
+                {Object.entries(SCOPE_LABELS).map(([k, v]) => (<option key={k} value={k}>{v}</option>))}
+              </Select>
+            </FormField>
+            <FormField label="Categoría">
+              <Select value={aiCategory} onChange={(_, d) => setAiCategory(d.value as TicCategory)}>
+                {Object.entries(CATEGORY_LABELS).map(([k, v]) => (<option key={k} value={k}>{v}</option>))}
+              </Select>
+            </FormField>
+            <FormField label="Etapa">
+              <Select value={aiStage} onChange={(_, d) => setAiStage(d.value as TicStage)}>
+                {Object.entries(STAGE_LABELS).map(([k, v]) => (<option key={k} value={k}>{v}</option>))}
+              </Select>
+            </FormField>
+          </FieldRow>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '8px' }}>
+            <Button appearance="secondary" onClick={() => setAiOpen(false)}>Cancelar</Button>
+            <Button appearance="primary" icon={aiGenerating ? <Spinner size="tiny" /> : <SparkleRegular />} onClick={() => void generar()} disabled={aiGenerating || !aiSource.trim()}>
+              {aiGenerating ? 'Generando…' : 'Generar plan'}
+            </Button>
+          </div>
+        </div>
       </ModalForm>
     </div>
   )
