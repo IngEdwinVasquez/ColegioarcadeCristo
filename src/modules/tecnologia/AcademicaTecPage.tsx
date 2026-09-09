@@ -127,6 +127,7 @@ export function AcademicaTecPage() {
   const [gradoFilter, setGradoFilter] = useState('')
   const [seccionFilter, setSeccionFilter] = useState('')
   const [nivelFilter, setNivelFilter] = useState('')
+  const [duplicarDe, setDuplicarDe] = useState<string | null>(null)
 
   /** Abre el asistente de importación y carga los equipos existentes de Teams. */
   const openImport = async () => {
@@ -301,6 +302,15 @@ export function AcademicaTecPage() {
       }
       await gradesCol.save(saved)
       toaster.dispatchToast(saved.teamId ? 'Curso guardado con su equipo de Teams' : 'Curso guardado', { intent: 'success' })
+      if (duplicarDe && duplicarDe !== saved.id) {
+        try {
+          await copiarRelacionados(duplicarDe, saved.id)
+          toaster.dispatchToast('Duplicado: se copiaron las clases y planificaciones de la asignatura.', { intent: 'success' })
+        } catch (error) {
+          toaster.dispatchToast(`El curso se guardó, pero copiar clases/planificaciones falló: ${graphErrorMessage(error)}`, { intent: 'warning' })
+        }
+      }
+      setDuplicarDe(null)
       setEditing(null)
     } catch (error) {
       toaster.dispatchToast(`No se pudo guardar: ${graphErrorMessage(error)}`, { intent: 'error' })
@@ -320,8 +330,8 @@ export function AcademicaTecPage() {
     }
   }
 
-  /** Duplica un curso (misma asignatura/grado, nuevo id y sin equipo de Teams). */
-  const duplicar = async (g: GradeSection) => {
+  /** Abre el formulario con una copia de la asignatura (para ajustar grado/sección antes de guardar). */
+  const duplicar = (g: GradeSection) => {
     const copia: GradeSection = {
       ...g,
       id: genId('g'),
@@ -330,8 +340,16 @@ export function AcademicaTecPage() {
       teamUrl: undefined,
       ciclo: g.ciclo || cicloFromGrade(g.level, gradoDe(g)),
     }
-    await gradesCol.save(copia)
-    toaster.dispatchToast(`Asignatura duplicada: ${asignaturaDe(copia)} · ${cursoGrado(copia)}`, { intent: 'success' })
+    setDuplicarDe(g.id)
+    setEditing(copia)
+  }
+
+  /** Copia clases y planificaciones de la asignatura original a la nueva. */
+  const copiarRelacionados = async (origenId: string, destinoId: string) => {
+    const [classes, classPlans, dailyPlans] = await Promise.all([dataService.getClasses(), dataService.getClassPlans(), dataService.getDailyPlans()])
+    for (const c of classes.filter((x) => x.gradeId === origenId)) await dataService.saveClassRecord({ ...c, id: genId('class'), gradeId: destinoId })
+    for (const p of classPlans.filter((x) => x.gradeId === origenId)) await dataService.saveClassPlan({ ...p, id: genId('plan'), gradeId: destinoId })
+    for (const d of dailyPlans.filter((x) => x.gradeId === origenId)) await dataService.saveDailyPlan({ ...d, id: genId('pdia'), gradeId: destinoId })
   }
 
   return (
