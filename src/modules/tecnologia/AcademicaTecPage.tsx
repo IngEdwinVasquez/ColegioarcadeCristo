@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Badge, Button, Checkbox, Input, Select, Spinner, Table, TableBody, TableCell, TableHeader, TableHeaderCell, TableRow, Text, Toolbar, ToolbarButton, useToastController, makeStyles } from '@fluentui/react-components'
-import { AddRegular, ArrowDownloadRegular, DeleteRegular, EditRegular, OpenRegular, PeopleTeamRegular, VideoRegular } from '@fluentui/react-icons'
+import { AddRegular, ArrowDownloadRegular, DeleteRegular, EditRegular, OpenRegular, PeopleTeamRegular, VideoRegular, PrintRegular } from '@fluentui/react-icons'
 import { PageHeader } from '../../components/shared/PageHeader'
 import { ModalForm } from '../../components/shared/ModalForm'
 import { FormField, FieldRow } from '../../components/shared/form'
@@ -124,6 +124,7 @@ export function AcademicaTecPage() {
   const [importLevel, setImportLevel] = useState('Nivel Primario')
   const [createTeamToo, setCreateTeamToo] = useState(true)
   const [importing, setImporting] = useState(false)
+  const [gradoFilter, setGradoFilter] = useState('')
 
   /** Abre el asistente de importación y carga los equipos existentes de Teams. */
   const openImport = async () => {
@@ -175,6 +176,34 @@ export function AcademicaTecPage() {
   /** Solo cursos que corresponden a una asignatura real (filtra "Equipo de implementación", etc.). */
   const cursos = gradesCol.items.filter((g) => isRealSubject(asignaturaDe(g)))
   const ignorados = gradesCol.items.length - cursos.length
+  const cursosFiltrados = gradoFilter ? cursos.filter((g) => gradoDe(g).toLowerCase() === gradoFilter.toLowerCase()) : cursos
+
+  /** Genera e imprime (PDF) la lista de asignaturas por grado. */
+  const generarPdf = () => {
+    const esc = (s: string) => (s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    const rows = cursosFiltrados.map((g) => `<tr><td>${esc(asignaturaDe(g))}</td><td>${esc(nivelShort(g.level))}</td><td>${esc(g.ciclo || cicloFromGrade(g.level, gradoDe(g)) || '—')}</td><td>${esc(cursoGrado(g))}</td><td>${esc(seccionDe(g))}</td><td>${studentCount(g.id)}</td></tr>`).join('')
+    const html = `<!doctype html><html lang="es"><head><meta charset="utf-8"/><title>Asignaturas por grado</title><style>
+      body{font-family:'Segoe UI',Arial,sans-serif;color:#1B2430;max-width:900px;margin:24px auto;padding:0 20px}
+      h1{color:#0A1F2B;border-bottom:3px solid #0082AD;padding-bottom:8px;font-size:22px}
+      .sub{color:#667085;font-size:13px;margin-bottom:14px}
+      table{width:100%;border-collapse:collapse;margin-top:10px}
+      th{background:#0A1F2B;color:#fff;padding:8px 10px;text-align:left;font-size:12px;text-transform:uppercase}
+      td{border:1px solid #E2E8F0;padding:7px 10px;font-size:13px}
+      tr:nth-child(even) td{background:#F8FAFC}
+      .marca{font-size:11px;color:#667085;text-align:center;margin-top:20px;border-top:1px solid #E2E8F0;padding-top:8px}
+    </style></head><body>
+    <h1>Asignaturas por grado</h1>
+    <div class="sub">${esc(appConfig.institution)} · ${gradoFilter ? `Filtrado por grado: ${gradoFilter}` : 'Todos los grados'} · Generado ${new Date().toLocaleDateString('es-DO')}</div>
+    <table><thead><tr><th>Asignatura</th><th>Nivel</th><th>Ciclo</th><th>Grado/curso</th><th>Sección</th><th>Estudiantes</th></tr></thead><tbody>${rows}</tbody></table>
+    <p class="marca">Generado por la Intranet ${esc(appConfig.shortName)}</p>
+    </body></html>`
+    const w = window.open('', '_blank', 'noopener,width=960,height=720')
+    if (!w) return
+    w.document.open()
+    w.document.write(html)
+    w.document.close()
+    w.onload = () => { w.focus(); w.print() }
+  }
 
   /** Nivel detectado por equipo, para mostrarlo y para el resumen del asistente. */
   const levelSummary = (() => {
@@ -252,6 +281,9 @@ export function AcademicaTecPage() {
         subtitle="Cursos y secciones del colegio con su equipo de Microsoft Teams. Cada curso puede tener un equipo de clase donde se agregan el docente y los estudiantes."
         actions={
           <>
+            <Button appearance="secondary" icon={<PrintRegular />} onClick={() => void generarPdf()} disabled={cursosFiltrados.length === 0}>
+              Generar PDF
+            </Button>
             <Button appearance="secondary" icon={<ArrowDownloadRegular />} onClick={() => void openImport()}>
               Importar desde Teams
             </Button>
@@ -264,6 +296,15 @@ export function AcademicaTecPage() {
       <Text size={300} block className={styles.hint}>
         Al pulsar «Crear equipo de Teams» se genera un equipo de clase (plantilla educativa) con usted como propietario; los miembros se administran desde Teams.
       </Text>
+
+      <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center', marginBottom: '14px' }}>
+        <Text size={300}>Filtrar por grado:</Text>
+        <Select value={gradoFilter} onChange={(_, d) => setGradoFilter(d.value)} style={{ minWidth: '150px' }}>
+          <option value="">Todos los grados</option>
+          {GRADOS.map((grado) => (<option key={grado} value={grado}>{grado}</option>))}
+        </Select>
+        <Text size={200} style={{ color: 'var(--texto-suave)' }}>{cursosFiltrados.length} asignatura(s)</Text>
+      </div>
 
       <Table aria-label="Cursos">
         <TableHeader>
@@ -279,7 +320,7 @@ export function AcademicaTecPage() {
           </TableRow>
         </TableHeader>
         <TableBody>
-          {cursos.map((g) => (
+          {cursosFiltrados.map((g) => (
             <TableRow key={g.id}>
               <TableCell><Text weight="semibold">{asignaturaDe(g)}</Text></TableCell>
               <TableCell>{nivelShort(g.level)}</TableCell>
