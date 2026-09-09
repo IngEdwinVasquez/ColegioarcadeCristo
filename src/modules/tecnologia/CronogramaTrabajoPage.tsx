@@ -40,6 +40,19 @@ const extractEntries = (horarios: WeeklySchedule[]): WorkPlanEntry[] => {
   return out
 }
 
+/** Genera los cinco años escolares estándar (2025-2026 … 2029-2030). */
+const schoolYears = (): Period[] =>
+  Array.from({ length: 5 }, (_, i) => {
+    const y = 2025 + i
+    return {
+      id: `year-${y}-${y + 1}`,
+      name: `Año escolar ${y} - ${y + 1}`,
+      startDate: `${y}-09-01`,
+      endDate: `${y + 1}-06-30`,
+      isActive: false,
+    }
+  })
+
 const useStyles = makeStyles({
   filters: { display: 'flex', gap: '10px', flexWrap: 'wrap', marginBottom: '16px', alignItems: 'flex-end' },
   card: { padding: '14px', display: 'flex', flexDirection: 'column', gap: '10px' },
@@ -100,18 +113,44 @@ export function CronogramaTrabajoPage() {
   const cronoCol = useCollection<WorkCronograma>(dataService.getWorkCronogramas, dataService.saveWorkCronograma, dataService.deleteWorkCronograma)
 
   const [periodId, setPeriodId] = useState('')
+  const [horarioId, setHorarioId] = useState('')
   const [editing, setEditing] = useState<WorkCronograma | null>(null)
   const [viewing, setViewing] = useState<WorkCronograma | null>(null)
   const [printDoc, setPrintDoc] = useState<WorkCronograma | null>(null)
 
+  // Garantiza los cinco años escolares estándar como opciones de período.
   useEffect(() => {
-    if (!periodId && periodCol.items.length) {
-      setPeriodId((periodCol.items.find((p) => p.isActive) ?? periodCol.items[0]).id)
+    if (periodCol.loading) return
+    for (const p of schoolYears()) {
+      if (!periodCol.items.some((x) => x.name === p.name)) void periodCol.save(p)
     }
-  }, [periodCol.items, periodId])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [periodCol.loading])
 
-  const period = periodCol.items.find((p) => p.id === periodId)
+  const sortedPeriods = useMemo(() => [...periodCol.items].sort((a, b) => (a.startDate < b.startDate ? -1 : 1)), [periodCol.items])
+
+  const periodIdForYear = (y: number) => `year-${y}-${y + 1}`
+
+  useEffect(() => {
+    if (!periodId && sortedPeriods.length) {
+      const today = todayIso()
+      const currentYear = new Date(today.length === 10 ? `${today}T00:00:00` : today).getMonth() >= 7 ? new Date(today).getFullYear() : new Date(today).getFullYear() - 1
+      const current = sortedPeriods.find((p) => p.id === periodIdForYear(currentYear)) ?? sortedPeriods.find((p) => p.startDate <= today && today <= p.endDate) ?? sortedPeriods[0]
+      setPeriodId(current.id)
+    }
+  }, [sortedPeriods, periodId])
+
+  useEffect(() => {
+    if (!horarioId && horCol.items.length) setHorarioId(horCol.items[0].id)
+  }, [horCol.items, horarioId])
+
+  const period = sortedPeriods.find((p) => p.id === periodId)
   const months = useMemo(() => (period ? monthsBetween(period.startDate, period.endDate) : []), [period])
+
+  const selectedHorarios = useMemo(
+    () => (horarioId ? horCol.items.filter((h) => h.id === horarioId) : horCol.items),
+    [horCol.items, horarioId],
+  )
 
   const cronoFor = (month: string) => cronoCol.items.find((c) => c.periodId === periodId && c.month === month)
 
@@ -124,12 +163,12 @@ export function CronogramaTrabajoPage() {
     title: `Cronograma de trabajo · ${monthLabel(month)}`,
     responsable: user?.displayName,
     observations: '',
-    entries: extractEntries(horCol.items),
+    entries: extractEntries(selectedHorarios),
     createdAt: new Date().toISOString(),
   })
 
   const importar = async () => {
-    const fromHor = extractEntries(horCol.items)
+    const fromHor = extractEntries(selectedHorarios)
     setEditing((e) => (e ? { ...e, entries: fromHor.length ? fromHor : e.entries } : e))
     if (!fromHor.length) toaster.dispatchToast('No hay actividades de acompañamiento o capacitación en el horario.', { intent: 'warning' })
   }
@@ -188,11 +227,13 @@ export function CronogramaTrabajoPage() {
       <div className={styles.filters}>
         <FormField label="Período educativo">
           <Select value={periodId} onChange={(_, d) => setPeriodId(d.value)} style={{ minWidth: '260px' }}>
-            {periodCol.items.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+            {sortedPeriods.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
           </Select>
         </FormField>
-        <FormField label="Horario de trabajo" hint="Fuente de las actividades de acompañamiento/capacitación.">
-          <Text size={300} style={{ color: 'var(--texto-suave)' }}>{horCol.items.length ? horCol.items.map((h) => h.title).join(' · ') : 'No hay horarios. Créelos en Gestión TIC → Horario semanal.'}</Text>
+        <FormField label="Horario de trabajo" hint="Elegido para extraer las actividades de acompañamiento/capacitación.">
+          <Select value={horarioId} onChange={(_, d) => setHorarioId(d.value)} style={{ minWidth: '260px' }}>
+            {horCol.items.map((h) => <option key={h.id} value={h.id}>{h.title}</option>)}
+          </Select>
         </FormField>
       </div>
 
