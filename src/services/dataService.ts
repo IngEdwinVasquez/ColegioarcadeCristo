@@ -20,6 +20,7 @@ import type {
   PsychRequest,
   RoleMeta,
   TicActivity,
+  TicCategoryItem,
   SchoolClassRecord,
   Student,
   StudentGuardian,
@@ -85,6 +86,7 @@ export const collections = {
   psychRequests: collection<PsychRequest>(SPO_LISTS.psychRequests),
   roleMeta: collection<RoleMeta>(SPO_LISTS.roleMeta),
   ticPlan: collection<TicActivity>(SPO_LISTS.ticPlan),
+  ticCategories: collection<TicCategoryItem>(SPO_LISTS.ticCategories),
 }
 
 export const dataService = {
@@ -197,6 +199,10 @@ export const dataService = {
   getTicActivities: collections.ticPlan.getAll,
   saveTicActivity: collections.ticPlan.save,
   deleteTicActivity: collections.ticPlan.remove,
+  // Categorías TIC
+  getTicCategories: collections.ticCategories.getAll,
+  saveTicCategory: collections.ticCategories.save,
+  deleteTicCategory: collections.ticCategories.remove,
 }
 
 export type DataService = typeof dataService
