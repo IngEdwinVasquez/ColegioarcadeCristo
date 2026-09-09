@@ -1,8 +1,7 @@
-import type { TicActivity, TicCategory, TicScope, TicStage } from '../types'
+import type { TicActivity, TicScope, TicStage } from '../types'
 import { genId, todayIso } from '../utils/helpers'
 
 const SCOPES: TicScope[] = ['anual', 'mensual', 'semanal']
-const CATEGORIES: TicCategory[] = ['infraestructura', 'soporte', 'capacitacion', 'innovacion', 'plataforma', 'otros']
 const STAGES: TicStage[] = ['inicio', 'desarrollo', 'finalizacion']
 
 const TIC_PROMPT = `Eres un coordinador de Tecnología e Innovación (TIC) del sistema educativo dominicano.
@@ -22,7 +21,7 @@ Reglas:
 - Responde ÚNICAMENTE el JSON, sin comentarios ni texto adicional.`
 
 /** Genera un plan de trabajo TIC (TicActivity) a partir de un texto/descripción. */
-export async function generateTicPlanWithAi(input: { source: string; scope: TicScope; category: TicCategory; stage: TicStage; responsible: string }): Promise<TicActivity> {
+export async function generateTicPlanWithAi(input: { source: string; scope: TicScope; category: string; stage: TicStage; responsible: string }): Promise<TicActivity> {
   const { aiChat, parseAiJson } = await import('./ai')
   const out = await aiChat(
     [
@@ -40,7 +39,7 @@ export async function generateTicPlanWithAi(input: { source: string; scope: TicS
     title: typeof parsed.title === 'string' && parsed.title.trim() ? parsed.title.trim() : 'Plan de trabajo TIC',
     description: typeof parsed.description === 'string' ? parsed.description : '',
     scope: as(parsed.scope, SCOPES, input.scope),
-    category: as(parsed.category, CATEGORIES, input.category),
+    category: input.category,
     stage: as(parsed.stage, STAGES, input.stage),
     startDate: today,
     endDate: today,
