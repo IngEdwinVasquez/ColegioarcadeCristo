@@ -97,6 +97,7 @@ export function GestionTicPage() {
   const [horarioTitle, setHorarioTitle] = useState('Horario de trabajo semanal')
   const [horarioGenerating, setHorarioGenerating] = useState(false)
   const horarioFileRef = useRef<HTMLInputElement>(null)
+  const [editHorario, setEditHorario] = useState<WeeklySchedule | null>(null)
 
   /** Extrae el texto del PDF de horario y lo convierte a estructura semanal. */
   const onHorarioPdf = async (file: File | undefined) => {
@@ -114,6 +115,16 @@ export function GestionTicPage() {
       setHorarioGenerating(false)
       if (horarioFileRef.current) horarioFileRef.current.value = ''
     }
+  }
+
+  const setCell = (row: number, day: number, value: string) => setEditHorario((h) => h ? { ...h, rows: h.rows.map((r, i) => (i === row ? { ...r, cells: r.cells.map((c, di) => (di === day ? value : c)) } : r)) } : h)
+  const setRow = (row: number, patch: Partial<WeeklySchedule['rows'][number]>) => setEditHorario((h) => h ? { ...h, rows: h.rows.map((r, i) => (i === row ? { ...r, ...patch } : r)) } : h)
+  const setRows = (rows: WeeklySchedule['rows']) => setEditHorario((h) => h ? { ...h, rows } : h)
+  const guardarHorario = async () => {
+    if (!editHorario) return
+    await horCol.save(editHorario)
+    toaster.dispatchToast('Horario actualizado.', { intent: 'success' })
+    setEditHorario(null)
   }
 
   // Preselecciona la primera categoría cuando se cargan.
@@ -412,7 +423,10 @@ export function GestionTicPage() {
             <div key={h.id} style={{ marginBottom: '22px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', flexWrap: 'wrap', gap: '8px' }}>
                 <Text weight="semibold" size={400} style={{ color: 'var(--azul-oscuro)' }}>{h.title}</Text>
-                <Button size="small" appearance="subtle" icon={<DeleteRegular />} onClick={() => { if (window.confirm('¿Eliminar este horario?')) void horCol.remove(h.id) }}>Eliminar</Button>
+                <div style={{ display: 'flex', gap: '6px' }}>
+                  <Button size="small" appearance="subtle" icon={<EditRegular />} onClick={() => setEditHorario({ ...h, rows: h.rows.map((r) => ({ ...r, cells: [...r.cells] })) })}>Editar</Button>
+                  <Button size="small" appearance="subtle" icon={<DeleteRegular />} onClick={() => { if (window.confirm('¿Eliminar este horario?')) void horCol.remove(h.id) }}>Eliminar</Button>
+                </div>
               </div>
               <Table aria-label={h.title}>
                 <TableHeader>
@@ -695,6 +709,42 @@ export function GestionTicPage() {
             </Button>
           </div>
         </div>
+      </ModalForm>
+
+      <ModalForm open={!!editHorario} onOpenChange={(o) => !o && setEditHorario(null)} title="Editar horario" subtitle={editHorario?.title ?? ''} width={860}>
+        {editHorario && (
+          <div>
+            <FormField label="Título">
+              <Input value={editHorario.title} onChange={(_, d) => setEditHorario({ ...editHorario, title: d.value })} />
+            </FormField>
+            <div style={{ overflowX: 'auto' }}>
+              <Table aria-label="Editar horario" size="small">
+                <TableHeader>
+                  <TableRow>
+                    <TableHeaderCell>HOR</TableHeaderCell>
+                    {WEEK_DAYS.map((d) => (<TableHeaderCell key={d}>{d}</TableHeaderCell>))}
+                    <TableHeaderCell> </TableHeaderCell>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {editHorario.rows.map((r, i) => (
+                    <TableRow key={i}>
+                      <TableCell><Input value={r.time} onChange={(_, d) => setRow(i, { time: d.value })} style={{ minWidth: '90px' }} /></TableCell>
+                      {WEEK_DAYS.map((_, di) => (
+                        <TableCell key={di}><Input value={r.cells[di] ?? ''} onChange={(_, d) => setCell(i, di, d.value)} style={{ minWidth: '110px' }} /></TableCell>
+                      ))}
+                      <TableCell><Button appearance="subtle" icon={<DeleteRegular />} aria-label="Quitar fila" onClick={() => setRows(editHorario.rows.filter((_, x) => x !== i))} /></TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '10px', flexWrap: 'wrap', gap: '8px' }}>
+              <Button appearance="subtle" icon={<AddRegular />} onClick={() => setRows([...editHorario.rows, { time: '', cells: ['', '', '', '', ''] }])}>Añadir fila</Button>
+              <Button appearance="primary" icon={<NoteAddRegular />} onClick={() => void guardarHorario()} disabled={horCol.saving}>{horCol.saving ? 'Guardando…' : 'Guardar horario'}</Button>
+            </div>
+          </div>
+        )}
       </ModalForm>
     </div>
   )
