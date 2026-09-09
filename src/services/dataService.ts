@@ -22,6 +22,7 @@ import type {
   TicActivity,
   TicCategoryItem,
   WeeklySchedule,
+  WorkCronograma,
   SchoolClassRecord,
   Student,
   StudentGuardian,
@@ -88,7 +89,8 @@ export const collections = {
   roleMeta: collection<RoleMeta>(SPO_LISTS.roleMeta),
   ticPlan: collection<TicActivity>(SPO_LISTS.ticPlan),
   ticCategories: collection<TicCategoryItem>(SPO_LISTS.ticCategories),
-  weeklySchedules: collection<WeeklySchedule>(SPO_LISTS.weeklySchedules),
+    weeklySchedules: collection<WeeklySchedule>(SPO_LISTS.weeklySchedules),
+    workCronogramas: collection<WorkCronograma>(SPO_LISTS.workCronogramas),
 }
 
 export const dataService = {
@@ -209,6 +211,10 @@ export const dataService = {
   getWeeklySchedules: collections.weeklySchedules.getAll,
   saveWeeklySchedule: collections.weeklySchedules.save,
   deleteWeeklySchedule: collections.weeklySchedules.remove,
+  // Cronogramas de trabajo
+  getWorkCronogramas: collections.workCronogramas.getAll,
+  saveWorkCronograma: collections.workCronogramas.save,
+  deleteWorkCronograma: collections.workCronogramas.remove,
 }
 
 export type DataService = typeof dataService

@@ -601,6 +601,45 @@ export interface Accompaniment {
   createdAt: string
 }
 
+// ------------------------------ Cronograma de trabajo (Gestión TIC) ------------------------------
+
+/**
+ * Fila del cronograma mensual: una actividad (acompañamiento / capacitación)
+ * del horario semanal, conservando el día y la hora planificada.
+ */
+export interface WorkPlanEntry {
+  id: string
+  /** Día de la semana (Lunes, Martes…) */
+  day: string
+  /** Hora planificada en el horario (columna HOR) */
+  time: string
+  /** Texto de la actividad (inicia con «Acompañamiento» o «Capacitación») */
+  activity: string
+  responsable?: string
+}
+
+/**
+ * Cronograma de trabajo mensual del Coordinador TIC. Se construye a partir de
+ * las actividades del horario semanal que inician con «acompañamiento» o
+ * «capacitación» y se agrupa por mes dentro de un período educativo.
+ */
+export interface WorkCronograma {
+  id: string
+  /** Período educativo al que pertenece (ARC_Periods) */
+  periodId: string
+  periodName: string
+  /** Mes en formato YYYY-MM */
+  month: string
+  /** Etiqueta legible del mes, ej. «Septiembre 2026» */
+  monthLabel: string
+  title: string
+  responsable?: string
+  observations?: string
+  entries: WorkPlanEntry[]
+  createdAt: string
+  updatedAt?: string
+}
+
 // ------------------------------ Personas (Coordinación / TIC / Staff) ------------------------------
 
 export type PersonaTipo = 'coordinador' | 'tic' | 'director' | 'administrador' | 'siger' | 'apoyo' | 'psicologia'
