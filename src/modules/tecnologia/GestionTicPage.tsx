@@ -20,12 +20,14 @@ import { useCollection } from '../../hooks/useCollection'
 import { uploadAndShare } from '../../services/onedrive'
 import { graphRequest, graphErrorMessage } from '../../services/graph'
 import { extractPdfText } from '../../services/pdf'
-import { generateTicPlanWithAi } from '../../services/ticAi'
+import { generateTicPlanWithAi, parseWeeklySchedulePdf } from '../../services/ticAi'
 import { isAiConfigured } from '../../services/ai'
 import { appConfig } from '../../config/appConfig'
 import { formatDate, genId, pct, todayIso } from '../../utils/helpers'
 import { gradientes } from '../../theme'
-import type { TicActivity, TicCategoryItem, TicScope, TicStage, TicStatus } from '../../types'
+import type { TicActivity, TicCategoryItem, TicScope, TicStage, TicStatus, WeeklySchedule } from '../../types'
+
+const WEEK_DAYS = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes']
 
 const SCOPE_LABELS: Record<TicScope, string> = { anual: 'Anual', mensual: 'Mensual', semanal: 'Semanal' }
 const STAGE_LABELS: Record<TicStage, string> = { inicio: 'Inicio', desarrollo: 'Desarrollo', finalizacion: 'Finalización' }
@@ -90,6 +92,29 @@ export function GestionTicPage() {
   const [aiGenerating, setAiGenerating] = useState(false)
   const [newCat, setNewCat] = useState('')
   const aiFileRef = useRef<HTMLInputElement>(null)
+  const horCol = useCollection<WeeklySchedule>(dataService.getWeeklySchedules, dataService.saveWeeklySchedule, dataService.deleteWeeklySchedule)
+  const [horarioOpen, setHorarioOpen] = useState(false)
+  const [horarioTitle, setHorarioTitle] = useState('Horario de trabajo semanal')
+  const [horarioGenerating, setHorarioGenerating] = useState(false)
+  const horarioFileRef = useRef<HTMLInputElement>(null)
+
+  /** Extrae el texto del PDF de horario y lo convierte a estructura semanal. */
+  const onHorarioPdf = async (file: File | undefined) => {
+    if (!file) return
+    setHorarioGenerating(true)
+    try {
+      const text = await extractPdfText(file)
+      const schedule = await parseWeeklySchedulePdf(text, horarioTitle)
+      await horCol.save(schedule)
+      setHorarioOpen(false)
+      toaster.dispatchToast('Horario semanal creado desde el PDF.', { intent: 'success' })
+    } catch (error) {
+      toaster.dispatchToast(`No se pudo crear el horario: ${error instanceof Error ? error.message : 'error'}`, { intent: 'error' })
+    } finally {
+      setHorarioGenerating(false)
+      if (horarioFileRef.current) horarioFileRef.current.value = ''
+    }
+  }
 
   // Preselecciona la primera categoría cuando se cargan.
   useEffect(() => {
@@ -299,6 +324,7 @@ export function GestionTicPage() {
 
       <TabList selectedValue={tab} onTabSelect={(_, d) => setTab(String(d.value))} style={{ marginBottom: '16px' }}>
         <Tab value="plan">Plan de trabajo ({col.items.length})</Tab>
+        <Tab value="horario">Horario semanal ({horCol.items.length})</Tab>
         <Tab value="dashboard">Dashboard</Tab>
         <Tab value="informe">Informes</Tab>
       </TabList>
@@ -368,6 +394,44 @@ export function GestionTicPage() {
               action={<Button appearance="primary" icon={<AddRegular />} onClick={() => setEditing(newActivity())}>Nueva actividad</Button>}
             />
           )}
+        </>
+      )}
+
+      {tab === 'horario' && (
+        <>
+          <Button appearance="primary" icon={<DocumentPdfRegular />} onClick={() => { setHorarioOpen(true); setHorarioTitle('Horario de trabajo semanal') }}>
+            Crear horario desde PDF
+          </Button>
+          <Text size={200} block style={{ color: 'var(--texto-suave)', margin: '6px 0 14px' }}>
+            Cargue un PDF con el horario semanal (columnas HOR / LUNES…VIERNES) y la IA lo convierte en una tabla.
+          </Text>
+          {horCol.items.length === 0 && !horCol.loading && (
+            <EmptyStateView title="Sin horarios" message="Cree su horario de trabajo semanal cargando un PDF." icon={<DocumentPdfRegular />} />
+          )}
+          {horCol.items.map((h) => (
+            <div key={h.id} style={{ marginBottom: '22px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', flexWrap: 'wrap', gap: '8px' }}>
+                <Text weight="semibold" size={400} style={{ color: 'var(--azul-oscuro)' }}>{h.title}</Text>
+                <Button size="small" appearance="subtle" icon={<DeleteRegular />} onClick={() => { if (window.confirm('¿Eliminar este horario?')) void horCol.remove(h.id) }}>Eliminar</Button>
+              </div>
+              <Table aria-label={h.title}>
+                <TableHeader>
+                  <TableRow>
+                    <TableHeaderCell>HOR</TableHeaderCell>
+                    {WEEK_DAYS.map((d) => (<TableHeaderCell key={d}>{d}</TableHeaderCell>))}
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {h.rows.map((r, i) => (
+                    <TableRow key={i}>
+                      <TableCell><Text size={300} weight="semibold">{r.time}</Text></TableCell>
+                      {WEEK_DAYS.map((_, di) => (<TableCell key={di}><Text size={300}>{r.cells[di] ?? ''}</Text></TableCell>))}
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          ))}
         </>
       )}
 
@@ -607,6 +671,27 @@ export function GestionTicPage() {
             <Button appearance="secondary" onClick={() => setAiOpen(false)}>Cancelar</Button>
             <Button appearance="primary" icon={aiGenerating ? <Spinner size="tiny" /> : <SparkleRegular />} onClick={() => void generar()} disabled={aiGenerating || !aiSource.trim()}>
               {aiGenerating ? 'Generando…' : 'Generar plan'}
+            </Button>
+          </div>
+        </div>
+      </ModalForm>
+
+      <input ref={horarioFileRef} type="file" accept="application/pdf" style={{ display: 'none' }} onChange={(e) => void onHorarioPdf(e.target.files?.[0])} />
+      <ModalForm open={horarioOpen} onOpenChange={setHorarioOpen} title="Crear horario semanal desde PDF" subtitle="El PDF debe contener una tabla con columnas HOR / LUNES / MARTES / MIÉRCOLES / JUEVES / VIERNES." width={620}>
+        <div>
+          <FormField label="Título del horario">
+            <Input value={horarioTitle} onChange={(_, d) => setHorarioTitle(d.value)} placeholder="Ej. Horario mes de Enero" />
+          </FormField>
+          <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center', marginTop: '6px' }}>
+            <Button appearance="secondary" icon={<DocumentPdfRegular />} onClick={() => horarioFileRef.current?.click()} disabled={horarioGenerating}>
+              {horarioGenerating ? <Spinner size="tiny" /> : 'Seleccionar PDF'}
+            </Button>
+            <Text size={200} style={{ color: 'var(--texto-suave)' }}>Se extrae el texto y la IA reconstruye el horario.</Text>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '12px' }}>
+            <Button appearance="secondary" onClick={() => setHorarioOpen(false)} disabled={horarioGenerating}>Cancelar</Button>
+            <Button appearance="primary" icon={<DocumentPdfRegular />} onClick={() => horarioFileRef.current?.click()} disabled={horarioGenerating}>
+              {horarioGenerating ? 'Procesando…' : 'Cargar y crear'}
             </Button>
           </div>
         </div>

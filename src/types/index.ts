@@ -541,6 +541,15 @@ export interface TicCategoryItem {
   name: string
 }
 
+/** Horario de trabajo semanal (filas de hora × Lunes-Viernes), generado desde un PDF. */
+export interface WeeklySchedule {
+  id: string
+  title: string
+  /** Filas: cada una con rango de hora y 5 celdas (Lunes, Martes, Miércoles, Jueves, Viernes) */
+  rows: Array<{ time: string; cells: string[] }>
+  createdAt: string
+}
+
 // ------------------------------ Coordinación Pedagógica ------------------------------
 
 export type CoordinationLevel = 'Inicial' | 'Primaria' | 'Secundaria'

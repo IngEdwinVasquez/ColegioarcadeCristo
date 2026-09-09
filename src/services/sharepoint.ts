@@ -38,6 +38,7 @@ export const SPO_LISTS = {
   roleMeta: 'ARC_RoleMeta',
   ticPlan: 'ARC_TicPlan',
   ticCategories: 'ARC_TicCategories',
+  weeklySchedules: 'ARC_WeeklySchedules',
 } as const
 
 export type SpoListName = (typeof SPO_LISTS)[keyof typeof SPO_LISTS]
