@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Badge, Button, Checkbox, Input, Select, Spinner, Table, TableBody, TableCell, TableHeader, TableHeaderCell, TableRow, Text, Toolbar, ToolbarButton, useToastController, makeStyles } from '@fluentui/react-components'
-import { AddRegular, ArrowDownloadRegular, DeleteRegular, EditRegular, OpenRegular, PeopleTeamRegular, VideoRegular, PrintRegular, DocumentRegular } from '@fluentui/react-icons'
+import { AddRegular, ArrowDownloadRegular, DeleteRegular, EditRegular, OpenRegular, PeopleTeamRegular, VideoRegular, PrintRegular, DocumentRegular, CopyRegular } from '@fluentui/react-icons'
 import { PageHeader } from '../../components/shared/PageHeader'
 import { ModalForm } from '../../components/shared/ModalForm'
 import { FormField, FieldRow } from '../../components/shared/form'
@@ -320,6 +320,20 @@ export function AcademicaTecPage() {
     }
   }
 
+  /** Duplica un curso (misma asignatura/grado, nuevo id y sin equipo de Teams). */
+  const duplicar = async (g: GradeSection) => {
+    const copia: GradeSection = {
+      ...g,
+      id: genId('g'),
+      name: `${g.name} [copia]`,
+      teamId: undefined,
+      teamUrl: undefined,
+      ciclo: g.ciclo || cicloFromGrade(g.level, gradoDe(g)),
+    }
+    await gradesCol.save(copia)
+    toaster.dispatchToast(`Asignatura duplicada: ${asignaturaDe(copia)} · ${cursoGrado(copia)}`, { intent: 'success' })
+  }
+
   return (
     <div>
       <PageHeader
@@ -406,6 +420,7 @@ export function AcademicaTecPage() {
               </TableCell>
               <TableCell>
                 <Toolbar size="small">
+                  <ToolbarButton icon={<CopyRegular />} onClick={() => void duplicar(g)}>Duplicar</ToolbarButton>
                   <ToolbarButton icon={<EditRegular />} onClick={() => setEditing({ ...g })}>Editar</ToolbarButton>
                   <ToolbarButton
                     icon={<DeleteRegular />}
