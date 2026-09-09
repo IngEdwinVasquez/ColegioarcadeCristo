@@ -1,4 +1,4 @@
-import type { TicActivity, TicScope, TicStage } from '../types'
+import type { WeeklySchedule, TicActivity, TicScope, TicStage } from '../types'
 import { genId, todayIso } from '../utils/helpers'
 
 const SCOPES: TicScope[] = ['anual', 'mensual', 'semanal']
@@ -48,6 +48,50 @@ export async function generateTicPlanWithAi(input: { source: string; scope: TicS
     responsible: input.responsible,
     evidences: [],
     log: [],
+    createdAt: new Date().toISOString(),
+  }
+}
+
+const WEEKLY_PROMPT = `Eres un coordinador TIC. Se te entrega el texto extraído de un PDF de un horario de trabajo semanal (una tabla con columnas HOR / LUNES / MARTES / MIÉRCOLES / JUEVES / VIERNES).
+Debes reconstruir la tabla en JSON válido con EXACTAMENTE esta estructura:
+
+{
+  "title": "título del horario (ej. Horario mes de Enero)",
+  "rows": [
+    { "time": "7:45-8:00", "cells": ["texto Lunes", "texto Martes", "texto Miércoles", "texto Jueves", "texto Viernes"] }
+  ]
+}
+
+Reglas:
+- Cada fila tiene un rango de hora y EXACTAMENTE 5 celdas (Lunes..Viernes) en ese orden.
+- Si una celda está vacía en el PDF, usa "" (cadena vacía).
+- Conserva el texto tal cual, sin inventar contenido.
+- Si el texto no parece un horario, devuelve rows vacío.
+- Responde ÚNICAMENTE el JSON, sin texto adicional.`
+
+/** Convierte el texto de un PDF de horario semanal en la estructura (filas de hora × 5 días). */
+export async function parseWeeklySchedulePdf(text: string, titleFallback: string): Promise<WeeklySchedule> {
+  const { aiChat, parseAiJson } = await import('./ai')
+  const out = await aiChat(
+    [
+      { role: 'system', content: WEEKLY_PROMPT },
+      { role: 'user', content: `Contenido del PDF del horario:\n\n${text}` },
+    ],
+    { temperature: 0.1, jsonMode: true },
+  )
+  const parsed = parseAiJson<Record<string, unknown>>(out)
+  if (!parsed) throw new Error('La IA no pudo interpretar el horario. Verifique que el PDF sea legible.')
+  const rows = Array.isArray(parsed.rows)
+    ? (parsed.rows as Array<Record<string, unknown>>).map((r) => {
+        const time = typeof r.time === 'string' ? r.time.trim() : ''
+        const cells = Array.isArray(r.cells) ? (r.cells as unknown[]).map((c) => (typeof c === 'string' ? c : '')) : []
+        return { time, cells: [...cells.slice(0, 5), '', '', '', '', ''].slice(0, 5) }
+      })
+    : []
+  return {
+    id: genId('ws'),
+    title: typeof parsed.title === 'string' && parsed.title.trim() ? parsed.title.trim() : titleFallback,
+    rows,
     createdAt: new Date().toISOString(),
   }
 }
