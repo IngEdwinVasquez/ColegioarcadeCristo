@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Badge, Button, Checkbox, Input, Select, Spinner, Table, TableBody, TableCell, TableHeader, TableHeaderCell, TableRow, Text, Toolbar, ToolbarButton, useToastController, makeStyles } from '@fluentui/react-components'
-import { AddRegular, ArrowDownloadRegular, DeleteRegular, EditRegular, OpenRegular, PeopleTeamRegular, VideoRegular, PrintRegular } from '@fluentui/react-icons'
+import { AddRegular, ArrowDownloadRegular, DeleteRegular, EditRegular, OpenRegular, PeopleTeamRegular, VideoRegular, PrintRegular, DocumentRegular } from '@fluentui/react-icons'
 import { PageHeader } from '../../components/shared/PageHeader'
 import { ModalForm } from '../../components/shared/ModalForm'
 import { FormField, FieldRow } from '../../components/shared/form'
@@ -177,14 +177,37 @@ export function AcademicaTecPage() {
   const cursos = gradesCol.items.filter((g) => isRealSubject(asignaturaDe(g)))
   const ignorados = gradesCol.items.length - cursos.length
   const cursosFiltrados = gradoFilter ? cursos.filter((g) => gradoDe(g).toLowerCase() === gradoFilter.toLowerCase()) : cursos
+  const levelOfFilter = cursosFiltrados[0]?.level ?? 'Nivel Primario'
+
+  /** Base64 del logo institucional (para PDF y Excel). */
+  const getLogo = async (): Promise<string> => {
+    try {
+      const res = await fetch('/images/logo-arca.jpg')
+      if (!res.ok) return ''
+      const blob = await res.blob()
+      return await new Promise<string>((resolve) => {
+        const r = new FileReader()
+        r.onload = () => resolve(r.result as string)
+        r.onerror = () => resolve('')
+        r.readAsDataURL(blob)
+      })
+    } catch {
+      return ''
+    }
+  }
 
   /** Genera e imprime (PDF) la lista de asignaturas por grado. */
-  const generarPdf = () => {
+  const generarPdf = async () => {
+    const logo = await getLogo()
     const esc = (s: string) => (s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
     const rows = cursosFiltrados.map((g) => `<tr><td>${esc(asignaturaDe(g))}</td><td>${esc(nivelShort(g.level))}</td><td>${esc(g.ciclo || cicloFromGrade(g.level, gradoDe(g)) || '—')}</td><td>${esc(cursoGrado(g))}</td><td>${esc(seccionDe(g))}</td><td>${studentCount(g.id)}</td></tr>`).join('')
     const html = `<!doctype html><html lang="es"><head><meta charset="utf-8"/><title>Asignaturas por grado</title><style>
       body{font-family:'Segoe UI',Arial,sans-serif;color:#1B2430;max-width:900px;margin:24px auto;padding:0 20px}
-      h1{color:#0A1F2B;border-bottom:3px solid #0082AD;padding-bottom:8px;font-size:22px}
+      .hdr{display:flex;align-items:center;gap:14px;border-bottom:3px solid #0082AD;padding-bottom:10px;margin-bottom:12px}
+      .hdr img{width:60px;height:60px;object-fit:contain}
+      .hdr .n{font-weight:800;color:#0A1F2B;font-size:20px}
+      .hdr .i{color:#667085;font-size:12px}
+      h1{color:#0A1F2B;font-size:20px;margin:4px 0 2px}
       .sub{color:#667085;font-size:13px;margin-bottom:14px}
       table{width:100%;border-collapse:collapse;margin-top:10px}
       th{background:#0A1F2B;color:#fff;padding:8px 10px;text-align:left;font-size:12px;text-transform:uppercase}
@@ -192,8 +215,9 @@ export function AcademicaTecPage() {
       tr:nth-child(even) td{background:#F8FAFC}
       .marca{font-size:11px;color:#667085;text-align:center;margin-top:20px;border-top:1px solid #E2E8F0;padding-top:8px}
     </style></head><body>
+    <div class="hdr">${logo ? `<img src="${logo}" alt="Escudo"/>` : ''}<div><div class="n">${esc(appConfig.shortName)}</div><div class="i">${esc(appConfig.institution)}</div></div></div>
     <h1>Asignaturas por grado</h1>
-    <div class="sub">${esc(appConfig.institution)} · ${gradoFilter ? `Filtrado por grado: ${gradoFilter}` : 'Todos los grados'} · Generado ${new Date().toLocaleDateString('es-DO')}</div>
+    <div class="sub">${gradoFilter ? `Grado: ${gradoFilter} · Nivel: ${nivelShort(levelOfFilter)}` : 'Todos los grados'} · Generado ${new Date().toLocaleDateString('es-DO')}</div>
     <table><thead><tr><th>Asignatura</th><th>Nivel</th><th>Ciclo</th><th>Grado/curso</th><th>Sección</th><th>Estudiantes</th></tr></thead><tbody>${rows}</tbody></table>
     <p class="marca">Generado por la Intranet ${esc(appConfig.shortName)}</p>
     </body></html>`
@@ -203,6 +227,22 @@ export function AcademicaTecPage() {
     w.document.write(html)
     w.document.close()
     w.onload = () => { w.focus(); w.print() }
+  }
+
+  /** Exporta la lista de asignaturas por grado a Excel (.xls). */
+  const exportarExcel = async () => {
+    const esc = (s: string) => (s ?? '').replace(/"/g, '""')
+    const rows = cursosFiltrados.map((g) => `<tr><td>${esc(asignaturaDe(g))}</td><td>${esc(nivelShort(g.level))}</td><td>${esc(g.ciclo || cicloFromGrade(g.level, gradoDe(g)) || '')}</td><td>${esc(cursoGrado(g))}</td><td>${esc(seccionDe(g))}</td><td>${studentCount(g.id)}</td></tr>`).join('')
+    const html = `<html xmlns:x="urn:schemas-microsoft-com:office:excel"><head><meta charset="utf-8"></head><body><table border="1"><tr><th>Asignatura</th><th>Nivel</th><th>Ciclo</th><th>Grado/curso</th><th>Sección</th><th>Estudiantes</th></tr>${rows}</table></body></html>`
+    const blob = new Blob(['\ufeff', html], { type: 'application/vnd.ms-excel;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `Asignaturas_por_grado_${gradoFilter || 'Todos'}_${new Date().toISOString().slice(0, 10)}.xls`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
   }
 
   /** Nivel detectado por equipo, para mostrarlo y para el resumen del asistente. */
@@ -283,6 +323,9 @@ export function AcademicaTecPage() {
           <>
             <Button appearance="secondary" icon={<PrintRegular />} onClick={() => void generarPdf()} disabled={cursosFiltrados.length === 0}>
               Generar PDF
+            </Button>
+            <Button appearance="secondary" icon={<DocumentRegular />} onClick={() => void exportarExcel()} disabled={cursosFiltrados.length === 0}>
+              Exportar Excel
             </Button>
             <Button appearance="secondary" icon={<ArrowDownloadRegular />} onClick={() => void openImport()}>
               Importar desde Teams
