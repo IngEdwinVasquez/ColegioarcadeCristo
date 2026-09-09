@@ -21,6 +21,7 @@ import type {
   RoleMeta,
   TicActivity,
   TicCategoryItem,
+  WeeklySchedule,
   SchoolClassRecord,
   Student,
   StudentGuardian,
@@ -87,6 +88,7 @@ export const collections = {
   roleMeta: collection<RoleMeta>(SPO_LISTS.roleMeta),
   ticPlan: collection<TicActivity>(SPO_LISTS.ticPlan),
   ticCategories: collection<TicCategoryItem>(SPO_LISTS.ticCategories),
+  weeklySchedules: collection<WeeklySchedule>(SPO_LISTS.weeklySchedules),
 }
 
 export const dataService = {
@@ -203,6 +205,10 @@ export const dataService = {
   getTicCategories: collections.ticCategories.getAll,
   saveTicCategory: collections.ticCategories.save,
   deleteTicCategory: collections.ticCategories.remove,
+  // Horarios semanales
+  getWeeklySchedules: collections.weeklySchedules.getAll,
+  saveWeeklySchedule: collections.weeklySchedules.save,
+  deleteWeeklySchedule: collections.weeklySchedules.remove,
 }
 
 export type DataService = typeof dataService
