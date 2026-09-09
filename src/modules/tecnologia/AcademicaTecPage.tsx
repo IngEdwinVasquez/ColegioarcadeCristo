@@ -40,22 +40,29 @@ const CICLOS = ['Primer ciclo', 'Segundo ciclo']
 
 const nivelShort = (level: string) => LEVEL_SHORT[level] ?? level
 
-const GRADO_RE = /^(1ro|2do|3ro|4to|5to|6to)\b/i
+// Grado en cualquier parte del nombre (1ro..6to y ordinales en palabras).
+const GRADO_RE = /\b(1ro|2do|3ro|4to|5to|6to|primer|segundo|tercero|cuarto|quinto|sexto)\b/i
+const ORD: Record<string, number> = { '1ro':1,'2do':2,'3ro':3,'4to':4,'5to':5,'6to':6, primer:1,segundo:2,tercero:3,cuarto:4,quinto:5,sexto:6 }
+const GRADE_WORD = ['1ro','2do','3ro','4to','5to','6to']
 
-/** Extrae la sección del curso: del campo `section` o del nombre (1ro.A → A). Por defecto A. */
+/** Extrae la sección del curso de forma segura: campo `section` o una letra A–G como palabra independiente. */
 const seccionDe = (curso: GradeSection): string => {
-  if (curso.section) return curso.section
-  const m = curso.name.match(/([A-Ga-g])\s*$/)
+  if (curso.section) return curso.section.trim().toUpperCase()
+  const m = curso.name.match(/\b([A-Ga-g])\b/)
   return m ? m[1].toUpperCase() : 'A'
 }
 
-/** Extrae el grado (1ro, 2do…) del nombre del curso. */
+/** Extrae el grado (normalizado a 1ro…6to) desde cualquier parte del nombre. */
 const gradoDe = (curso: GradeSection): string => {
   const m = curso.name.match(GRADO_RE)
-  return m ? m[1] : ''
+  if (!m) return ''
+  const num = ORD[m[1].toLowerCase()]
+  return (num && GRADE_WORD[num - 1]) || m[1]
 }
 
-/** Grado + sección (ej. 1ro.A). */
+const gradeNum = (grado: string) => ORD[grado.toLowerCase()] ?? (parseInt(grado, 10) || null)
+
+/** Grado + sección (ej. 1ro.A). Si no hay grado, solo la sección. */
 const cursoGrado = (curso: GradeSection): string => {
   const g = gradoDe(curso)
   const s = seccionDe(curso)
@@ -65,8 +72,8 @@ const cursoGrado = (curso: GradeSection): string => {
 /** Ciclo según el grado: 1-3 → Primer ciclo, 4-6 → Segundo ciclo (Primaria/Secundaria). */
 const cicloFromGrade = (level: string, grado: string): string | undefined => {
   if (level !== 'Nivel Primario' && level !== 'Nivel Secundario') return undefined
-  const n = parseInt(grado, 10)
-  if (!Number.isFinite(n)) return undefined
+  const n = gradeNum(grado)
+  if (n == null) return undefined
   if (n >= 1 && n <= 3) return 'Primer ciclo'
   if (n >= 4 && n <= 6) return 'Segundo ciclo'
   return undefined
@@ -260,7 +267,7 @@ export function AcademicaTecPage() {
             <TableRow key={g.id}>
               <TableCell><Text weight="semibold">{asignaturaDe(g)}</Text></TableCell>
               <TableCell>{nivelShort(g.level)}</TableCell>
-              <TableCell>{g.ciclo || '—'}</TableCell>
+              <TableCell>{g.ciclo || cicloFromGrade(g.level, gradoDe(g)) || '—'}</TableCell>
               <TableCell>{cursoGrado(g)}</TableCell>
               <TableCell>{seccionDe(g)}</TableCell>
               <TableCell><Badge appearance="tint" color="brand" icon={<PeopleTeamRegular />}>{studentCount(g.id)}</Badge></TableCell>
