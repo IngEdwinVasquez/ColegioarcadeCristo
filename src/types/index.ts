@@ -520,7 +520,8 @@ export interface TicActivity {
   title: string
   description: string
   scope: TicScope
-  category: TicCategory
+  /** Categoría (nombre de la categoría TIC, ahora dinámica) */
+  category: string
   startDate: string
   endDate: string
   stage: TicStage
@@ -532,6 +533,12 @@ export interface TicActivity {
   log: TicLogEntry[]
   createdAt: string
   updatedAt?: string
+}
+
+/** Categoría TIC dinámica (catálogo). */
+export interface TicCategoryItem {
+  id: string
+  name: string
 }
 
 // ------------------------------ Coordinación Pedagógica ------------------------------

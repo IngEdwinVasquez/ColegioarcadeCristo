@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react'
+import { useMemo, useRef, useState, useEffect } from 'react'
 import {
   Badge, Button, Card, Input, ProgressBar, Select, Spinner, Tab, TabList, Table, TableBody, TableCell,
   TableHeader, TableHeaderCell, TableRow, Text, Textarea, Toolbar, ToolbarButton, useToastController, makeStyles, tokens,
@@ -25,12 +25,14 @@ import { isAiConfigured } from '../../services/ai'
 import { appConfig } from '../../config/appConfig'
 import { formatDate, genId, pct, todayIso } from '../../utils/helpers'
 import { gradientes } from '../../theme'
-import type { TicActivity, TicCategory, TicScope, TicStage, TicStatus } from '../../types'
+import type { TicActivity, TicCategoryItem, TicScope, TicStage, TicStatus } from '../../types'
 
 const SCOPE_LABELS: Record<TicScope, string> = { anual: 'Anual', mensual: 'Mensual', semanal: 'Semanal' }
 const STAGE_LABELS: Record<TicStage, string> = { inicio: 'Inicio', desarrollo: 'Desarrollo', finalizacion: 'Finalización' }
 const STATUS_LABELS: Record<TicStatus, string> = { pendiente: 'Pendiente', en_progreso: 'En progreso', completada: 'Completada', cancelada: 'Cancelada' }
-const CATEGORY_LABELS: Record<TicCategory, string> = {
+const DEFAULT_CATEGORIES = ['Infraestructura', 'Soporte técnico', 'Capacitación', 'Innovación educativa', 'Plataforma M365', 'Otros']
+const STAGE_COLORS: Record<TicStage, string> = { inicio: '#0095C8', desarrollo: '#EA580C', finalizacion: '#15803D' }
+const LEGACY_CATEGORY_LABELS: Record<string, string> = {
   infraestructura: 'Infraestructura',
   soporte: 'Soporte técnico',
   capacitacion: 'Capacitación',
@@ -38,7 +40,6 @@ const CATEGORY_LABELS: Record<TicCategory, string> = {
   plataforma: 'Plataforma M365',
   otros: 'Otros',
 }
-const STAGE_COLORS: Record<TicStage, string> = { inicio: '#0095C8', desarrollo: '#EA580C', finalizacion: '#15803D' }
 
 const useStyles = makeStyles({
   filters: { display: 'flex', gap: '10px', flexWrap: 'wrap', marginBottom: '14px' },
@@ -60,6 +61,16 @@ export function GestionTicPage() {
   const toaster = useToastController()
   const { user } = useApp()
   const col = useCollection<TicActivity>(dataService.getTicActivities, dataService.saveTicActivity, dataService.deleteTicActivity)
+  const catCol = useCollection<TicCategoryItem>(dataService.getTicCategories, dataService.saveTicCategory, dataService.deleteTicCategory)
+
+  // Siembra las categorías por defecto la primera vez.
+  useEffect(() => {
+    if (!catCol.loading && catCol.items.length === 0 && !catCol.saving) {
+      for (const name of DEFAULT_CATEGORIES) void catCol.save({ id: genId('cat'), name })
+    }
+  }, [catCol.loading, catCol.items.length, catCol.saving])
+
+  const catName = (cat: string) => catCol.items.find((c) => c.id === cat)?.name ?? LEGACY_CATEGORY_LABELS[cat] ?? cat
 
   const [tab, setTab] = useState('plan')
   const [scopeFilter, setScopeFilter] = useState('')
@@ -74,10 +85,17 @@ export function GestionTicPage() {
   const [aiOpen, setAiOpen] = useState(false)
   const [aiSource, setAiSource] = useState('')
   const [aiScope, setAiScope] = useState<TicScope>('mensual')
-  const [aiCategory, setAiCategory] = useState<TicCategory>('plataforma')
+  const [aiCategory, setAiCategory] = useState('')
   const [aiStage, setAiStage] = useState<TicStage>('inicio')
   const [aiGenerating, setAiGenerating] = useState(false)
+  const [newCat, setNewCat] = useState('')
   const aiFileRef = useRef<HTMLInputElement>(null)
+
+  // Preselecciona la primera categoría cuando se cargan.
+  useEffect(() => {
+    if (catCol.items.length && !aiCategory) setAiCategory(catCol.items[0].id)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [catCol.items.length])
 
   const filtered = useMemo(
     () =>
@@ -108,10 +126,10 @@ export function GestionTicPage() {
 
   const chartByCategory = useMemo(
     () =>
-      (Object.keys(CATEGORY_LABELS) as TicCategory[])
-        .map((c) => ({ name: CATEGORY_LABELS[c], value: col.items.filter((a) => a.category === c).length }))
+      catCol.items
+        .map((c) => ({ name: c.name, value: col.items.filter((a) => a.category === c.id).length }))
         .filter((d) => d.value > 0),
-    [col.items],
+    [catCol.items, col.items],
   )
   const PIE_COLORS = ['#0095C8', '#E30613', '#15803D', '#9A9C2E', '#7D1D24', '#6B21A8']
 
@@ -176,6 +194,31 @@ export function GestionTicPage() {
     } finally {
       setAiGenerating(false)
     }
+  }
+
+  /** Crea una categoría TIC nueva. */
+  const crearCategoria = async () => {
+    const name = newCat.trim()
+    if (!name) return
+    const item: TicCategoryItem = { id: genId('cat'), name }
+    await catCol.save(item)
+    setNewCat('')
+    setAiCategory(item.id)
+    toaster.dispatchToast(`Categoría «${name}» creada.`, { intent: 'success' })
+  }
+
+  const renombrarCategoria = async (id: string, name: string) => {
+    if (!name) return
+    await catCol.save({ id, name })
+    toaster.dispatchToast('Categoría actualizada.', { intent: 'success' })
+  }
+
+  const eliminarCategoria = async (id: string) => {
+    if (!id) return
+    const item = catCol.items.find((c) => c.id === id)
+    if (!window.confirm(`¿Eliminar la categoría «${item?.name ?? id}»?`)) return
+    await catCol.remove(id)
+    if (aiCategory === id) setAiCategory(catCol.items.find((c) => c.id !== id)?.id ?? '')
   }
 
   const addLog = async () => {
@@ -294,7 +337,7 @@ export function GestionTicPage() {
                 <TableRow key={a.id}>
                   <TableCell>
                     <Text weight="semibold" block>{a.title}</Text>
-                    <Text size={200} style={{ color: 'var(--texto-suave)' }}>{CATEGORY_LABELS[a.category]} · {a.evidences.length} evidencia(s)</Text>
+                    <Text size={200} style={{ color: 'var(--texto-suave)' }}>{catName(a.category)} · {a.evidences.length} evidencia(s)</Text>
                   </TableCell>
                   <TableCell>{SCOPE_LABELS[a.scope]}</TableCell>
                   <TableCell>{formatDate(a.startDate)} — {formatDate(a.endDate)}</TableCell>
@@ -392,7 +435,7 @@ export function GestionTicPage() {
               <div key={a.id} style={{ borderTop: '1px solid var(--borde)', padding: '10px 0' }}>
                 <Text weight="semibold" block>{a.title} — {STAGE_LABELS[a.stage]} ({a.progress || 0}%)</Text>
                 <Text size={200} block style={{ color: 'var(--texto-suave)' }}>
-                  {SCOPE_LABELS[a.scope]} · {CATEGORY_LABELS[a.category]} · {formatDate(a.startDate)} — {formatDate(a.endDate)} · {STATUS_LABELS[a.status]}
+                  {SCOPE_LABELS[a.scope]} · {catName(a.category)} · {formatDate(a.startDate)} — {formatDate(a.endDate)} · {STATUS_LABELS[a.status]}
                 </Text>
                 {a.description && <Text size={300} block>{a.description}</Text>}
                 {a.log.length > 0 && (
@@ -438,8 +481,8 @@ export function GestionTicPage() {
                 </Select>
               </FormField>
               <FormField label="Categoría">
-                <Select value={editing.category} onChange={(_, d) => setEditing({ ...editing, category: d.value as TicCategory })}>
-                  {(Object.keys(CATEGORY_LABELS) as TicCategory[]).map((c) => <option key={c} value={c}>{CATEGORY_LABELS[c]}</option>)}
+                <Select value={editing.category} onChange={(_, d) => setEditing({ ...editing, category: d.value })}>
+                  {catCol.items.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
                 </Select>
               </FormField>
             </FieldRow>
@@ -542,9 +585,17 @@ export function GestionTicPage() {
               </Select>
             </FormField>
             <FormField label="Categoría">
-              <Select value={aiCategory} onChange={(_, d) => setAiCategory(d.value as TicCategory)}>
-                {Object.entries(CATEGORY_LABELS).map(([k, v]) => (<option key={k} value={k}>{v}</option>))}
-              </Select>
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+                <Select value={aiCategory} onChange={(_, d) => setAiCategory(d.value)} style={{ flex: 1, minWidth: '150px' }}>
+                  {catCol.items.map((c) => (<option key={c.id} value={c.id}>{c.name}</option>))}
+                </Select>
+                <Button size="small" appearance="subtle" icon={<EditRegular />} onClick={() => { const c = catCol.items.find((x) => x.id === aiCategory); const n = window.prompt('Nuevo nombre de la categoría:', c?.name); if (n && n.trim()) void renombrarCategoria(aiCategory, n.trim()) }} disabled={!aiCategory}>Editar</Button>
+                <Button size="small" appearance="subtle" icon={<DeleteRegular />} onClick={() => void eliminarCategoria(aiCategory)} disabled={!aiCategory}>Eliminar</Button>
+              </div>
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginTop: '8px', flexWrap: 'wrap' }}>
+                <Input value={newCat} onChange={(_, d) => setNewCat(d.value)} placeholder="Nueva categoría…" style={{ flex: 1, minWidth: '150px' }} />
+                <Button size="small" appearance="secondary" icon={<AddRegular />} onClick={() => void crearCategoria()} disabled={!newCat.trim()}>Crear</Button>
+              </div>
             </FormField>
             <FormField label="Etapa">
               <Select value={aiStage} onChange={(_, d) => setAiStage(d.value as TicStage)}>

@@ -37,6 +37,7 @@ export const SPO_LISTS = {
   psychRequests: 'ARC_PsychRequests',
   roleMeta: 'ARC_RoleMeta',
   ticPlan: 'ARC_TicPlan',
+  ticCategories: 'ARC_TicCategories',
 } as const
 
 export type SpoListName = (typeof SPO_LISTS)[keyof typeof SPO_LISTS]
