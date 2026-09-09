@@ -20,6 +20,35 @@ export function todayIso(): string {
   return `${y}-${m}-${day}`
 }
 
+const MONTHS_ES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre']
+
+/** Convierte «YYYY-MM» (o una fecha ISO) a una etiqueta legible, ej. «Septiembre 2026». */
+export function monthLabel(value: string): string {
+  if (!value) return '—'
+  const [y, m] = value.slice(0, 7).split('-').map(Number)
+  if (!y || !m) return value
+  return `${MONTHS_ES[m - 1] ?? ''} ${y}`.trim()
+}
+
+/** Lista de meses «YYYY-MM» desde startDate hasta endDate (inclusive). */
+export function monthsBetween(startDate: string, endDate: string): string[] {
+  const s = startDate.slice(0, 7)
+  const e = endDate.slice(0, 7)
+  if (!s || !e || s > e) return s ? [s] : []
+  const result: string[] = []
+  let [y, m] = s.split('-').map(Number)
+  const [ey, em] = e.split('-').map(Number)
+  while (y < ey || (y === ey && m <= em)) {
+    result.push(`${y}-${String(m).padStart(2, '0')}`)
+    m += 1
+    if (m > 12) {
+      m = 1
+      y += 1
+    }
+  }
+  return result
+}
+
 export function genId(prefix: string): string {
   if (typeof crypto !== 'undefined' && crypto.randomUUID) return `${prefix}-${crypto.randomUUID()}`
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
