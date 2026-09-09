@@ -125,6 +125,7 @@ export function AcademicaTecPage() {
   const [createTeamToo, setCreateTeamToo] = useState(true)
   const [importing, setImporting] = useState(false)
   const [gradoFilter, setGradoFilter] = useState('')
+  const [seccionFilter, setSeccionFilter] = useState('')
 
   /** Abre el asistente de importación y carga los equipos existentes de Teams. */
   const openImport = async () => {
@@ -176,7 +177,9 @@ export function AcademicaTecPage() {
   /** Solo cursos que corresponden a una asignatura real (filtra "Equipo de implementación", etc.). */
   const cursos = gradesCol.items.filter((g) => isRealSubject(asignaturaDe(g)))
   const ignorados = gradesCol.items.length - cursos.length
-  const cursosFiltrados = gradoFilter ? cursos.filter((g) => gradoDe(g).toLowerCase() === gradoFilter.toLowerCase()) : cursos
+  const cursosFiltrados = (gradoFilter || seccionFilter)
+    ? cursos.filter((g) => (!gradoFilter || gradoDe(g).toLowerCase() === gradoFilter.toLowerCase()) && (!seccionFilter || seccionDe(g) === seccionFilter))
+    : cursos
   const levelOfFilter = cursosFiltrados[0]?.level ?? 'Nivel Primario'
 
   /** Base64 del logo institucional (para PDF y Excel). */
@@ -217,7 +220,7 @@ export function AcademicaTecPage() {
     </style></head><body>
     <div class="hdr">${logo ? `<img src="${logo}" alt="Escudo"/>` : ''}<div><div class="n">${esc(appConfig.shortName)}</div><div class="i">${esc(appConfig.institution)}</div></div></div>
     <h1>Asignaturas por grado</h1>
-    <div class="sub">${gradoFilter ? `Grado: ${gradoFilter} · Nivel: ${nivelShort(levelOfFilter)}` : 'Todos los grados'} · Generado ${new Date().toLocaleDateString('es-DO')}</div>
+    <div class="sub">${gradoFilter ? `Grado: ${gradoFilter}` : 'Todos los grados'}${seccionFilter ? ` · Sección ${seccionFilter}` : ''} · Nivel: ${nivelShort(levelOfFilter)} · Generado ${new Date().toLocaleDateString('es-DO')}</div>
     <table><thead><tr><th>Asignatura</th><th>Nivel</th><th>Ciclo</th><th>Grado/curso</th><th>Sección</th><th>Estudiantes</th></tr></thead><tbody>${rows}</tbody></table>
     <p class="marca">Generado por la Intranet ${esc(appConfig.shortName)}</p>
     </body></html>`
@@ -341,10 +344,14 @@ export function AcademicaTecPage() {
       </Text>
 
       <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center', marginBottom: '14px' }}>
-        <Text size={300}>Filtrar por grado:</Text>
-        <Select value={gradoFilter} onChange={(_, d) => setGradoFilter(d.value)} style={{ minWidth: '150px' }}>
+        <Text size={300}>Filtrar por:</Text>
+        <Select value={gradoFilter} onChange={(_, d) => setGradoFilter(d.value)} style={{ minWidth: '140px' }}>
           <option value="">Todos los grados</option>
           {GRADOS.map((grado) => (<option key={grado} value={grado}>{grado}</option>))}
+        </Select>
+        <Select value={seccionFilter} onChange={(_, d) => setSeccionFilter(d.value)} style={{ minWidth: '130px' }}>
+          <option value="">Todas las secciones</option>
+          {SECCIONES.map((s) => (<option key={s} value={s}>Sección {s}</option>))}
         </Select>
         <Text size={200} style={{ color: 'var(--texto-suave)' }}>{cursosFiltrados.length} asignatura(s)</Text>
       </div>
