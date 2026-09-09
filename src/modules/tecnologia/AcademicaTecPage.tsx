@@ -79,19 +79,31 @@ const cicloFromGrade = (level: string, grado: string): string | undefined => {
   return undefined
 }
 
-/** Extrae la asignatura del nombre del curso (quita grado, sección y nivel). */
+/** Extrae la asignatura limpia del nombre del curso (sin grado, sección, nivel ni anotaciones). */
 const asignaturaDe = (curso: GradeSection): string => {
   if (curso.asignatura) return curso.asignatura
-  let s = curso.name
-  const g = s.match(GRADO_RE)
-  if (g) s = s.slice(g[0].length)
-  s = s.replace(/^[.\- ]?[A-Ga-g][.\- ]+/, '')   // sección inicial (".A ", " A ", "-A ")
-  s = s.replace(/^[.\- ]+/, '')                  // separadores
-  s = s.replace(/^de\s+/i, '')                   // "de ..."
-  s = s.replace(/\s*\[?copia\]?\s*$/i, '')       // "[copia]"
-  s = s.replace(/^\s*(inicial|primaria|secundaria)\b\.?\s*/i, '') // nivel al inicio
+  let s = curso.name || ''
+  s = s.replace(/\s*\([^)]*\)\s*/g, ' ')          // (YOSSY VILLAFAÑA), (Geografía…)
+  s = s.replace(/\s*\[[^\]]*\]\s*/g, ' ')          // [copia]
+  s = s.replace(/\b1(?:ro|°|er|a)|2(?:do|da|°)|3(?:ro|°)|4(?:to|°)|5(?:to|°)|6(?:to|°)\b/gi, ' ')
+  s = s.replace(/\b(primer|segundo|tercero|cuarto|quinto|sexto)\b/gi, ' ')
+  s = s.replace(/\bde\s+(primaria|secundaria|inicial)\b/gi, ' ')
+  s = s.replace(/\b(primaria|secundaria|inicial|nivel)\b\.?/gi, ' ')
+  s = s.replace(/\b[.-]?\s*[A-G]\s*\b/g, ' ')      // secciones sueltas
+  s = s.replace(/\d{4}\s*[–\-/]\s*\d{4}/g, ' ')    // años
+  s = s.replace(/\d+/g, ' ')
+  s = s.replace(/\b(colegio|del|el|la|los|las|arca|cristo|tripulaci|espacial|equipo|implementaci|aula|practica|pr[aá]ctica|encuentros|virtual|imple)\b/gi, ' ')
+  s = s.replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{FE0F}]/gu, ' ') // emojis
+  s = s.replace(/[|·,;:()\[\]+\-_.]+/g, ' ')
   s = s.replace(/\s+/g, ' ').trim()
-  return s || '—'
+  return s
+}
+
+/** Reconoce si un nombre es una asignatura real (por palabras clave curriculares). */
+const isRealSubject = (name: string): boolean => {
+  const n = name.toLowerCase()
+  const keys = ['matemat','lengua','ciencias de la naturaleza','ciencia','ciencias social','sociales','social','educación físico','ed. f','educación art','artística','formación integral','formación','religiosa','inglés','ingles','english','francés','frances','informática','informatica','artes','música','musica','natural','humanidades','historia','geografía','geografia','física','fisica','química','quimica','biología','biologia','tecnolog']
+  return keys.some((k) => n.includes(k))
 }
 
 /**
@@ -159,6 +171,10 @@ export function AcademicaTecPage() {
   }
 
   const linkedTeamIds = gradesCol.items.map((g) => g.teamId ?? '').filter(Boolean)
+
+  /** Solo cursos que corresponden a una asignatura real (filtra "Equipo de implementación", etc.). */
+  const cursos = gradesCol.items.filter((g) => isRealSubject(asignaturaDe(g)))
+  const ignorados = gradesCol.items.length - cursos.length
 
   /** Nivel detectado por equipo, para mostrarlo y para el resumen del asistente. */
   const levelSummary = (() => {
@@ -263,7 +279,7 @@ export function AcademicaTecPage() {
           </TableRow>
         </TableHeader>
         <TableBody>
-          {gradesCol.items.map((g) => (
+          {cursos.map((g) => (
             <TableRow key={g.id}>
               <TableCell><Text weight="semibold">{asignaturaDe(g)}</Text></TableCell>
               <TableCell>{nivelShort(g.level)}</TableCell>
@@ -307,6 +323,9 @@ export function AcademicaTecPage() {
       </Table>
       {!gradesCol.loading && gradesCol.items.length === 0 && (
         <Text size={300} block style={{ marginTop: '12px', color: 'var(--texto-suave)' }}>Cree los cursos del colegio para vincularlos con Teams.</Text>
+      )}
+      {!gradesCol.loading && ignorados > 0 && (
+        <Text size={200} block style={{ marginTop: '10px', color: 'var(--texto-suave)' }}>Se ocultaron {ignorados} curso(s) sin nombre de asignatura (por ejemplo equipos, aulas de práctica u otros). Puede editarlos si desea reasignarles una asignatura.</Text>
       )}
 
       {/* -------- Importar equipos de Teams como cursos -------- */}
