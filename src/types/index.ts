@@ -628,6 +628,12 @@ export interface ActivityPlan {
   inicio: PlanPhase
   desarrollo: PlanPhase
   cierre: PlanPhase
+  /** Nombres de quienes firman el plan */
+  firmantes?: {
+    acompanado?: string
+    ofrece?: string
+    directivo?: string
+  }
   generadoPor?: string
   createdAt: string
 }
