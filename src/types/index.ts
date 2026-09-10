@@ -610,6 +610,31 @@ export interface PlanPhase {
   detalle: string
 }
 
+/** Evidencia (imagen/documento) anexa al informe de una actividad. */
+export interface PlanEvidence {
+  id: string
+  name: string
+  webUrl: string
+  type: 'foto' | 'documento' | 'otro'
+  uploadedAt: string
+}
+
+/**
+ * Informe de ejecución de una actividad: cómo se desarrolló el plan una vez
+ * impartida, más los anexos con imágenes/evidencias.
+ */
+export interface ActivityReport {
+  fecha: string
+  desarrollo: string
+  logros?: string
+  dificultades?: string
+  recomendaciones?: string
+  evidencias: PlanEvidence[]
+  responsable?: string
+  createdAt: string
+  updatedAt?: string
+}
+
 /**
  * Plan de una actividad del cronograma generado con IA. Se compone de tres
  * momentos (inicio, desarrollo, cierre) con su duración y detalle.
@@ -634,6 +659,8 @@ export interface ActivityPlan {
     ofrece?: string
     directivo?: string
   }
+  /** Informe de ejecución (una vez impartida la actividad) */
+  informe?: ActivityReport
   generadoPor?: string
   createdAt: string
 }
