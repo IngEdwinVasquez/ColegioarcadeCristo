@@ -134,6 +134,15 @@ export async function generateAnnualPlanDocumentWithAi(input: AnnualPlanDocInput
   }
 }
 
+export interface MonthlyPlanRef {
+  title: string
+  description?: string
+  category?: string
+  monthlyTopics?: Record<string, string>
+  startDate?: string
+  endDate?: string
+}
+
 export interface ActivityPlanInput {
   activity: string
   day: string
@@ -147,17 +156,39 @@ export interface ActivityPlanInput {
   estrategia: string
   recursos: string
   evaluacion: string
+  /** Planificaciones mensuales de "Plan de Trabajo" para validar relación temática. */
+  monthlyPlans: MonthlyPlanRef[]
+}
+
+export interface ActivityPlanResult {
+  /** false si no hay relación con ninguna planificación mensual (no se debe crear el plan). */
+  related: boolean
+  reason?: string
+  monthlyMatch?: string
+  inicio?: PlanPhase
+  desarrollo?: PlanPhase
+  cierre?: PlanPhase
 }
 
 const ACTIVITY_PLAN_PROMPT = `Eres coordinador de Tecnología e Innovación (TIC) y de acompañamiento pedagógico del sistema educativo dominicano.
-Recibes la información de una actividad dentro de un cronograma de trabajo (tipo, día y hora) y un formulario llenado por la persona que solicita el programa.
-Genera el plan detallado de la actividad en JSON válido con EXACTAMENTE esta estructura:
+Recibes:
+1) La información de una actividad de un cronograma de trabajo (tipo, día y hora) y un formulario llenado por quien solicita el programa.
+2) La lista de PLANIFICACIONES MENSUALES registradas en el Plan de Trabajo.
 
-{
-  "inicio": { "duracion": "10 min", "detalle": "..." },
-  "desarrollo": { "duracion": "30 min", "detalle": "..." },
-  "cierre": { "duracion": "15 min", "detalle": "..." }
-}
+PRIMERO evalúa si el tema de la actividad guarda relación con alguna de las planificaciones mensuales.
+- Si NO guarda relación con NINGUNA, responde ÚNICAMENTE:
+  { "relacionado": false, "motivo": "explicación breve de por qué no hay relación" }
+  No generes el plan.
+
+- Si SÍ guarda relación con al menos una, responde en JSON con esta estructura:
+  {
+    "relacionado": true,
+    "planificacionRelacionada": "título de la planificación mensual con la que guarda relación",
+    "motivo": "explicación breve de la relación",
+    "inicio": { "duracion": "10 min", "detalle": "..." },
+    "desarrollo": { "duracion": "30 min", "detalle": "..." },
+    "cierre": { "duracion": "15 min", "detalle": "..." }
+  }
 
 Los tres momentos del plan deben ser:
 - INICIO: elementos de planificación y cronograma de la actividad (bienvenida, presentación de objetivos, agenda, organización del grupo).
@@ -165,26 +196,41 @@ Los tres momentos del plan deben ser:
 - CIERRE: retroalimentación, reflexión de lo aprendido con los estudiantes, autoevaluación y recomendaciones de mejora por parte de quien imparte la capacitación.
 
 Reglas:
+- TOMA EN CUENTA la información de la planificación mensual relacionada (título, descripción y temas) para redactar el plan de la actividad; el plan debe ser coherente con lo planificado.
 - Usa la información real de la actividad (tipo, día, hora) y del formulario del solicitante; no inventes datos que contradigan la solicitud.
 - Incluye el tiempo de cada momento (coherente con la hora planificada de la actividad) en el campo "duracion".
 - Redacta en español, claro y orientado a la práctica en un centro educativo.
 - Responde ÚNICAMENTE el JSON, sin comentarios ni texto adicional.`
 
-/** Genera el plan (inicio / desarrollo / cierre) de una actividad del cronograma con IA. */
-export async function generateActivityPlanWithAi(input: ActivityPlanInput): Promise<{ inicio: PlanPhase; desarrollo: PlanPhase; cierre: PlanPhase }> {
+/** Evalúa la relación con las planificaciones mensuales y genera el plan (inicio/desarrollo/cierre) con IA. */
+export async function generateActivityPlanWithAi(input: ActivityPlanInput): Promise<ActivityPlanResult> {
   const { aiChat, parseAiJson } = await import('./ai')
+  const planes = input.monthlyPlans.length
+    ? input.monthlyPlans
+        .map((p, i) => {
+          const temas = p.monthlyTopics
+            ? Object.entries(p.monthlyTopics).filter(([, v]) => v?.trim()).map(([m, v]) => `      - ${m}: ${v}`).join('\n')
+            : ''
+          return `  ${i + 1}. ${p.title} | Categoría: ${p.category ?? '—'} | Período: ${p.startDate ?? ''}${p.endDate ? ` a ${p.endDate}` : ''}\n     Descripción: ${p.description || '—'}${temas ? `\n     Temas:\n${temas}` : ''}`
+        })
+        .join('\n')
+    : '  (no hay planificaciones mensuales registradas)'
   const out = await aiChat(
     [
       { role: 'system', content: ACTIVITY_PLAN_PROMPT },
       {
         role: 'user',
-        content: `ACTIVIDAD DEL CRONOGRAMA:\n- Cronograma: ${input.cronograma}\n- Título: ${input.activity}\n- Día: ${input.day}\n- Hora: ${input.time}\n\nFORMULARIO DE SOLICITUD:\n- Solicitante: ${input.solicitante}\n- Rol: ${input.rolSolicitante ?? '—'}\n- Objetivo: ${input.objetivo}\n- Contenidos/temas: ${input.contenidos}\n- Audiencia: ${input.audiencia}\n- Estrategia/metodología: ${input.estrategia}\n- Recursos: ${input.recursos}\n- Evaluación: ${input.evaluacion}`,
+        content: `ACTIVIDAD DEL CRONOGRAMA:\n- Cronograma: ${input.cronograma}\n- Título: ${input.activity}\n- Día: ${input.day}\n- Hora: ${input.time}\n\nFORMULARIO DE SOLICITUD:\n- Solicitante: ${input.solicitante}\n- Rol: ${input.rolSolicitante ?? '—'}\n- Objetivo: ${input.objetivo}\n- Contenidos/temas: ${input.contenidos}\n- Audiencia: ${input.audiencia}\n- Estrategia/metodología: ${input.estrategia}\n- Recursos: ${input.recursos}\n- Evaluación: ${input.evaluacion}\n\nPLANIFICACIONES MENSUALES (Plan de Trabajo):\n${planes}`,
       },
     ],
     { temperature: 0.5, jsonMode: true },
   )
   const parsed = parseAiJson<Record<string, unknown>>(out)
-  if (!parsed) throw new Error('La IA no devolvió un plan válido. Intente de nuevo.')
+  if (!parsed) throw new Error('La IA no devolvió una respuesta válida. Intente de nuevo.')
+  const str = (v: unknown, fallback = '') => (typeof v === 'string' ? v.trim() : fallback)
+  if (parsed.relacionado !== true) {
+    return { related: false, reason: str(parsed.motivo), monthlyMatch: str(parsed.planificacionRelacionada) }
+  }
   const phase = (v: unknown): PlanPhase => {
     const o = (v ?? {}) as Record<string, unknown>
     return {
@@ -193,6 +239,9 @@ export async function generateActivityPlanWithAi(input: ActivityPlanInput): Prom
     }
   }
   return {
+    related: true,
+    reason: str(parsed.motivo),
+    monthlyMatch: str(parsed.planificacionRelacionada),
     inicio: phase(parsed.inicio),
     desarrollo: phase(parsed.desarrollo),
     cierre: phase(parsed.cierre),
