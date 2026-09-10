@@ -36,8 +36,12 @@ const STATUS_LABELS: Record<TicStatus, string> = { pendiente: 'Pendiente', en_pr
 const DEFAULT_CATEGORIES = ['Infraestructura', 'Soporte técnico', 'Capacitación', 'Innovación educativa', 'Plataforma M365', 'Otros']
 const STAGE_COLORS: Record<TicStage, string> = { inicio: '#0095C8', desarrollo: '#EA580C', finalizacion: '#15803D' }
 
+/** Meses del año escolar para la planificación anual. */
+const ANNUAL_MONTHS = ['Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre', 'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio']
+
 /** Mes (o rango de meses) que abarca la planificación de una actividad. */
 const periodLabel = (a: TicActivity): string => {
+  if (a.scope === 'anual') return 'Agosto – Junio'
   const start = monthLabel(a.startDate)
   const end = monthLabel(a.endDate)
   return start === end ? start : `${start} – ${end}`
@@ -579,14 +583,31 @@ export function GestionTicPage() {
                 </Select>
               </FormField>
             </FieldRow>
-            <FieldRow>
-              <FormField label="Inicio">
-                <Input type="date" value={editing.startDate} onChange={(_, d) => setEditing({ ...editing, startDate: d.value })} />
-              </FormField>
-              <FormField label="Fin">
-                <Input type="date" value={editing.endDate} onChange={(_, d) => setEditing({ ...editing, endDate: d.value })} />
-              </FormField>
-            </FieldRow>
+            {editing.scope === 'anual' ? (
+              <div style={{ marginBottom: '14px' }}>
+                <Text size={300} weight="semibold" block style={{ marginBottom: '8px' }}>Temas de la planificación por mes (agosto – junio)</Text>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 220px), 1fr))', gap: '0 16px' }}>
+                  {ANNUAL_MONTHS.map((m) => (
+                    <FormField key={m} label={m}>
+                      <Input
+                        value={editing.monthlyTopics?.[m] ?? ''}
+                        onChange={(_, d) => setEditing({ ...editing, monthlyTopics: { ...(editing.monthlyTopics ?? {}), [m]: d.value } })}
+                        placeholder="Tema de la planificación"
+                      />
+                    </FormField>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <FieldRow>
+                <FormField label="Inicio">
+                  <Input type="date" value={editing.startDate} onChange={(_, d) => setEditing({ ...editing, startDate: d.value })} />
+                </FormField>
+                <FormField label="Fin">
+                  <Input type="date" value={editing.endDate} onChange={(_, d) => setEditing({ ...editing, endDate: d.value })} />
+                </FormField>
+              </FieldRow>
+            )}
             <FieldRow>
               <FormField label="Etapa">
                 <Select value={editing.stage} onChange={(_, d) => setEditing({ ...editing, stage: d.value as TicStage })}>
@@ -628,6 +649,16 @@ export function GestionTicPage() {
                 {uploading ? 'Subiendo…' : 'Subir evidencia (foto/documento)'}
               </Button>
             </div>
+
+            {detail.scope === 'anual' && detail.monthlyTopics && Object.values(detail.monthlyTopics).some((v) => v?.trim()) && (
+              <FormField label="Temas de la planificación por mes">
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 220px), 1fr))', gap: '4px 16px' }}>
+                  {ANNUAL_MONTHS.filter((m) => detail.monthlyTopics?.[m]?.trim()).map((m) => (
+                    <Text key={m} size={300} block><strong>{m}:</strong> {detail.monthlyTopics?.[m]}</Text>
+                  ))}
+                </div>
+              </FormField>
+            )}
 
             <FormField label="Evidencias">
               {detail.evidences.length === 0 && <Text size={200} style={{ color: 'var(--texto-suave)' }}>Sin evidencias todavía. Se guardan en OneDrive (carpeta GestionTIC).</Text>}
