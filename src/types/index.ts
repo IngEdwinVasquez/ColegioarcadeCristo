@@ -529,6 +529,8 @@ export interface TicActivity {
   /** % de avance 0-100 */
   progress: number
   responsible?: string
+  /** Temas de planificación por mes (planificación anual): Agosto..Junio. */
+  monthlyTopics?: Record<string, string>
   evidences: TicEvidence[]
   log: TicLogEntry[]
   createdAt: string
