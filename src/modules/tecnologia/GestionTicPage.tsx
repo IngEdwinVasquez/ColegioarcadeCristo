@@ -24,7 +24,7 @@ import { extractPdfText } from '../../services/pdf'
 import { generateTicPlanWithAi, parseWeeklySchedulePdf } from '../../services/ticAi'
 import { isAiConfigured } from '../../services/ai'
 import { appConfig } from '../../config/appConfig'
-import { formatDate, genId, pct, todayIso } from '../../utils/helpers'
+import { formatDate, genId, monthLabel, pct, todayIso } from '../../utils/helpers'
 import { gradientes } from '../../theme'
 import type { TicActivity, TicCategoryItem, TicScope, TicStage, TicStatus, WeeklySchedule } from '../../types'
 
@@ -35,6 +35,13 @@ const STAGE_LABELS: Record<TicStage, string> = { inicio: 'Inicio', desarrollo: '
 const STATUS_LABELS: Record<TicStatus, string> = { pendiente: 'Pendiente', en_progreso: 'En progreso', completada: 'Completada', cancelada: 'Cancelada' }
 const DEFAULT_CATEGORIES = ['Infraestructura', 'Soporte técnico', 'Capacitación', 'Innovación educativa', 'Plataforma M365', 'Otros']
 const STAGE_COLORS: Record<TicStage, string> = { inicio: '#0095C8', desarrollo: '#EA580C', finalizacion: '#15803D' }
+
+/** Mes (o rango de meses) que abarca la planificación de una actividad. */
+const periodLabel = (a: TicActivity): string => {
+  const start = monthLabel(a.startDate)
+  const end = monthLabel(a.endDate)
+  return start === end ? start : `${start} – ${end}`
+}
 const LEGACY_CATEGORY_LABELS: Record<string, string> = {
   infraestructura: 'Infraestructura',
   soporte: 'Soporte técnico',
@@ -362,9 +369,8 @@ export function GestionTicPage() {
           <Table aria-label="Plan de trabajo TIC">
             <TableHeader>
               <TableRow>
-                <TableHeaderCell>Actividad</TableHeaderCell>
                 <TableHeaderCell>Plan</TableHeaderCell>
-                <TableHeaderCell>Fechas</TableHeaderCell>
+                <TableHeaderCell>Período</TableHeaderCell>
                 <TableHeaderCell>Etapa</TableHeaderCell>
                 <TableHeaderCell>Avance</TableHeaderCell>
                 <TableHeaderCell>Estado</TableHeaderCell>
@@ -378,8 +384,7 @@ export function GestionTicPage() {
                     <Text weight="semibold" block>{a.title}</Text>
                     <Text size={200} style={{ color: 'var(--texto-suave)' }}>{catName(a.category)} · {a.evidences.length} evidencia(s)</Text>
                   </TableCell>
-                  <TableCell>{SCOPE_LABELS[a.scope]}</TableCell>
-                  <TableCell>{formatDate(a.startDate)} — {formatDate(a.endDate)}</TableCell>
+                  <TableCell>{periodLabel(a)}</TableCell>
                   <TableCell>
                     <Badge appearance="filled" style={{ background: STAGE_COLORS[a.stage], color: '#fff' }}>{STAGE_LABELS[a.stage]}</Badge>
                   </TableCell>
