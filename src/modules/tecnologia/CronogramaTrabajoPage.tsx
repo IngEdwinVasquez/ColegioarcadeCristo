@@ -20,7 +20,7 @@ import { isAiConfigured } from '../../services/ai'
 import { downloadFileAsDataUrl, uploadAndShare } from '../../services/onedrive'
 import { graphErrorMessage } from '../../services/graph'
 import { formatDate, genId, monthLabel, monthsBetween, todayIso } from '../../utils/helpers'
-import type { ActivityPlan, ActivityReport, Period, PlanEvidence, WeeklySchedule, WorkCronograma, WorkPlanEntry } from '../../types'
+import type { ActivityPlan, ActivityReport, Period, PlanEvidence, TicActivity, WeeklySchedule, WorkCronograma, WorkPlanEntry } from '../../types'
 
 const WEEK_DAYS = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes']
 
@@ -324,6 +324,7 @@ export function CronogramaTrabajoPage({ embedded = false }: { embedded?: boolean
   const periodCol = useCollection<Period>(dataService.getPeriods, dataService.savePeriod, dataService.deletePeriod)
   const horCol = useCollection<WeeklySchedule>(dataService.getWeeklySchedules, dataService.saveWeeklySchedule, dataService.deleteWeeklySchedule)
   const cronoCol = useCollection<WorkCronograma>(dataService.getWorkCronogramas, dataService.saveWorkCronograma, dataService.deleteWorkCronograma)
+  const ticCol = useCollection<TicActivity>(dataService.getTicActivities)
 
   const [periodId, setPeriodId] = useState('')
   const [horarioId, setHorarioId] = useState('')
@@ -521,7 +522,10 @@ export function CronogramaTrabajoPage({ embedded = false }: { embedded?: boolean
     }
     setPlanGenerating(true)
     try {
-      const phases = await generateActivityPlanWithAi({
+      const monthlyPlans = ticCol.items
+        .filter((a) => a.scope === 'mensual')
+        .map((a) => ({ title: a.title, description: a.description, category: a.category, monthlyTopics: a.monthlyTopics, startDate: a.startDate, endDate: a.endDate }))
+      const result = await generateActivityPlanWithAi({
         activity: planFor.activity,
         day: planFor.day,
         time: planFor.time,
@@ -534,7 +538,20 @@ export function CronogramaTrabajoPage({ embedded = false }: { embedded?: boolean
         estrategia: estrategia.trim(),
         recursos: recursos.trim(),
         evaluacion: evaluacion.trim(),
+        monthlyPlans,
       })
+      if (!result.related) {
+        toaster.dispatchToast(
+          `${result.reason ? `No se encontró relación con las planificaciones mensuales: ${result.reason} ` : 'El tema de la actividad no guarda relación con ninguna planificación mensual registrada. '}Incluya información relacionada con el tema del plan en la planificación mensual (Plan de Trabajo) y vuelva a intentarlo.`,
+          { intent: 'warning' },
+        )
+        return
+      }
+      const phases = {
+        inicio: result.inicio ?? { duracion: '', detalle: '' },
+        desarrollo: result.desarrollo ?? { duracion: '', detalle: '' },
+        cierre: result.cierre ?? { duracion: '', detalle: '' },
+      }
       const plan: ActivityPlan = {
         id: genId('plan'),
         solicitante: solicitante.trim(),
