@@ -33,10 +33,15 @@ export function ReloadPrompt() {
   } = useRegisterSW({
     onRegisteredSW(_url, reg) {
       if (reg) {
-        // Comprueba si hay actualizaciones cada hora (además del check al navegar).
+        // Comprueba si hay actualizaciones cada 15 minutos y al volver a la pestaña.
         setInterval(() => {
-          reg.update?.()
-        }, 60 * 60 * 1000)
+          void reg.update?.()
+        }, 15 * 60 * 1000)
+        const check = () => {
+          if (document.visibilityState === 'visible') void reg.update?.()
+        }
+        document.addEventListener('visibilitychange', check)
+        window.addEventListener('focus', check)
       }
     },
     onRegisterError() {
