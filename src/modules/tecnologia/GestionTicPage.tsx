@@ -545,7 +545,13 @@ export function GestionTicPage() {
       <ModalForm
         open={!!editing}
         onOpenChange={(o) => { if (!o) setEditing(null) }}
-        title={editing && col.items.some((x) => x.id === editing.id) ? `Editar · ${editing.title}` : 'Nueva actividad TIC'}
+        title={
+          editing && col.items.some((x) => x.id === editing.id)
+            ? `Editar · ${editing.title}`
+            : editing
+              ? `Planificación ${SCOPE_LABELS[editing.scope].toLowerCase()}`
+              : 'Nueva actividad TIC'
+        }
         actions={
           <>
             <Button appearance="secondary" onClick={() => setEditing(null)}>Cancelar</Button>
