@@ -543,6 +543,25 @@ export interface TicCategoryItem {
   name: string
 }
 
+/** Tema/actividad de un mes dentro de la planificación anual consolidada. */
+export interface AnnualPlanMonthItem {
+  mes: string
+  tema: string
+  actividades?: string
+}
+
+/** Documento "Planificación Anual" generado con IA a partir de las planificaciones anuales. */
+export interface AnnualPlanDocument {
+  titulo: string
+  presentacion: string
+  objetivoGeneral: string
+  meses: AnnualPlanMonthItem[]
+  evaluacion: string
+  conclusion: string
+  generadoPor?: string
+  createdAt: string
+}
+
 /** Horario de trabajo semanal (filas de hora × Lunes-Viernes), generado desde un PDF. */
 export interface WeeklySchedule {
   id: string
