@@ -118,3 +118,19 @@ export async function getFileDownloadUrl(fileId: string): Promise<string> {
   const item = await graphRequest<{ '@microsoft.graph.downloadUrl'?: string; webUrl: string }>(`/me/drive/items/${fileId}`)
   return item['@microsoft.graph.downloadUrl'] ?? item.webUrl
 }
+
+/** Descarga el contenido de un archivo y lo devuelve como data URL (para incrustar imágenes en un PDF). */
+export async function downloadFileAsDataUrl(fileId: string): Promise<string> {
+  const token = await acquireToken()
+  const res = await fetch(`https://graph.microsoft.com/v1.0/me/drive/items/${fileId}/content`, {
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  if (!res.ok) throw new Error(`No se pudo descargar la imagen (${res.status})`)
+  const blob = await res.blob()
+  return await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(String(reader.result))
+    reader.onerror = () => reject(reader.error)
+    reader.readAsDataURL(blob)
+  })
+}

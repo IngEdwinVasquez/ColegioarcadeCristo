@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import {
   Badge, Button, Card, Select, Spinner, Table, TableBody, TableCell, TableHeader, TableHeaderCell,
@@ -6,7 +6,7 @@ import {
 } from '@fluentui/react-components'
 import {
   AddRegular, CalendarMonthRegular, DeleteRegular, DocumentPdfRegular, EditRegular,
-  NoteAddRegular, OpenRegular, PrintRegular, SparkleRegular,
+  ImageRegular, NoteAddRegular, OpenRegular, PrintRegular, SparkleRegular,
 } from '@fluentui/react-icons'
 import { PageHeader } from '../../components/shared/PageHeader'
 import { ModalForm } from '../../components/shared/ModalForm'
@@ -17,8 +17,10 @@ import { dataService } from '../../services/dataService'
 import { useCollection } from '../../hooks/useCollection'
 import { generateActivityPlanWithAi } from '../../services/ticAi'
 import { isAiConfigured } from '../../services/ai'
+import { downloadFileAsDataUrl, uploadAndShare } from '../../services/onedrive'
+import { graphErrorMessage } from '../../services/graph'
 import { formatDate, genId, monthLabel, monthsBetween, todayIso } from '../../utils/helpers'
-import type { ActivityPlan, Period, WeeklySchedule, WorkCronograma, WorkPlanEntry } from '../../types'
+import type { ActivityPlan, ActivityReport, Period, PlanEvidence, WeeklySchedule, WorkCronograma, WorkPlanEntry } from '../../types'
 
 const WEEK_DAYS = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes']
 
@@ -257,6 +259,64 @@ function PlanPrint({ plan, activity, day, time, cronograma, periodName, monthLab
   )
 }
 
+function ReportPrint({ entry, crono, plan, images }: {
+  entry: WorkPlanEntry
+  crono: WorkCronograma
+  plan: ActivityPlan
+  images: Array<{ src: string; name: string }>
+}) {
+  const inf = plan.informe
+  if (!inf) return null
+  const signs: Array<[string | undefined, string]> = [
+    [plan.firmantes?.acompanado, 'El acompañado / participante'],
+    [plan.firmantes?.ofrece ?? plan.generadoPor, 'Quien ofrece el acompañamiento/capacitación'],
+    [plan.firmantes?.directivo, 'Director/a o Coordinador/a Pedagógico/a'],
+  ]
+  return (
+    <div className="pp">
+      <div className="pp-title">Informe de ejecución de la actividad</div>
+      <div className="pp-sub">
+        {crono.title} · {crono.periodName} · Mes: {crono.monthLabel} · Actividad: {entry.activity} · {entry.day} {entry.time}
+      </div>
+      <div className="pp-grid">
+        <div className="pp-field"><div className="pp-label">Responsable</div><div className="pp-value">{inf.responsable ?? '—'}</div></div>
+        <div className="pp-field"><div className="pp-label">Fecha de ejecución</div><div className="pp-value">{formatDate(inf.fecha)}</div></div>
+        <div className="pp-field"><div className="pp-label">Objetivo</div><div className="pp-value">{plan.objetivo}</div></div>
+        <div className="pp-field"><div className="pp-label">Audiencia</div><div className="pp-value">{plan.audiencia || '—'}</div></div>
+      </div>
+      <div className="pp-section">Cómo se desarrolló el plan</div>
+      <div className="pp-text">{inf.desarrollo}</div>
+      {inf.logros && <><div className="pp-section">Logros</div><div className="pp-text">{inf.logros}</div></>}
+      {inf.dificultades && <><div className="pp-section">Dificultades</div><div className="pp-text">{inf.dificultades}</div></>}
+      {inf.recomendaciones && <><div className="pp-section">Recomendaciones</div><div className="pp-text">{inf.recomendaciones}</div></>}
+      <div className="pp-section">Anexos · Evidencias</div>
+      {images.length === 0 ? (
+        <div className="pp-text">Sin evidencias adjuntas.</div>
+      ) : (
+        <div className="rp-images">
+          {images.map((img, i) => (
+            <figure className="rp-figure" key={i}>
+              <img src={img.src} alt={img.name} />
+              <figcaption>{img.name}</figcaption>
+            </figure>
+          ))}
+        </div>
+      )}
+      <div className="pp-section">Firmas</div>
+      <div className="pp-signs">
+        {signs.map(([nombre, label], i) => (
+          <div className="pp-sign" key={i}>
+            <div className="pp-sign-line" />
+            <div className="pp-sign-name">{nombre || '\u00A0'}</div>
+            <div className="pp-sign-label">{label}</div>
+            <div className="pp-sign-date">Fecha: ____ / ____ / ______</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 export function CronogramaTrabajoPage() {
   const styles = useStyles()
   const toaster = useToastController()
@@ -285,6 +345,18 @@ export function CronogramaTrabajoPage() {
   const [firmaAcompanado, setFirmaAcompanado] = useState('')
   const [firmaOfrece, setFirmaOfrece] = useState('')
   const [firmaDirectivo, setFirmaDirectivo] = useState('')
+  const [reportFor, setReportFor] = useState<{ entry: WorkPlanEntry; crono: WorkCronograma } | null>(null)
+  const [repFecha, setRepFecha] = useState(todayIso())
+  const [repDesarrollo, setRepDesarrollo] = useState('')
+  const [repLogros, setRepLogros] = useState('')
+  const [repDificultades, setRepDificultades] = useState('')
+  const [repRecomendaciones, setRepRecomendaciones] = useState('')
+  const [repEvidencias, setRepEvidencias] = useState<PlanEvidence[]>([])
+  const [repUploading, setRepUploading] = useState(false)
+  const [repSaving, setRepSaving] = useState(false)
+  const [reportPrint, setReportPrint] = useState<{ entry: WorkPlanEntry; crono: WorkCronograma } | null>(null)
+  const [printImages, setPrintImages] = useState<Array<{ src: string; name: string }>>([])
+  const reportFileRef = useRef<HTMLInputElement>(null)
 
   // Elimina períodos de prueba y garantiza los cinco años escolares estándar.
   useEffect(() => {
@@ -374,6 +446,7 @@ export function CronogramaTrabajoPage() {
 
   const printCronograma = (c: WorkCronograma) => {
     setPlanPrint(null)
+    setReportPrint(null)
     setPrintDoc(c)
     setTimeout(() => window.print(), 60)
   }
@@ -435,6 +508,7 @@ export function CronogramaTrabajoPage() {
 
   const printPlan = (v: { entry: WorkPlanEntry; crono: WorkCronograma }) => {
     setPrintDoc(null)
+    setReportPrint(null)
     setPlanPrint(v)
     setTimeout(() => window.print(), 60)
   }
@@ -495,6 +569,121 @@ export function CronogramaTrabajoPage() {
     }
   }
 
+  const openReportForm = (entry: WorkPlanEntry, crono: WorkCronograma) => {
+    const inf = entry.plan?.informe
+    setPlanView(null)
+    setReportFor({ entry, crono })
+    setRepFecha(inf?.fecha ?? todayIso())
+    setRepDesarrollo(inf?.desarrollo ?? '')
+    setRepLogros(inf?.logros ?? '')
+    setRepDificultades(inf?.dificultades ?? '')
+    setRepRecomendaciones(inf?.recomendaciones ?? '')
+    setRepEvidencias(inf?.evidencias ? inf.evidencias.map((e) => ({ ...e })) : [])
+  }
+
+  const addReportEvidence = async (files: FileList | null) => {
+    if (!files || files.length === 0) return
+    setRepUploading(true)
+    try {
+      const next = [...repEvidencias]
+      for (const file of Array.from(files)) {
+        const ref = await uploadAndShare(`GestionTIC/Informes/${reportFor?.crono.month ?? 'mes'}`, file)
+        next.push({
+          id: ref.id,
+          name: ref.name,
+          webUrl: ref.webUrl,
+          type: file.type.startsWith('image/') ? 'foto' : 'documento',
+          uploadedAt: new Date().toISOString(),
+        })
+      }
+      setRepEvidencias(next)
+      toaster.dispatchToast('Evidencia(s) subida(s) a OneDrive.', { intent: 'success' })
+    } catch (error) {
+      toaster.dispatchToast(`No se pudo subir la evidencia: ${graphErrorMessage(error)}`, { intent: 'error' })
+    } finally {
+      setRepUploading(false)
+      if (reportFileRef.current) reportFileRef.current.value = ''
+    }
+  }
+
+  const removeReportEvidence = (id: string) => setRepEvidencias((list) => list.filter((e) => e.id !== id))
+
+  const buildInforme = (): ActivityReport => ({
+    fecha: repFecha,
+    desarrollo: repDesarrollo.trim(),
+    logros: repLogros.trim(),
+    dificultades: repDificultades.trim(),
+    recomendaciones: repRecomendaciones.trim(),
+    evidencias: repEvidencias,
+    responsable: user?.displayName,
+    createdAt: reportFor?.entry.plan?.informe?.createdAt ?? new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  })
+
+  /** Guarda el informe dentro del plan de la actividad y actualiza las vistas. */
+  const persistInforme = async (): Promise<WorkCronograma | null> => {
+    if (!reportFor) return null
+    const informe = buildInforme()
+    const updated: WorkCronograma = {
+      ...reportFor.crono,
+      entries: reportFor.crono.entries.map((x) => (x.id === reportFor.entry.id && x.plan ? { ...x, plan: { ...x.plan, informe } } : x)),
+    }
+    await cronoCol.save({ ...updated, updatedAt: new Date().toISOString() })
+    setViewing(updated)
+    setPlanView((pv) => (pv ? { ...pv, entry: updated.entries.find((x) => x.id === pv.entry.id) ?? pv.entry, crono: updated } : pv))
+    return updated
+  }
+
+  const guardarInforme = async () => {
+    if (!reportFor) return
+    if (!repDesarrollo.trim()) {
+      toaster.dispatchToast('Describa cómo se desarrolló el plan.', { intent: 'error' })
+      return
+    }
+    setRepSaving(true)
+    try {
+      await persistInforme()
+      setReportFor(null)
+      toaster.dispatchToast('Informe guardado.', { intent: 'success' })
+    } catch (error) {
+      toaster.dispatchToast(`No se pudo guardar el informe: ${graphErrorMessage(error)}`, { intent: 'error' })
+    } finally {
+      setRepSaving(false)
+    }
+  }
+
+  const exportarInformePdf = async () => {
+    if (!reportFor) return
+    if (!repDesarrollo.trim()) {
+      toaster.dispatchToast('Describa cómo se desarrolló el plan.', { intent: 'error' })
+      return
+    }
+    setRepSaving(true)
+    try {
+      const updated = await persistInforme()
+      const entry = updated?.entries.find((x) => x.id === reportFor.entry.id) ?? reportFor.entry
+      const imgs: Array<{ src: string; name: string }> = []
+      for (const e of repEvidencias) {
+        if (e.type !== 'foto') continue
+        try {
+          imgs.push({ src: await downloadFileAsDataUrl(e.id), name: e.name })
+        } catch {
+          /* omite la imagen que no se pudo descargar */
+        }
+      }
+      setPrintDoc(null)
+      setPlanPrint(null)
+      setPrintImages(imgs)
+      setReportPrint({ entry, crono: updated ?? reportFor.crono })
+      setReportFor(null)
+      setTimeout(() => window.print(), 150)
+    } catch (error) {
+      toaster.dispatchToast(`No se pudo generar el PDF: ${graphErrorMessage(error)}`, { intent: 'error' })
+    } finally {
+      setRepSaving(false)
+    }
+  }
+
   const setEditEntry = (idx: number, patch: Partial<WorkPlanEntry>) =>
     setEditing((e) => (e ? { ...e, entries: e.entries.map((x, i) => (i === idx ? { ...x, ...patch } : x)) } : e))
 
@@ -526,6 +715,11 @@ export function CronogramaTrabajoPage() {
         .pp-phase { border: 1px solid #999; border-radius: 4px; padding: 5px 8px; margin-bottom: 4px; break-inside: avoid; }
         .pp-phase-head { display: flex; justify-content: space-between; font-weight: 700; font-size: 10pt; }
         .pp-phase-body { font-size: 9.5pt; }
+        .pp-text { font-size: 9.8pt; white-space: pre-wrap; }
+        .rp-images { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 4px; }
+        .rp-figure { margin: 0; border: 1px solid #ccc; border-radius: 4px; padding: 4px; break-inside: avoid; text-align: center; }
+        .rp-figure img { width: 100%; height: 44mm; object-fit: contain; }
+        .rp-figure figcaption { font-size: 7.5pt; color: #555; margin-top: 2px; }
         .pp-signs { display: flex; gap: 16px; margin-top: 22px; break-inside: avoid; }
         .pp-sign { flex: 1; text-align: center; font-size: 8.3pt; }
         .pp-sign-line { border-bottom: 1px solid #000; height: 30px; margin-bottom: 3px; }
@@ -607,6 +801,9 @@ export function CronogramaTrabajoPage() {
               periodName={planPrint.crono.periodName}
               monthLabel={planPrint.crono.monthLabel}
             />
+          )}
+          {reportPrint?.entry.plan && (
+            <ReportPrint entry={reportPrint.entry} crono={reportPrint.crono} plan={reportPrint.entry.plan} images={printImages} />
           )}
         </div>,
         document.body,
@@ -790,6 +987,7 @@ export function CronogramaTrabajoPage() {
         actions={
           <>
             <Button appearance="secondary" icon={<EditRegular />} onClick={() => { const e = planView?.entry; if (e) { setPlanView(null); openPlanForm(e) } }}>Regenerar</Button>
+            <Button appearance="secondary" icon={<NoteAddRegular />} onClick={() => planView && openReportForm(planView.entry, planView.crono)}>{planView?.entry.plan?.informe ? 'Ver informe' : 'Informe de ejecución'}</Button>
             <Button appearance="secondary" icon={<DocumentPdfRegular />} onClick={() => planView && printPlan(planView)}>Guardar PDF</Button>
             <Button appearance="primary" onClick={() => setPlanView(null)}>Cerrar</Button>
           </>
@@ -805,6 +1003,73 @@ export function CronogramaTrabajoPage() {
             periodName={planView.crono.periodName}
             monthLabel={planView.crono.monthLabel}
           />
+        )}
+      </ModalForm>
+
+      {/* -------- Informe de ejecución -------- */}
+      <ModalForm
+        open={!!reportFor}
+        onOpenChange={(o) => { if (!o) setReportFor(null) }}
+        title="Informe de ejecución de la actividad"
+        subtitle={reportFor ? `${reportFor.entry.day} · ${reportFor.entry.time} · ${reportFor.entry.activity}` : undefined}
+        width={760}
+        actions={
+          <>
+            <Button appearance="secondary" onClick={() => setReportFor(null)} disabled={repSaving}>Cancelar</Button>
+            <Button appearance="secondary" icon={<DocumentPdfRegular />} onClick={() => void exportarInformePdf()} disabled={repSaving || repUploading}>
+              {repSaving ? <Spinner size="tiny" /> : 'Guardar PDF'}
+            </Button>
+            <Button appearance="primary" icon={<NoteAddRegular />} onClick={() => void guardarInforme()} disabled={repSaving || repUploading}>
+              {repSaving ? 'Guardando…' : 'Guardar informe'}
+            </Button>
+          </>
+        }
+      >
+        {reportFor && (
+          <div>
+            <Text size={300} block style={{ color: 'var(--texto-suave)', marginBottom: '10px' }}>
+              Registre cómo se desarrolló el plan una vez impartida la actividad. Adjunte imágenes de evidencia para la sección de anexos del PDF.
+            </Text>
+            <FormField label="Fecha de ejecución" required>
+              <Input type="date" value={repFecha} onChange={(_, d) => setRepFecha(d.value)} />
+            </FormField>
+            <FormField label="¿Cómo se desarrolló el plan?" required>
+              <Textarea value={repDesarrollo} onChange={(_, d) => setRepDesarrollo(d.value)} resize="vertical" rows={4} placeholder="Describa el desarrollo de los momentos (inicio, desarrollo y cierre), lo que ocurrió realmente…" />
+            </FormField>
+            <FieldRow>
+              <FormField label="Logros">
+                <Textarea value={repLogros} onChange={(_, d) => setRepLogros(d.value)} resize="vertical" rows={2} />
+              </FormField>
+              <FormField label="Dificultades">
+                <Textarea value={repDificultades} onChange={(_, d) => setRepDificultades(d.value)} resize="vertical" rows={2} />
+              </FormField>
+            </FieldRow>
+            <FormField label="Recomendaciones">
+              <Textarea value={repRecomendaciones} onChange={(_, d) => setRepRecomendaciones(d.value)} resize="vertical" rows={2} />
+            </FormField>
+            <FormField label="Anexos · Evidencias (imágenes)">
+              <input ref={reportFileRef} type="file" accept="image/*" multiple style={{ display: 'none' }} onChange={(e) => void addReportEvidence(e.target.files)} />
+              <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap', marginBottom: '8px' }}>
+                <Button appearance="secondary" size="small" icon={repUploading ? <Spinner size="tiny" /> : <ImageRegular />} disabled={repUploading} onClick={() => reportFileRef.current?.click()}>
+                  {repUploading ? 'Subiendo…' : 'Subir imágenes'}
+                </Button>
+                <Text size={200} style={{ color: 'var(--texto-suave)' }}>Se guardan en OneDrive (GestionTIC/Informes).</Text>
+              </div>
+              {repEvidencias.length === 0 ? (
+                <Text size={200} style={{ color: 'var(--texto-suave)' }}>Sin evidencias adjuntas.</Text>
+              ) : (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                  {repEvidencias.map((e) => (
+                    <div key={e.id} style={{ display: 'flex', alignItems: 'center', gap: '6px', border: '1px solid var(--borde)', borderRadius: '8px', padding: '4px 8px' }}>
+                      <ImageRegular />
+                      <Button appearance="subtle" size="small" onClick={() => window.open(e.webUrl, '_blank', 'noopener')}>{e.name}</Button>
+                      <Button appearance="subtle" size="small" icon={<DeleteRegular />} aria-label="Quitar" onClick={() => removeReportEvidence(e.id)} />
+                    </div>
+                  ))}
+                </div>
+              )}
+            </FormField>
+          </div>
         )}
       </ModalForm>
 
