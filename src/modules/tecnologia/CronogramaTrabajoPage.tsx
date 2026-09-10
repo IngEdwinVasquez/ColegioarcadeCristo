@@ -287,12 +287,48 @@ export function CronogramaTrabajoPage() {
     setPlanFor({ entryId: e.id, activity: e.activity, day: e.day, time: e.time })
     setSolicitante(user?.displayName ?? '')
     setRolSolicitante('Coordinador TIC')
-    setObjetivo('')
-    setContenidos('')
-    setAudiencia('')
-    setEstrategia('')
-    setRecursos('')
-    setEvaluacion('')
+
+    const norm = normalize(e.activity)
+    const isCap = norm.startsWith('capacitacion')
+    const isAccomp = norm.startsWith('acompanamiento')
+    const lower = norm.toLowerCase()
+
+    let audiencia = 'Participantes de la actividad (a definir)'
+    if (lower.includes('aula')) audiencia = 'Docentes y estudiantes del aula'
+    else if (lower.includes('personal')) audiencia = 'Personal docente y administrativo'
+    else if (lower.includes('docente')) audiencia = 'Docentes'
+    else if (lower.includes('estudiante')) audiencia = 'Estudiantes'
+
+    setObjetivo(`Planificar y ejecutar la actividad «${e.activity}» (${e.day}, ${e.time}) según el cronograma de trabajo del mes.`)
+    setContenidos(
+      isCap
+        ? `Contenidos de la capacitación derivados de la actividad «${e.activity}».`
+        : isAccomp
+          ? `Seguimiento de la planificación e impartición de la clase en «${e.activity}».`
+          : `Temas de la actividad «${e.activity}».`,
+    )
+    setAudiencia(audiencia)
+    setEstrategia(
+      isAccomp
+        ? 'Acompañamiento presencial: observación de la práctica, retroalimentación y compromisos de mejora.'
+        : isCap
+          ? 'Taller práctico: presentación de contenidos, actividades aplicadas y trabajo colaborativo.'
+          : 'Actividad planificada con presentación de la información y práctica guiada.',
+    )
+    setRecursos(
+      isCap
+        ? 'Ambiente del centro, plataforma M365, materiales y dispositivos disponibles.'
+        : isAccomp
+          ? 'Planificación y/o clase del docente, rúbrica de observación y hoja de compromisos.'
+          : 'Recursos didácticos y tecnológicos del centro.',
+    )
+    setEvaluacion(
+      isCap
+        ? 'Participación y aplicación de lo aprendido; lista de cotejo o producto final.'
+        : isAccomp
+          ? 'Reflexión de lo aprendido, autoevaluación y recomendaciones de mejora.'
+          : 'Participación, comprensión de los contenidos y reflexión final.',
+    )
   }
 
   const openPlanView = (e: WorkPlanEntry, cronograma: string) => {
