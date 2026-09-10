@@ -135,23 +135,47 @@ const PHASE_META: Array<{ key: 'inicio' | 'desarrollo' | 'cierre'; label: string
   { key: 'cierre', label: 'Cierre', color: '#15803D' },
 ]
 
-function PlanDetails({ plan }: { plan: ActivityPlan }) {
+function PlanDetails({ plan, activity, day, time, cronograma, periodName, monthLabel }: {
+  plan: ActivityPlan
+  activity?: string
+  day?: string
+  time?: string
+  cronograma?: string
+  periodName?: string
+  monthLabel?: string
+}) {
   const styles = useStyles()
+  const data: Array<[string, string]> = [
+    ['Solicitante', plan.solicitante],
+    ['Rol', plan.rolSolicitante ?? '—'],
+    ['Objetivo de la actividad', plan.objetivo],
+    ['Contenidos / temas', plan.contenidos || '—'],
+    ['Audiencia', plan.audiencia || '—'],
+    ['Recursos', plan.recursos || '—'],
+    ['Estrategia / metodología', plan.estrategia || '—'],
+    ['Evaluación / resultados esperados', plan.evaluacion || '—'],
+  ]
+  const firma = (nombre: string | undefined, label: string) => (
+    <div style={{ flex: 1, minWidth: '200px', textAlign: 'center' }}>
+      <div style={{ borderBottom: '1px solid #333', height: '40px' }} />
+      <Text size={200} block weight="semibold" style={{ marginTop: '4px' }}>{nombre || '\u00A0'}</Text>
+      <Text size={200} block>{label}</Text>
+      <Text size={100} block style={{ color: 'var(--texto-suave)' }}>Fecha: ____ / ____ / ______</Text>
+    </div>
+  )
   return (
-    <div>
-      <FieldRow>
-        <FormField label="Solicitante"><Input value={plan.solicitante} disabled /></FormField>
-        <FormField label="Rol"><Input value={plan.rolSolicitante ?? ''} disabled /></FormField>
-      </FieldRow>
-      <FormField label="Objetivo de la actividad"><Textarea value={plan.objetivo} disabled resize="vertical" rows={2} /></FormField>
-      <FormField label="Contenidos / temas"><Textarea value={plan.contenidos} disabled resize="vertical" rows={2} /></FormField>
-      <FieldRow>
-        <FormField label="Audiencia"><Input value={plan.audiencia} disabled /></FormField>
-        <FormField label="Recursos"><Input value={plan.recursos} disabled /></FormField>
-      </FieldRow>
-      <FormField label="Estrategia / metodología"><Textarea value={plan.estrategia} disabled resize="vertical" rows={2} /></FormField>
-      <FormField label="Evaluación / resultados esperados"><Textarea value={plan.evaluacion} disabled resize="vertical" rows={2} /></FormField>
-      <Text weight="semibold" size={300} block style={{ marginTop: '4px' }}>Desarrollo del plan</Text>
+    <div className={styles.report}>
+      <Text size={400} weight="bold" block>Plan de la actividad</Text>
+      <Text size={200} block style={{ color: 'var(--texto-suave)', marginBottom: '12px' }}>
+        {cronograma ? `${cronograma} · ` : ''}{periodName ? `${periodName} · ` : ''}{monthLabel ? `Mes: ${monthLabel} · ` : ''}{activity ? `Actividad: ${activity}` : ''}{(day || time) ? ` · ${day ?? ''} ${time ?? ''}` : ''}
+      </Text>
+      {data.map(([label, value]) => (
+        <div key={label} style={{ marginBottom: '8px' }}>
+          <Text size={200} weight="semibold" block style={{ color: 'var(--texto-suave)' }}>{label}</Text>
+          <Text size={300} block>{value}</Text>
+        </div>
+      ))}
+      <Text weight="semibold" size={300} block style={{ marginTop: '10px' }}>Desarrollo del plan</Text>
       <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '6px' }}>
         {PHASE_META.map((p) => (
           <Card key={p.key} className={styles.planPhase}>
@@ -162,6 +186,12 @@ function PlanDetails({ plan }: { plan: ActivityPlan }) {
             <Text size={300} block>{plan[p.key].detalle}</Text>
           </Card>
         ))}
+      </div>
+      <Text weight="semibold" size={300} block style={{ marginTop: '20px' }}>Firmas</Text>
+      <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap', marginTop: '22px' }}>
+        {firma(plan.firmantes?.acompanado, 'El acompañado / participante')}
+        {firma(plan.firmantes?.ofrece ?? plan.generadoPor, 'Quien ofrece el acompañamiento/capacitación')}
+        {firma(plan.firmantes?.directivo, 'Director/a o Coordinador/a Pedagógico/a')}
       </div>
     </div>
   )
@@ -181,7 +211,8 @@ export function CronogramaTrabajoPage() {
   const [viewing, setViewing] = useState<WorkCronograma | null>(null)
   const [printDoc, setPrintDoc] = useState<WorkCronograma | null>(null)
   const [planFor, setPlanFor] = useState<{ entryId: string; activity: string; day: string; time: string } | null>(null)
-  const [planView, setPlanView] = useState<{ entry: WorkPlanEntry; cronograma: string } | null>(null)
+  const [planView, setPlanView] = useState<{ entry: WorkPlanEntry; crono: WorkCronograma } | null>(null)
+  const [planPrint, setPlanPrint] = useState<{ entry: WorkPlanEntry; crono: WorkCronograma } | null>(null)
   const [planGenerating, setPlanGenerating] = useState(false)
   const [solicitante, setSolicitante] = useState('')
   const [rolSolicitante, setRolSolicitante] = useState('Coordinador TIC')
@@ -191,6 +222,9 @@ export function CronogramaTrabajoPage() {
   const [estrategia, setEstrategia] = useState('')
   const [recursos, setRecursos] = useState('')
   const [evaluacion, setEvaluacion] = useState('')
+  const [firmaAcompanado, setFirmaAcompanado] = useState('')
+  const [firmaOfrece, setFirmaOfrece] = useState('')
+  const [firmaDirectivo, setFirmaDirectivo] = useState('')
 
   // Elimina períodos de prueba y garantiza los cinco años escolares estándar.
   useEffect(() => {
@@ -279,6 +313,7 @@ export function CronogramaTrabajoPage() {
   }
 
   const printCronograma = (c: WorkCronograma) => {
+    setPlanPrint(null)
     setPrintDoc(c)
     setTimeout(() => window.print(), 60)
   }
@@ -287,6 +322,9 @@ export function CronogramaTrabajoPage() {
     setPlanFor({ entryId: e.id, activity: e.activity, day: e.day, time: e.time })
     setSolicitante(user?.displayName ?? '')
     setRolSolicitante('Coordinador TIC')
+    setFirmaAcompanado('')
+    setFirmaOfrece(user?.displayName ?? '')
+    setFirmaDirectivo('')
 
     const norm = normalize(e.activity)
     const isCap = norm.startsWith('capacitacion')
@@ -331,8 +369,14 @@ export function CronogramaTrabajoPage() {
     )
   }
 
-  const openPlanView = (e: WorkPlanEntry, cronograma: string) => {
-    setPlanView({ entry: e, cronograma })
+  const openPlanView = (e: WorkPlanEntry, crono: WorkCronograma) => {
+    setPlanView({ entry: e, crono })
+  }
+
+  const printPlan = (v: { entry: WorkPlanEntry; crono: WorkCronograma }) => {
+    setPrintDoc(null)
+    setPlanPrint(v)
+    setTimeout(() => window.print(), 60)
   }
 
   const generarPlan = async () => {
@@ -370,6 +414,7 @@ export function CronogramaTrabajoPage() {
         inicio: phases.inicio,
         desarrollo: phases.desarrollo,
         cierre: phases.cierre,
+        firmantes: { acompanado: firmaAcompanado.trim(), ofrece: firmaOfrece.trim(), directivo: firmaDirectivo.trim() },
         generadoPor: user?.displayName,
         createdAt: new Date().toISOString(),
       }
@@ -381,7 +426,7 @@ export function CronogramaTrabajoPage() {
       setViewing(updated)
       const entry = updated.entries.find((x) => x.id === planFor.entryId)
       setPlanFor(null)
-      if (entry) setPlanView({ entry, cronograma: updated.title })
+      if (entry) setPlanView({ entry, crono: updated })
       toaster.dispatchToast('Plan de la actividad generado con IA.', { intent: 'success' })
     } catch (error) {
       toaster.dispatchToast(`No se pudo generar: ${error instanceof Error ? error.message : 'error'}`, { intent: 'error' })
@@ -405,8 +450,8 @@ export function CronogramaTrabajoPage() {
       <style>{`
         @media print {
           body * { visibility: hidden !important; }
-          #cronograma-print, #cronograma-print * { visibility: visible !important; }
-          #cronograma-print { display: block !important; position: absolute; left: 0; top: 0; width: 100%; z-index: 99999; }
+          #cronograma-print, #cronograma-print *, #plan-print, #plan-print * { visibility: visible !important; }
+          #cronograma-print, #plan-print { display: block !important; position: absolute; left: 0; top: 0; width: 100%; z-index: 99999; }
         }
       `}</style>
 
@@ -570,7 +615,7 @@ export function CronogramaTrabajoPage() {
           </>
         }
       >
-        {viewing && <CronogramaView c={viewing} onPlan={openPlanForm} onViewPlan={(e) => openPlanView(e, viewing.title)} aiReady={aiReady} />}
+        {viewing && <CronogramaView c={viewing} onPlan={openPlanForm} onViewPlan={(e) => openPlanView(e, viewing)} aiReady={aiReady} />}
       </ModalForm>
 
       {/* -------- Generar plan de la actividad con IA -------- */}
@@ -624,6 +669,18 @@ export function CronogramaTrabajoPage() {
                 <Textarea value={evaluacion} onChange={(_, d) => setEvaluacion(d.value)} resize="vertical" rows={2} placeholder="Ej. lista de cotejo, participación, producto final…" />
               </FormField>
             </FieldRow>
+            <Text weight="semibold" size={300} block style={{ marginTop: '4px' }}>Firmas del plan</Text>
+            <FieldRow>
+              <FormField label="Nombre del acompañado / participante">
+                <Input value={firmaAcompanado} onChange={(_, d) => setFirmaAcompanado(d.value)} placeholder="Quien recibe el acompañamiento" />
+              </FormField>
+              <FormField label="Nombre de quien ofrece el acompañamiento">
+                <Input value={firmaOfrece} onChange={(_, d) => setFirmaOfrece(d.value)} placeholder="Quien imparte la capacitación/acompañamiento" />
+              </FormField>
+            </FieldRow>
+            <FormField label="Nombre del director/a o coordinador/a pedagógico/a">
+              <Input value={firmaDirectivo} onChange={(_, d) => setFirmaDirectivo(d.value)} placeholder="Director/a o coordinador/a pedagógico/a del centro" />
+            </FormField>
           </div>
         )}
       </ModalForm>
@@ -634,16 +691,41 @@ export function CronogramaTrabajoPage() {
         onOpenChange={(o) => { if (!o) setPlanView(null) }}
         title="Plan de la actividad"
         subtitle={planView ? `${planView.entry.day} · ${planView.entry.time} · ${planView.entry.activity}` : undefined}
-        width={760}
+        width={820}
         actions={
           <>
             <Button appearance="secondary" icon={<EditRegular />} onClick={() => { const e = planView?.entry; if (e) { setPlanView(null); openPlanForm(e) } }}>Regenerar</Button>
+            <Button appearance="secondary" icon={<DocumentPdfRegular />} onClick={() => planView && printPlan(planView)}>Guardar PDF</Button>
             <Button appearance="primary" onClick={() => setPlanView(null)}>Cerrar</Button>
           </>
         }
       >
-        {planView?.entry.plan && <PlanDetails plan={planView.entry.plan} />}
+        {planView?.entry.plan && (
+          <PlanDetails
+            plan={planView.entry.plan}
+            activity={planView.entry.activity}
+            day={planView.entry.day}
+            time={planView.entry.time}
+            cronograma={planView.crono.title}
+            periodName={planView.crono.periodName}
+            monthLabel={planView.crono.monthLabel}
+          />
+        )}
       </ModalForm>
+
+      {planPrint?.entry.plan && (
+        <div id="plan-print" className={styles.printBlock}>
+          <PlanDetails
+            plan={planPrint.entry.plan}
+            activity={planPrint.entry.activity}
+            day={planPrint.entry.day}
+            time={planPrint.entry.time}
+            cronograma={planPrint.crono.title}
+            periodName={planPrint.crono.periodName}
+            monthLabel={planPrint.crono.monthLabel}
+          />
+        </div>
+      )}
     </div>
   )
 }
