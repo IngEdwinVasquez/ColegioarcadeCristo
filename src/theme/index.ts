@@ -36,6 +36,27 @@ lightTheme.fontFamilyMonospace = "'JetBrains Mono', 'Cascadia Code', Consolas, m
 darkTheme.fontFamilyBase = FONT
 darkTheme.fontFamilyMonospace = lightTheme.fontFamilyMonospace
 
+/* --- Pulido de marca para botones/acciones (primario) y formas redondeadas --- */
+const branding: Array<[keyof Theme, string]> = [
+  ['colorBrandBackground', '#0082AD'],
+  ['colorBrandBackgroundHover', '#00769E'],
+  ['colorBrandBackgroundPressed', '#00688B'],
+  ['colorBrandBackgroundSelected', '#00688B'],
+  ['colorCompoundBrandBackground', '#0082AD'],
+  ['colorCompoundBrandBackgroundHover', '#00769E'],
+  ['colorCompoundBrandBackgroundPressed', '#00688B'],
+  ['colorCompoundBrandStroke', '#0082AD'],
+  ['colorBrandStroke1', '#0082AD'],
+  ['colorBrandForegroundLink', '#00688B'],
+  ['borderRadiusMedium', '10px'],
+  ['borderRadiusLarge', '12px'],
+  ['borderRadiusXLarge', '16px'],
+]
+for (const [token, value] of branding) {
+  lightTheme[token] = value as never
+  darkTheme[token] = value as never
+}
+
 /** Paleta institucional: cian y rojo de la fachada; negro, dorado oliva y vino del escudo. */
 export const institutionalColors = {
   azul: '#0082AD',
