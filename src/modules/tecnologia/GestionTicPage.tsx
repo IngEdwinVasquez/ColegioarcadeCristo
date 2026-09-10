@@ -8,6 +8,7 @@ import {
   ImageRegular, NoteAddRegular, OpenRegular, PrintRegular, SparkleRegular, CloudArrowUpRegular,
 } from '@fluentui/react-icons'
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RTooltip, PieChart, Pie, Cell, Legend } from 'recharts'
+import { CronogramaTrabajoPage } from './CronogramaTrabajoPage'
 import { PageHeader } from '../../components/shared/PageHeader'
 import { ModalForm } from '../../components/shared/ModalForm'
 import { FormField, FieldRow } from '../../components/shared/form'
@@ -336,6 +337,7 @@ export function GestionTicPage() {
       <TabList selectedValue={tab} onTabSelect={(_, d) => setTab(String(d.value))} style={{ marginBottom: '16px' }}>
         <Tab value="plan">Plan de trabajo ({col.items.length})</Tab>
         <Tab value="horario">Horario semanal ({horCol.items.length})</Tab>
+        <Tab value="cronograma">Cronograma de trabajo</Tab>
         <Tab value="dashboard">Dashboard</Tab>
         <Tab value="informe">Informes</Tab>
       </TabList>
@@ -448,6 +450,8 @@ export function GestionTicPage() {
           ))}
         </>
       )}
+
+      {tab === 'cronograma' && <CronogramaTrabajoPage embedded />}
 
       {tab === 'dashboard' && (
         <>

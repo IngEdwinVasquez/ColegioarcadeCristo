@@ -317,7 +317,7 @@ function ReportPrint({ entry, crono, plan, images }: {
   )
 }
 
-export function CronogramaTrabajoPage() {
+export function CronogramaTrabajoPage({ embedded = false }: { embedded?: boolean } = {}) {
   const styles = useStyles()
   const toaster = useToastController()
   const { user } = useApp()
@@ -728,10 +728,12 @@ export function CronogramaTrabajoPage() {
         .pp-sign-date { color: #666; font-size: 7.3pt; }
       `}</style>
 
-      <PageHeader
-        title="Cronograma de trabajo"
-        subtitle="Actividades de acompañamiento y capacitación del horario semanal, organizadas por mes dentro del período educativo."
-      />
+      {!embedded && (
+        <PageHeader
+          title="Cronograma de trabajo"
+          subtitle="Actividades de acompañamiento y capacitación del horario semanal, organizadas por mes dentro del período educativo."
+        />
+      )}
 
       <div className={styles.filters}>
         <FormField label="Período educativo">
