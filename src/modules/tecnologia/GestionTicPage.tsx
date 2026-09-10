@@ -181,7 +181,7 @@ export function GestionTicPage() {
     id: genId('tic'),
     title: '',
     description: '',
-    scope: 'mensual',
+    scope: (scopeFilter as TicScope) || 'mensual',
     category: 'plataforma',
     startDate: todayIso(),
     endDate: todayIso(),
