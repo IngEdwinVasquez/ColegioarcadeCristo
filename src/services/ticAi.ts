@@ -1,4 +1,4 @@
-import type { WeeklySchedule, TicActivity, TicScope, TicStage, PlanPhase } from '../types'
+import type { WeeklySchedule, TicActivity, TicScope, TicStage, PlanPhase, AnnualPlanDocument, AnnualPlanMonthItem } from '../types'
 import { genId, todayIso } from '../utils/helpers'
 
 const SCOPES: TicScope[] = ['anual', 'mensual', 'semanal']
@@ -68,6 +68,71 @@ Reglas:
 - Conserva el texto tal cual, sin inventar contenido.
 - Si el texto no parece un horario, devuelve rows vacío.
 - Responde ÚNICAMENTE el JSON, sin texto adicional.`
+
+export interface AnnualPlanDocInput {
+  institution?: string
+  responsable?: string
+  plans: Array<{ title: string; description?: string; category?: string; monthlyTopics?: Record<string, string> }>
+}
+
+const ANNUAL_DOC_PROMPT = `Eres el coordinador de Tecnología e Innovación (TIC) de un centro educativo dominicano.
+Recibes TODAS las planificaciones anuales registradas en el sistema (título, descripción/categoría y, si existe, el tema de cada mes).
+Debes analizarlas y consolidarlas en un único documento "Planificación Anual" en JSON válido con EXACTAMENTE esta estructura:
+
+{
+  "titulo": "Planificación Anual",
+  "presentacion": "párrafo de presentación del plan anual",
+  "objetivoGeneral": "objetivo general del plan anual",
+  "meses": [
+    { "mes": "Agosto", "tema": "tema del mes", "actividades": "actividades previstas del mes" }
+  ],
+  "evaluacion": "cómo se evaluará el plan anual",
+  "conclusion": "conclusión / cierre del plan"
+}
+
+Reglas:
+- Analiza y SINTETIZA la información de todas las planificaciones anuales recibidas; no inventes datos que las contradigan.
+- El arreglo "meses" debe cubrir, en orden, de Agosto a Junio. Si una planificación no especifica un mes, complétalo de forma coherente con el conjunto.
+- Redacta en español, claro y profesional, orientado a un centro educativo.
+- Responde ÚNICAMENTE el JSON, sin comentarios ni texto adicional.`
+
+/** Genera el documento "Planificación Anual" analizando todas las planificaciones anuales con IA. */
+export async function generateAnnualPlanDocumentWithAi(input: AnnualPlanDocInput): Promise<AnnualPlanDocument> {
+  const { aiChat, parseAiJson } = await import('./ai')
+  const detalle = input.plans
+    .map((p, i) => {
+      const meses = p.monthlyTopics
+        ? Object.entries(p.monthlyTopics).filter(([, v]) => v?.trim()).map(([m, v]) => `    - ${m}: ${v}`).join('\n')
+        : ''
+      return `PLAN ${i + 1}: ${p.title}\n  Categoría: ${p.category ?? '—'}\n  Descripción: ${p.description || '—'}${meses ? `\n  Temas por mes:\n${meses}` : ''}`
+    })
+    .join('\n\n')
+  const out = await aiChat(
+    [
+      { role: 'system', content: ANNUAL_DOC_PROMPT },
+      { role: 'user', content: `Centro: ${input.institution ?? 'Centro educativo'}\nResponsable: ${input.responsable ?? '—'}\n\nPLANIFICACIONES ANUALES:\n\n${detalle || '(sin planificaciones)'}` },
+    ],
+    { temperature: 0.4, jsonMode: true },
+  )
+  const parsed = parseAiJson<Record<string, unknown>>(out)
+  if (!parsed) throw new Error('La IA no devolvió un documento válido. Intente de nuevo.')
+  const str = (v: unknown, fallback = '') => (typeof v === 'string' ? v : fallback)
+  const meses: AnnualPlanMonthItem[] = Array.isArray(parsed.meses)
+    ? (parsed.meses as Array<Record<string, unknown>>)
+        .map((m) => ({ mes: str(m.mes).trim(), tema: str(m.tema).trim(), actividades: str(m.actividades).trim() }))
+        .filter((m) => m.mes)
+    : []
+  return {
+    titulo: str(parsed.titulo, 'Planificación Anual').trim() || 'Planificación Anual',
+    presentacion: str(parsed.presentacion),
+    objetivoGeneral: str(parsed.objetivoGeneral),
+    meses,
+    evaluacion: str(parsed.evaluacion),
+    conclusion: str(parsed.conclusion),
+    generadoPor: input.responsable,
+    createdAt: new Date().toISOString(),
+  }
+}
 
 export interface ActivityPlanInput {
   activity: string

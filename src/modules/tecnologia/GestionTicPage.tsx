@@ -21,12 +21,12 @@ import { useCollection } from '../../hooks/useCollection'
 import { uploadAndShare } from '../../services/onedrive'
 import { graphRequest, graphErrorMessage } from '../../services/graph'
 import { extractPdfText } from '../../services/pdf'
-import { generateTicPlanWithAi, parseWeeklySchedulePdf } from '../../services/ticAi'
+import { generateTicPlanWithAi, generateAnnualPlanDocumentWithAi, parseWeeklySchedulePdf } from '../../services/ticAi'
 import { isAiConfigured } from '../../services/ai'
 import { appConfig } from '../../config/appConfig'
 import { formatDate, genId, monthLabel, pct, todayIso } from '../../utils/helpers'
 import { gradientes } from '../../theme'
-import type { TicActivity, TicCategoryItem, TicScope, TicStage, TicStatus, WeeklySchedule } from '../../types'
+import type { AnnualPlanDocument, TicActivity, TicCategoryItem, TicScope, TicStage, TicStatus, WeeklySchedule } from '../../types'
 
 const WEEK_DAYS = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes']
 
@@ -110,6 +110,8 @@ export function GestionTicPage() {
   const [horarioGenerating, setHorarioGenerating] = useState(false)
   const horarioFileRef = useRef<HTMLInputElement>(null)
   const [editHorario, setEditHorario] = useState<WeeklySchedule | null>(null)
+  const [annualDoc, setAnnualDoc] = useState<AnnualPlanDocument | null>(null)
+  const [annualGenerating, setAnnualGenerating] = useState(false)
 
   /** Extrae el texto del PDF de horario y lo convierte a estructura semanal. */
   const onHorarioPdf = async (file: File | undefined) => {
@@ -139,6 +141,86 @@ export function GestionTicPage() {
     setEditHorario(null)
   }
 
+  /** Genera con IA la "Planificación Anual" a partir de todas las planificaciones anuales. */
+  const generarPlanificacionAnual = async () => {
+    if (annualItems.length === 0) {
+      toaster.dispatchToast('No hay planificaciones anuales para analizar.', { intent: 'warning' })
+      return
+    }
+    setAnnualGenerating(true)
+    try {
+      const doc = await generateAnnualPlanDocumentWithAi({
+        institution: appConfig.institution,
+        responsable: user?.displayName,
+        plans: annualItems.map((a) => ({ title: a.title, description: a.description, category: catName(a.category), monthlyTopics: a.monthlyTopics })),
+      })
+      setAnnualDoc(doc)
+      toaster.dispatchToast('Planificación Anual generada. Revísela y guárdela en PDF.', { intent: 'success' })
+    } catch (error) {
+      toaster.dispatchToast(`No se pudo generar: ${error instanceof Error ? error.message : 'error'}`, { intent: 'error' })
+    } finally {
+      setAnnualGenerating(false)
+    }
+  }
+
+  const escapeHtml = (s: string) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c] as string))
+
+  /** Abre una ventana con el documento y lanza "Guardar PDF" con el nombre "Planificación Anual". */
+  const imprimirPlanificacionAnual = (doc: AnnualPlanDocument) => {
+    const meses = doc.meses.length
+      ? doc.meses
+      : ANNUAL_MONTHS.map((m) => ({ mes: m, tema: '', actividades: '' }))
+    const filas = meses
+      .map(
+        (m) =>
+          `<tr><td class="mes">${escapeHtml(m.mes)}</td><td>${escapeHtml(m.tema || '—')}${
+            m.actividades ? `<div class="act">${escapeHtml(m.actividades)}</div>` : ''
+          }</td></tr>`,
+      )
+      .join('')
+    const html = `<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Planificación Anual</title>
+      <style>
+        *{box-sizing:border-box}
+        body{font-family:'Segoe UI',Arial,sans-serif;color:#111;margin:18mm;font-size:11pt;line-height:1.4}
+        h1{font-size:20pt;margin:0 0 2px}
+        .sub{color:#555;font-size:9pt;margin-bottom:14px}
+        h2{font-size:12.5pt;margin:14px 0 4px;border-bottom:1px solid #ccc;padding-bottom:2px}
+        p{margin:0 0 8px;white-space:pre-wrap}
+        table{width:100%;border-collapse:collapse;margin-top:4px}
+        th,td{border:1px solid #999;padding:5px 8px;vertical-align:top;text-align:left;font-size:10pt}
+        th{background:#eef2f5}
+        td.mes{width:24%;font-weight:600}
+        .act{color:#333;font-size:9pt;margin-top:2px}
+        .signs{display:flex;gap:18px;margin-top:34px}
+        .sign{flex:1;text-align:center;font-size:8.5pt}
+        .line{border-bottom:1px solid #000;height:30px;margin-bottom:3px}
+        @page{size:A4 portrait;margin:12mm}
+      </style></head><body>
+        <h1>${escapeHtml(doc.titulo || 'Planificación Anual')}</h1>
+        <div class="sub">${escapeHtml(appConfig.institution)}${doc.generadoPor ? ` · ${escapeHtml(doc.generadoPor)}` : ''} · ${escapeHtml(new Date().toLocaleDateString('es-DO'))}</div>
+        ${doc.presentacion ? `<h2>Presentación</h2><p>${escapeHtml(doc.presentacion)}</p>` : ''}
+        ${doc.objetivoGeneral ? `<h2>Objetivo general</h2><p>${escapeHtml(doc.objetivoGeneral)}</p>` : ''}
+        <h2>Planificación por mes</h2>
+        <table><thead><tr><th>Mes</th><th>Tema / actividades</th></tr></thead><tbody>${filas}</tbody></table>
+        ${doc.evaluacion ? `<h2>Evaluación</h2><p>${escapeHtml(doc.evaluacion)}</p>` : ''}
+        ${doc.conclusion ? `<h2>Conclusión</h2><p>${escapeHtml(doc.conclusion)}</p>` : ''}
+        <div class="signs">
+          <div class="sign"><div class="line"></div>${escapeHtml(user?.displayName ?? '')}<div>Coordinador/a TIC</div></div>
+          <div class="sign"><div class="line"></div>&nbsp;<div>Dirección del centro</div></div>
+        </div>
+      </body></html>`
+    const w = window.open('', '_blank')
+    if (!w) {
+      toaster.dispatchToast('Permita las ventanas emergentes para generar el PDF.', { intent: 'warning' })
+      return
+    }
+    w.document.open()
+    w.document.write(html)
+    w.document.close()
+    w.focus()
+    setTimeout(() => w.print(), 400)
+  }
+
   // Preselecciona la primera categoría cuando se cargan.
   useEffect(() => {
     if (catCol.items.length && !aiCategory) setAiCategory(catCol.items[0].id)
@@ -152,6 +234,8 @@ export function GestionTicPage() {
         .sort((a, b) => (a.startDate < b.startDate ? -1 : 1)),
     [col.items, scopeFilter, stageFilter, statusFilter],
   )
+
+  const annualItems = useMemo(() => col.items.filter((a) => a.scope === 'anual'), [col.items])
 
   const stats = useMemo(() => {
     const total = col.items.length
@@ -368,6 +452,17 @@ export function GestionTicPage() {
               <option value="">Todos los estados</option>
               {(Object.keys(STATUS_LABELS) as TicStatus[]).map((st) => <option key={st} value={st}>{STATUS_LABELS[st]}</option>)}
             </Select>
+          </div>
+
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '12px' }}>
+            <Button
+              appearance="secondary"
+              icon={annualGenerating ? <Spinner size="tiny" /> : <SparkleRegular />}
+              onClick={() => void generarPlanificacionAnual()}
+              disabled={annualGenerating || !isAiConfigured() || annualItems.length === 0}
+            >
+              {annualGenerating ? 'Generando…' : 'Generar Planificación Anual (PDF)'}
+            </Button>
           </div>
 
           <Table aria-label="Plan de trabajo TIC">
@@ -789,6 +884,65 @@ export function GestionTicPage() {
               <Button appearance="subtle" icon={<AddRegular />} onClick={() => setRows([...editHorario.rows, { time: '', cells: ['', '', '', '', ''] }])}>Añadir fila</Button>
               <Button appearance="primary" icon={<NoteAddRegular />} onClick={() => void guardarHorario()} disabled={horCol.saving}>{horCol.saving ? 'Guardando…' : 'Guardar horario'}</Button>
             </div>
+          </div>
+        )}
+      </ModalForm>
+
+      {/* -------- Planificación Anual generada con IA -------- */}
+      <ModalForm
+        open={!!annualDoc}
+        onOpenChange={(o) => { if (!o) setAnnualDoc(null) }}
+        title={annualDoc?.titulo || 'Planificación Anual'}
+        subtitle={`Generado con IA a partir de ${annualItems.length} planificación(es) anual(es)`}
+        width={860}
+        actions={
+          <>
+            <Button appearance="secondary" icon={annualGenerating ? <Spinner size="tiny" /> : <SparkleRegular />} onClick={() => void generarPlanificacionAnual()} disabled={annualGenerating}>
+              Regenerar
+            </Button>
+            <Button appearance="secondary" icon={<DocumentPdfRegular />} onClick={() => annualDoc && imprimirPlanificacionAnual(annualDoc)}>Guardar PDF</Button>
+            <Button appearance="primary" onClick={() => setAnnualDoc(null)}>Cerrar</Button>
+          </>
+        }
+      >
+        {annualDoc && (
+          <div>
+            <Text size={200} block style={{ color: 'var(--texto-suave)', marginBottom: '10px' }}>
+              {appConfig.institution}{annualDoc.generadoPor ? ` · ${annualDoc.generadoPor}` : ''} · {formatDate(todayIso())}
+            </Text>
+            {annualDoc.presentacion && (
+              <FormField label="Presentación"><Text size={300} block style={{ whiteSpace: 'pre-wrap' }}>{annualDoc.presentacion}</Text></FormField>
+            )}
+            {annualDoc.objetivoGeneral && (
+              <FormField label="Objetivo general"><Text size={300} block style={{ whiteSpace: 'pre-wrap' }}>{annualDoc.objetivoGeneral}</Text></FormField>
+            )}
+            <FormField label="Planificación por mes">
+              <Table aria-label="Planificación por mes" size="small">
+                <TableHeader>
+                  <TableRow>
+                    <TableHeaderCell>Mes</TableHeaderCell>
+                    <TableHeaderCell>Tema / actividades</TableHeaderCell>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {(annualDoc.meses.length ? annualDoc.meses : ANNUAL_MONTHS.map((m) => ({ mes: m, tema: '', actividades: '' }))).map((m, i) => (
+                    <TableRow key={`${m.mes}-${i}`}>
+                      <TableCell><Text weight="semibold">{m.mes}</Text></TableCell>
+                      <TableCell>
+                        {m.tema && <Text size={300} block>{m.tema}</Text>}
+                        {m.actividades && <Text size={200} block style={{ color: 'var(--texto-suave)' }}>{m.actividades}</Text>}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </FormField>
+            {annualDoc.evaluacion && (
+              <FormField label="Evaluación"><Text size={300} block style={{ whiteSpace: 'pre-wrap' }}>{annualDoc.evaluacion}</Text></FormField>
+            )}
+            {annualDoc.conclusion && (
+              <FormField label="Conclusión"><Text size={300} block style={{ whiteSpace: 'pre-wrap' }}>{annualDoc.conclusion}</Text></FormField>
+            )}
           </div>
         )}
       </ModalForm>
