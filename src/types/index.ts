@@ -603,6 +603,35 @@ export interface Accompaniment {
 
 // ------------------------------ Cronograma de trabajo (Gestión TIC) ------------------------------
 
+/** Momento del plan de una actividad (con duración y detalle). */
+export interface PlanPhase {
+  /** Duración del momento, ej. "10 min". */
+  duracion: string
+  detalle: string
+}
+
+/**
+ * Plan de una actividad del cronograma generado con IA. Se compone de tres
+ * momentos (inicio, desarrollo, cierre) con su duración y detalle.
+ */
+export interface ActivityPlan {
+  id: string
+  /** Persona que solicitó / llenó el formulario */
+  solicitante: string
+  rolSolicitante?: string
+  objetivo: string
+  contenidos: string
+  audiencia: string
+  estrategia: string
+  recursos: string
+  evaluacion: string
+  inicio: PlanPhase
+  desarrollo: PlanPhase
+  cierre: PlanPhase
+  generadoPor?: string
+  createdAt: string
+}
+
 /**
  * Fila del cronograma mensual: una actividad (acompañamiento / capacitación)
  * del horario semanal, conservando el día y la hora planificada.
@@ -616,6 +645,8 @@ export interface WorkPlanEntry {
   /** Texto de la actividad (inicia con «Acompañamiento» o «Capacitación») */
   activity: string
   responsable?: string
+  /** Plan de la actividad generado con IA */
+  plan?: ActivityPlan
 }
 
 /**

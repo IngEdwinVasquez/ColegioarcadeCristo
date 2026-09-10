@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
-  Badge, Button, Select, Spinner, Table, TableBody, TableCell, TableHeader, TableHeaderCell,
+  Badge, Button, Card, Select, Spinner, Table, TableBody, TableCell, TableHeader, TableHeaderCell,
   TableRow, Text, Textarea, Input, Toolbar, ToolbarButton, useToastController, makeStyles,
 } from '@fluentui/react-components'
 import {
@@ -14,8 +14,10 @@ import { EmptyStateView } from '../../components/shared/EmptyStateView'
 import { useApp } from '../../context/useApp'
 import { dataService } from '../../services/dataService'
 import { useCollection } from '../../hooks/useCollection'
+import { generateActivityPlanWithAi } from '../../services/ticAi'
+import { isAiConfigured } from '../../services/ai'
 import { formatDate, genId, monthLabel, monthsBetween, todayIso } from '../../utils/helpers'
-import type { Period, WeeklySchedule, WorkCronograma, WorkPlanEntry } from '../../types'
+import type { ActivityPlan, Period, WeeklySchedule, WorkCronograma, WorkPlanEntry } from '../../types'
 
 const WEEK_DAYS = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes']
 
@@ -58,10 +60,20 @@ const useStyles = makeStyles({
   card: { padding: '14px', display: 'flex', flexDirection: 'column', gap: '10px' },
   report: { background: '#fff', border: '1px solid var(--borde)', borderRadius: '12px', padding: '24px', maxWidth: '900px', marginTop: '16px' },
   printBlock: { display: 'none' },
+  planPhase: { padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: '6px' },
 })
 
-function CronogramaView({ c }: { c: WorkCronograma }) {
+interface CronogramaViewProps {
+  c: WorkCronograma
+  onPlan?: (e: WorkPlanEntry) => void
+  onViewPlan?: (e: WorkPlanEntry) => void
+  aiReady?: boolean
+}
+
+function CronogramaView({ c, onPlan, onViewPlan, aiReady }: CronogramaViewProps) {
   const styles = useStyles()
+  const showPlan = !!(onPlan || onViewPlan)
+  const cols = showPlan ? 6 : 5
   return (
     <div className={styles.report}>
       <Text size={400} weight="bold" block>{c.title}</Text>
@@ -76,12 +88,13 @@ function CronogramaView({ c }: { c: WorkCronograma }) {
             <TableHeaderCell>Hora</TableHeaderCell>
             <TableHeaderCell>Actividad</TableHeaderCell>
             <TableHeaderCell>Responsable</TableHeaderCell>
+            {showPlan && <TableHeaderCell>Plan</TableHeaderCell>}
           </TableRow>
         </TableHeader>
         <TableBody>
           {c.entries.length === 0 && (
             <TableRow>
-              <TableCell colSpan={5}>
+              <TableCell colSpan={cols}>
                 <Text size={300} style={{ color: 'var(--texto-suave)' }}>No hay actividades de acompañamiento o capacitación para este mes.</Text>
               </TableCell>
             </TableRow>
@@ -93,6 +106,18 @@ function CronogramaView({ c }: { c: WorkCronograma }) {
               <TableCell><Text weight="semibold">{e.time}</Text></TableCell>
               <TableCell>{e.activity}</TableCell>
               <TableCell>{e.responsable ?? '—'}</TableCell>
+              {showPlan && (
+                <TableCell>
+                  {e.plan ? (
+                    <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                      <Button size="small" appearance="subtle" icon={<SparkleRegular />} onClick={() => onViewPlan?.(e)}>Ver plan</Button>
+                      <Button size="small" appearance="subtle" icon={<EditRegular />} onClick={() => onPlan?.(e)}>Regenerar</Button>
+                    </div>
+                  ) : (
+                    <Button size="small" appearance="subtle" icon={<SparkleRegular />} disabled={!aiReady} onClick={() => onPlan?.(e)}>Generar plan</Button>
+                  )}
+                </TableCell>
+              )}
             </TableRow>
           ))}
         </TableBody>
@@ -100,6 +125,44 @@ function CronogramaView({ c }: { c: WorkCronograma }) {
       {c.observations && (
         <Text size={300} block style={{ marginTop: '12px' }}><strong>Observaciones:</strong> {c.observations}</Text>
       )}
+    </div>
+  )
+}
+
+const PHASE_META: Array<{ key: 'inicio' | 'desarrollo' | 'cierre'; label: string; color: string }> = [
+  { key: 'inicio', label: 'Inicio', color: '#0095C8' },
+  { key: 'desarrollo', label: 'Desarrollo', color: '#EA580C' },
+  { key: 'cierre', label: 'Cierre', color: '#15803D' },
+]
+
+function PlanDetails({ plan }: { plan: ActivityPlan }) {
+  const styles = useStyles()
+  return (
+    <div>
+      <FieldRow>
+        <FormField label="Solicitante"><Input value={plan.solicitante} disabled /></FormField>
+        <FormField label="Rol"><Input value={plan.rolSolicitante ?? ''} disabled /></FormField>
+      </FieldRow>
+      <FormField label="Objetivo de la actividad"><Textarea value={plan.objetivo} disabled resize="vertical" rows={2} /></FormField>
+      <FormField label="Contenidos / temas"><Textarea value={plan.contenidos} disabled resize="vertical" rows={2} /></FormField>
+      <FieldRow>
+        <FormField label="Audiencia"><Input value={plan.audiencia} disabled /></FormField>
+        <FormField label="Recursos"><Input value={plan.recursos} disabled /></FormField>
+      </FieldRow>
+      <FormField label="Estrategia / metodología"><Textarea value={plan.estrategia} disabled resize="vertical" rows={2} /></FormField>
+      <FormField label="Evaluación / resultados esperados"><Textarea value={plan.evaluacion} disabled resize="vertical" rows={2} /></FormField>
+      <Text weight="semibold" size={300} block style={{ marginTop: '4px' }}>Desarrollo del plan</Text>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '6px' }}>
+        {PHASE_META.map((p) => (
+          <Card key={p.key} className={styles.planPhase}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Badge appearance="filled" style={{ background: p.color, color: '#fff' }}>{p.label}</Badge>
+              <Text size={300} weight="semibold">{plan[p.key].duracion || 'Sin tiempo'}</Text>
+            </div>
+            <Text size={300} block>{plan[p.key].detalle}</Text>
+          </Card>
+        ))}
+      </div>
     </div>
   )
 }
@@ -117,6 +180,17 @@ export function CronogramaTrabajoPage() {
   const [editing, setEditing] = useState<WorkCronograma | null>(null)
   const [viewing, setViewing] = useState<WorkCronograma | null>(null)
   const [printDoc, setPrintDoc] = useState<WorkCronograma | null>(null)
+  const [planFor, setPlanFor] = useState<{ entryId: string; activity: string; day: string; time: string } | null>(null)
+  const [planView, setPlanView] = useState<{ entry: WorkPlanEntry; cronograma: string } | null>(null)
+  const [planGenerating, setPlanGenerating] = useState(false)
+  const [solicitante, setSolicitante] = useState('')
+  const [rolSolicitante, setRolSolicitante] = useState('Coordinador TIC')
+  const [objetivo, setObjetivo] = useState('')
+  const [contenidos, setContenidos] = useState('')
+  const [audiencia, setAudiencia] = useState('')
+  const [estrategia, setEstrategia] = useState('')
+  const [recursos, setRecursos] = useState('')
+  const [evaluacion, setEvaluacion] = useState('')
 
   // Elimina períodos de prueba y garantiza los cinco años escolares estándar.
   useEffect(() => {
@@ -159,6 +233,8 @@ export function CronogramaTrabajoPage() {
     () => (horarioId ? horCol.items.filter((h) => h.id === horarioId) : horCol.items),
     [horCol.items, horarioId],
   )
+
+  const aiReady = isAiConfigured()
 
   const cronoFor = (month: string) => cronoCol.items.find((c) => c.periodId === periodId && c.month === month)
 
@@ -205,6 +281,77 @@ export function CronogramaTrabajoPage() {
   const printCronograma = (c: WorkCronograma) => {
     setPrintDoc(c)
     setTimeout(() => window.print(), 60)
+  }
+
+  const openPlanForm = (e: WorkPlanEntry) => {
+    setPlanFor({ entryId: e.id, activity: e.activity, day: e.day, time: e.time })
+    setSolicitante(user?.displayName ?? '')
+    setRolSolicitante('Coordinador TIC')
+    setObjetivo('')
+    setContenidos('')
+    setAudiencia('')
+    setEstrategia('')
+    setRecursos('')
+    setEvaluacion('')
+  }
+
+  const openPlanView = (e: WorkPlanEntry, cronograma: string) => {
+    setPlanView({ entry: e, cronograma })
+  }
+
+  const generarPlan = async () => {
+    if (!planFor) return
+    if (!solicitante.trim() || !objetivo.trim()) {
+      toaster.dispatchToast('Complete al menos el solicitante y el objetivo.', { intent: 'error' })
+      return
+    }
+    setPlanGenerating(true)
+    try {
+      const phases = await generateActivityPlanWithAi({
+        activity: planFor.activity,
+        day: planFor.day,
+        time: planFor.time,
+        cronograma: viewing?.title ?? '',
+        solicitante: solicitante.trim(),
+        rolSolicitante,
+        objetivo: objetivo.trim(),
+        contenidos: contenidos.trim(),
+        audiencia: audiencia.trim(),
+        estrategia: estrategia.trim(),
+        recursos: recursos.trim(),
+        evaluacion: evaluacion.trim(),
+      })
+      const plan: ActivityPlan = {
+        id: genId('plan'),
+        solicitante: solicitante.trim(),
+        rolSolicitante,
+        objetivo: objetivo.trim(),
+        contenidos: contenidos.trim(),
+        audiencia: audiencia.trim(),
+        estrategia: estrategia.trim(),
+        recursos: recursos.trim(),
+        evaluacion: evaluacion.trim(),
+        inicio: phases.inicio,
+        desarrollo: phases.desarrollo,
+        cierre: phases.cierre,
+        generadoPor: user?.displayName,
+        createdAt: new Date().toISOString(),
+      }
+      const updated: WorkCronograma = {
+        ...viewing!,
+        entries: viewing!.entries.map((x) => (x.id === planFor.entryId ? { ...x, plan } : x)),
+      }
+      await cronoCol.save({ ...updated, updatedAt: new Date().toISOString() })
+      setViewing(updated)
+      const entry = updated.entries.find((x) => x.id === planFor.entryId)
+      setPlanFor(null)
+      if (entry) setPlanView({ entry, cronograma: updated.title })
+      toaster.dispatchToast('Plan de la actividad generado con IA.', { intent: 'success' })
+    } catch (error) {
+      toaster.dispatchToast(`No se pudo generar: ${error instanceof Error ? error.message : 'error'}`, { intent: 'error' })
+    } finally {
+      setPlanGenerating(false)
+    }
   }
 
   const setEditEntry = (idx: number, patch: Partial<WorkPlanEntry>) =>
@@ -387,7 +534,79 @@ export function CronogramaTrabajoPage() {
           </>
         }
       >
-        {viewing && <CronogramaView c={viewing} />}
+        {viewing && <CronogramaView c={viewing} onPlan={openPlanForm} onViewPlan={(e) => openPlanView(e, viewing.title)} aiReady={aiReady} />}
+      </ModalForm>
+
+      {/* -------- Generar plan de la actividad con IA -------- */}
+      <ModalForm
+        open={!!planFor}
+        onOpenChange={(o) => { if (!o) setPlanFor(null) }}
+        title="Generar plan de la actividad con IA"
+        subtitle={planFor ? `${planFor.day} · ${planFor.time} · ${planFor.activity}` : undefined}
+        width={720}
+        actions={
+          <>
+            <Button appearance="secondary" onClick={() => setPlanFor(null)}>Cancelar</Button>
+            <Button appearance="primary" icon={planGenerating ? <Spinner size="tiny" /> : <SparkleRegular />} onClick={() => void generarPlan()} disabled={planGenerating || !aiReady}>
+              {planGenerating ? 'Generando…' : 'Generar plan'}
+            </Button>
+          </>
+        }
+      >
+        {planFor && (
+          <div>
+            <Text size={300} block style={{ color: 'var(--texto-suave)', marginBottom: '10px' }}>
+              Complete el formulario de solicitud. Junto a la información de la actividad ({planFor.day} · {planFor.time}), la IA generará el plan con inicio, desarrollo y cierre.
+            </Text>
+            <FieldRow>
+              <FormField label="Solicitante" required>
+                <Input value={solicitante} onChange={(_, d) => setSolicitante(d.value)} placeholder="Nombre de quien solicita" />
+              </FormField>
+              <FormField label="Rol del solicitante">
+                <Select value={rolSolicitante} onChange={(_, d) => setRolSolicitante(d.value)}>
+                  {['Coordinador TIC', 'Coordinador pedagógico', 'Docente', 'Personal directivo', 'Otro'].map((r) => <option key={r} value={r}>{r}</option>)}
+                </Select>
+              </FormField>
+            </FieldRow>
+            <FormField label="Objetivo de la actividad" required>
+              <Textarea value={objetivo} onChange={(_, d) => setObjetivo(d.value)} resize="vertical" rows={2} placeholder="¿Qué se busca lograr con esta capacitación / acompañamiento?" />
+            </FormField>
+            <FormField label="Contenidos / temas a tratar">
+              <Textarea value={contenidos} onChange={(_, d) => setContenidos(d.value)} resize="vertical" rows={2} placeholder="Temas que se desarrollarán" />
+            </FormField>
+            <FormField label="Audiencia / destinatarios">
+              <Input value={audiencia} onChange={(_, d) => setAudiencia(d.value)} placeholder="Ej. Docentes de Primaria, estudiantes de 1ro. A, personal administrativo…" />
+            </FormField>
+            <FormField label="Estrategia / metodología sugerida">
+              <Textarea value={estrategia} onChange={(_, d) => setEstrategia(d.value)} resize="vertical" rows={2} placeholder="Ej. taller práctico, demostración, trabajo en equipos…" />
+            </FormField>
+            <FieldRow>
+              <FormField label="Recursos disponibles">
+                <Textarea value={recursos} onChange={(_, d) => setRecursos(d.value)} resize="vertical" rows={2} placeholder="Ej. computadoras, proyector, plataforma M365, materiales…" />
+              </FormField>
+              <FormField label="Cómo se evaluará / resultados esperados">
+                <Textarea value={evaluacion} onChange={(_, d) => setEvaluacion(d.value)} resize="vertical" rows={2} placeholder="Ej. lista de cotejo, participación, producto final…" />
+              </FormField>
+            </FieldRow>
+          </div>
+        )}
+      </ModalForm>
+
+      {/* -------- Ver / regenerar plan -------- */}
+      <ModalForm
+        open={!!planView}
+        onOpenChange={(o) => { if (!o) setPlanView(null) }}
+        title="Plan de la actividad"
+        subtitle={planView ? `${planView.entry.day} · ${planView.entry.time} · ${planView.entry.activity}` : undefined}
+        width={760}
+        actions={
+          <>
+            <Button appearance="secondary" icon={<EditRegular />} onClick={() => { const e = planView?.entry; if (e) { setPlanView(null); openPlanForm(e) } }}>Regenerar</Button>
+            <Button appearance="primary" onClick={() => setPlanView(null)}>Cerrar</Button>
+          </>
+        }
+      >
+        {planView?.entry.plan && <PlanDetails plan={planView.entry.plan} />}
       </ModalForm>
     </div>
   )
