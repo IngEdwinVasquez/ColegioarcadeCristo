@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { createPortal } from 'react-dom'
 import {
   Badge, Button, Card, Select, Spinner, Table, TableBody, TableCell, TableHeader, TableHeaderCell,
   TableRow, Text, Textarea, Input, Toolbar, ToolbarButton, useToastController, makeStyles,
@@ -59,7 +60,6 @@ const useStyles = makeStyles({
   filters: { display: 'flex', gap: '10px', flexWrap: 'wrap', marginBottom: '16px', alignItems: 'flex-end' },
   card: { padding: '14px', display: 'flex', flexDirection: 'column', gap: '10px' },
   report: { background: '#fff', border: '1px solid var(--borde)', borderRadius: '12px', padding: '24px', maxWidth: '900px', marginTop: '16px' },
-  printBlock: { display: 'none' },
   planPhase: { padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: '6px' },
 })
 
@@ -192,6 +192,66 @@ function PlanDetails({ plan, activity, day, time, cronograma, periodName, monthL
         {firma(plan.firmantes?.acompanado, 'El acompañado / participante')}
         {firma(plan.firmantes?.ofrece ?? plan.generadoPor, 'Quien ofrece el acompañamiento/capacitación')}
         {firma(plan.firmantes?.directivo, 'Director/a o Coordinador/a Pedagógico/a')}
+      </div>
+    </div>
+  )
+}
+
+function PlanPrint({ plan, activity, day, time, cronograma, periodName, monthLabel }: {
+  plan: ActivityPlan
+  activity?: string
+  day?: string
+  time?: string
+  cronograma?: string
+  periodName?: string
+  monthLabel?: string
+}) {
+  const rows: Array<[string, string]> = [
+    ['Solicitante', plan.solicitante],
+    ['Rol', plan.rolSolicitante ?? '—'],
+    ['Objetivo de la actividad', plan.objetivo],
+    ['Contenidos / temas', plan.contenidos || '—'],
+    ['Audiencia', plan.audiencia || '—'],
+    ['Recursos', plan.recursos || '—'],
+    ['Estrategia / metodología', plan.estrategia || '—'],
+    ['Evaluación / resultados esperados', plan.evaluacion || '—'],
+  ]
+  const signs: Array<[string | undefined, string]> = [
+    [plan.firmantes?.acompanado, 'El acompañado / participante'],
+    [plan.firmantes?.ofrece ?? plan.generadoPor, 'Quien ofrece el acompañamiento/capacitación'],
+    [plan.firmantes?.directivo, 'Director/a o Coordinador/a Pedagógico/a'],
+  ]
+  return (
+    <div className="pp">
+      <div className="pp-title">Plan de la actividad</div>
+      <div className="pp-sub">
+        {cronograma}{periodName ? ` · ${periodName}` : ''}{monthLabel ? ` · Mes: ${monthLabel}` : ''}{activity ? ` · Actividad: ${activity}` : ''}{(day || time) ? ` · ${day ?? ''} ${time ?? ''}` : ''}
+      </div>
+      <div className="pp-grid">
+        {rows.map(([label, value]) => (
+          <div className="pp-field" key={label}>
+            <div className="pp-label">{label}</div>
+            <div className="pp-value">{value}</div>
+          </div>
+        ))}
+      </div>
+      <div className="pp-section">Desarrollo del plan</div>
+      {PHASE_META.map((p) => (
+        <div className="pp-phase" key={p.key}>
+          <div className="pp-phase-head"><span>{p.label}</span><span>{plan[p.key].duracion || '—'}</span></div>
+          <div className="pp-phase-body">{plan[p.key].detalle}</div>
+        </div>
+      ))}
+      <div className="pp-section">Firmas</div>
+      <div className="pp-signs">
+        {signs.map(([nombre, label], i) => (
+          <div className="pp-sign" key={i}>
+            <div className="pp-sign-line" />
+            <div className="pp-sign-name">{nombre || '\u00A0'}</div>
+            <div className="pp-sign-label">{label}</div>
+            <div className="pp-sign-date">Fecha: ____ / ____ / ______</div>
+          </div>
+        ))}
       </div>
     </div>
   )
@@ -448,11 +508,30 @@ export function CronogramaTrabajoPage() {
   return (
     <div>
       <style>{`
+        @page { size: A4 portrait; margin: 10mm; }
+        #app-print-portal { display: none; }
         @media print {
-          body * { visibility: hidden !important; }
-          #cronograma-print, #cronograma-print *, #plan-print, #plan-print * { visibility: visible !important; }
-          #cronograma-print, #plan-print { display: block !important; position: absolute; left: 0; top: 0; width: 100%; z-index: 99999; }
+          html, body { margin: 0; padding: 0; background: #fff; }
+          body > *:not(#app-print-portal) { display: none !important; }
+          #app-print-portal { display: block !important; }
         }
+        .pp { color: #000; font-family: 'Segoe UI', Arial, sans-serif; font-size: 10.2pt; line-height: 1.24; }
+        .pp-title { font-size: 15pt; font-weight: 700; }
+        .pp-sub { font-size: 8.8pt; color: #444; margin-bottom: 6px; }
+        .pp-grid { display: grid; grid-template-columns: 1fr 1fr; column-gap: 14px; row-gap: 2px; }
+        .pp-field { break-inside: avoid; }
+        .pp-label { font-size: 7.8pt; font-weight: 700; text-transform: uppercase; color: #555; }
+        .pp-value { font-size: 9.8pt; }
+        .pp-section { font-size: 10.5pt; font-weight: 700; margin: 7px 0 4px; }
+        .pp-phase { border: 1px solid #999; border-radius: 4px; padding: 5px 8px; margin-bottom: 4px; break-inside: avoid; }
+        .pp-phase-head { display: flex; justify-content: space-between; font-weight: 700; font-size: 10pt; }
+        .pp-phase-body { font-size: 9.5pt; }
+        .pp-signs { display: flex; gap: 16px; margin-top: 22px; break-inside: avoid; }
+        .pp-sign { flex: 1; text-align: center; font-size: 8.3pt; }
+        .pp-sign-line { border-bottom: 1px solid #000; height: 30px; margin-bottom: 3px; }
+        .pp-sign-name { font-weight: 600; }
+        .pp-sign-label { color: #333; }
+        .pp-sign-date { color: #666; font-size: 7.3pt; }
       `}</style>
 
       <PageHeader
@@ -515,7 +594,23 @@ export function CronogramaTrabajoPage() {
         </Table>
       )}
 
-      {printDoc && <div id="cronograma-print" className={styles.printBlock}><CronogramaView c={printDoc} /></div>}
+      {createPortal(
+        <div id="app-print-portal">
+          {printDoc && <CronogramaView c={printDoc} />}
+          {planPrint?.entry.plan && (
+            <PlanPrint
+              plan={planPrint.entry.plan}
+              activity={planPrint.entry.activity}
+              day={planPrint.entry.day}
+              time={planPrint.entry.time}
+              cronograma={planPrint.crono.title}
+              periodName={planPrint.crono.periodName}
+              monthLabel={planPrint.crono.monthLabel}
+            />
+          )}
+        </div>,
+        document.body,
+      )}
 
       {/* -------- Crear / Editar cronograma -------- */}
       <ModalForm
@@ -713,19 +808,6 @@ export function CronogramaTrabajoPage() {
         )}
       </ModalForm>
 
-      {planPrint?.entry.plan && (
-        <div id="plan-print" className={styles.printBlock}>
-          <PlanDetails
-            plan={planPrint.entry.plan}
-            activity={planPrint.entry.activity}
-            day={planPrint.entry.day}
-            time={planPrint.entry.time}
-            cronograma={planPrint.crono.title}
-            periodName={planPrint.crono.periodName}
-            monthLabel={planPrint.crono.monthLabel}
-          />
-        </div>
-      )}
     </div>
   )
 }
