@@ -119,6 +119,56 @@ a {
   min-width: 0;
 }
 
+/* ---------- Botones: diseño global consistente ---------- */
+.fui-Button.fui-Button {
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  transition:
+    background-color 130ms ease,
+    border-color 130ms ease,
+    color 130ms ease,
+    box-shadow 170ms ease,
+    transform 90ms ease,
+    filter 130ms ease;
+}
+
+.fui-Button.fui-Button:not(:disabled) {
+  cursor: pointer;
+}
+
+.fui-Button.fui-Button:not(:disabled):hover {
+  transform: translateY(-1px);
+  filter: brightness(0.97);
+}
+
+.fui-Button.fui-Button:not(:disabled):active {
+  transform: translateY(0) scale(0.98);
+  filter: brightness(0.92);
+}
+
+.fui-Button.fui-Button:focus-visible {
+  outline-offset: 2px;
+}
+
+.fui-Button.fui-Button:disabled {
+  opacity: 0.55;
+}
+
+/* Estados seleccionados (p. ej. filtros/segmentos) con realce sutil */
+.fui-Button.fui-Button[aria-pressed='true'] {
+  box-shadow: inset 0 0 0 1.5px var(--azul);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fui-Button.fui-Button {
+    transition: none;
+  }
+  .fui-Button.fui-Button:not(:disabled):hover,
+  .fui-Button.fui-Button:not(:disabled):active {
+    transform: none;
+  }
+}
+
 /* ---------- Responsividad ---------- */
 
 /* Scrollbars sutiles */
