@@ -70,7 +70,7 @@ const useStyles = makeStyles({
   },
 })
 
-export function GestionTicPage() {
+export function GestionTicPage({ title = 'Gestión del Coordinador TIC' }: { title?: string } = {}) {
   const styles = useStyles()
   const toaster = useToastController()
   const { user } = useApp()
@@ -415,7 +415,7 @@ export function GestionTicPage() {
   return (
     <div>
       <PageHeader
-        title="Gestión del Coordinador TIC"
+        title={title}
         subtitle="Planificación anual, mensual y semanal; seguimiento por etapas (Inicio, Desarrollo, Finalización), evidencias en OneDrive, bitácora e informes automáticos."
         actions={
           <>
