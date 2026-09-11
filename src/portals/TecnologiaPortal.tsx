@@ -3,6 +3,7 @@ import { AppShell, type NavItem } from '../components/layout/AppShell'
 import { TecnologiaDashboard } from '../modules/tecnologia/TecnologiaDashboard'
 import { GestionTicPage } from '../modules/tecnologia/GestionTicPage'
 import { AcademicaTecPage } from '../modules/tecnologia/AcademicaTecPage'
+import { AsignacionesPage } from '../modules/administrativo/AsignacionesPage'
 import { PersonasPage } from '../modules/administrativo/PersonasPage'
 import { DirectoresPage } from '../modules/administrativo/DirectoresPage'
 import { StaffPage } from '../modules/administrativo/StaffPage'
@@ -10,12 +11,13 @@ import { UsuariosPage } from '../modules/administrativo/UsuariosPage'
 import { RolesPage } from '../modules/administrativo/RolesPage'
 import { ChatPage } from '../modules/chat/ChatPage'
 import { CopilotPage } from '../modules/copilot/CopilotPage'
-import { DeveloperBoardRegular, PeopleTeamRegular, ShieldPersonRegular, ShieldCheckmarkRegular, ChatRegular, SparkleRegular, ClipboardTaskRegular, BookRegular, PersonShieldRegular, PremiumPersonRegular, BookOpenRegular, HandOpenHeartRegular } from '@fluentui/react-icons'
+import { DeveloperBoardRegular, PeopleTeamRegular, ShieldPersonRegular, ShieldCheckmarkRegular, ChatRegular, SparkleRegular, ClipboardTaskRegular, BookRegular, PersonShieldRegular, PremiumPersonRegular, BookOpenRegular, HandOpenHeartRegular, LinkSquareRegular } from '@fluentui/react-icons'
 
 const NAV: NavItem[] = [
   { to: '/tecnologia', label: 'Panel de Tecnología', icon: <DeveloperBoardRegular />, end: true, group: 'General' },
   { to: '/tecnologia/gestion-tic', label: 'Gestión TIC', icon: <ClipboardTaskRegular />, group: 'Coordinación TIC' },
   { to: '/tecnologia/academica', label: 'Gestión académica', icon: <BookRegular />, group: 'Coordinación TIC' },
+  { to: '/tecnologia/asignaciones', label: 'Asignaciones', icon: <LinkSquareRegular />, group: 'Académico' },
   { to: '/tecnologia/personas', label: 'Personal', icon: <PeopleTeamRegular />, group: 'Personas' },
   { to: '/tecnologia/directores', label: 'Directores', icon: <PersonShieldRegular />, group: 'Personas' },
   { to: '/tecnologia/administradores', label: 'Administradores', icon: <PremiumPersonRegular />, group: 'Personas' },
@@ -34,6 +36,7 @@ export function TecnologiaPortal() {
         <Route index element={<TecnologiaDashboard />} />
         <Route path="gestion-tic" element={<GestionTicPage />} />
         <Route path="academica" element={<AcademicaTecPage />} />
+        <Route path="asignaciones" element={<AsignacionesPage />} />
         <Route path="personas" element={<PersonasPage />} />
         <Route path="directores" element={<DirectoresPage />} />
         <Route path="administradores" element={<StaffPage kind="administradores" />} />
