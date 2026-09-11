@@ -53,8 +53,9 @@ function resolvedConfig() {
     return { provider, baseUrl, model, apiKey: appConfig.ai.apiKey, copilot: false }
   }
 
-  // Sin configuración personal: la IA no está disponible (no consume tokens del centro).
-  return { provider: 'proxy' as AiProvider, baseUrl: '', model: '', apiKey: '', copilot: false }
+  // Sin configuración personal: TODOS los usuarios del centro pueden usar
+  // Microsoft 365 Copilot (no consume tokens del centro y no requiere clave).
+  return { provider: 'proxy' as AiProvider, baseUrl: appConfig.ai.baseUrl, model: appConfig.ai.model || '', apiKey: '', copilot: true }
 }
 
 class AiServiceError extends Error {
