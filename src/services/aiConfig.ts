@@ -71,10 +71,17 @@ export function userAiProviderInfo(provider: UserAiProvider): UserAiProviderInfo
 }
 
 let currentUid = 'anon'
+let currentIsAdmin = false
 
 /** Fija el usuario actual para guardar/leer sus preferencias de IA. */
-export function setAiCurrentUser(uid?: string | null) {
+export function setAiCurrentUser(uid?: string | null, isAdmin = false) {
   currentUid = uid?.trim() || 'anon'
+  currentIsAdmin = isAdmin
+}
+
+/** Indica si el usuario actual es administrador (puede usar la IA del centro como respaldo). */
+export function aiAdminAllowed(): boolean {
+  return currentIsAdmin
 }
 
 const storageKey = (uid?: string) => `arca_ai_settings::${(uid ?? currentUid) || 'anon'}`
@@ -96,12 +103,23 @@ export function getUserAiSettings(uid?: string): UserAiSettings | null {
   }
 }
 
+/** Notifica a la app que la configuración de IA cambió (refresca la interfaz). */
+function notifyAiChanged() {
+  try {
+    window.dispatchEvent(new Event('arca:data-changed'))
+  } catch {
+    /* entorno sin window */
+  }
+}
+
 export function saveUserAiSettings(settings: UserAiSettings, uid?: string) {
   localStorage.setItem(storageKey(uid), JSON.stringify(settings))
+  notifyAiChanged()
 }
 
 export function clearUserAiSettings(uid?: string) {
   localStorage.removeItem(storageKey(uid))
+  notifyAiChanged()
 }
 
 /** Indica si la configuración del usuario está lista para usarse. */
