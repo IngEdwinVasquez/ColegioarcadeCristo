@@ -6,6 +6,7 @@ import { PORTALS } from '../portals/portals'
 import { useApp } from '../context/useApp'
 import { appConfig } from '../config/appConfig'
 import { BrandLogo } from '../components/shared/BrandLogo'
+import { AiSettingsCard } from '../components/shared/AiSettings'
 import { initials } from '../utils/helpers'
 
 const HIPSTER_HEX = "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='49' viewBox='0 0 28 49'%3E%3Cg fill='%23ffffff' fill-opacity='0.05' fill-rule='evenodd'%3E%3Cpath d='M13.99 9.25l13 7.5v15l-13 7.5-13-7.5v-15l13-7.5zM3 17.75v15l10.99 6.2 10.99-6.2v-15L13.99 9.25 3 17.75z'/%3E%3C/g%3E%3C/svg%3E\")"
@@ -267,6 +268,10 @@ export function PortalSelector() {
               </div>
             </div>
           ))}
+        </div>
+
+        <div style={{ marginTop: '20px' }}>
+          <AiSettingsCard />
         </div>
       </div>
     </div>
