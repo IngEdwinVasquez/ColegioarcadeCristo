@@ -9,7 +9,7 @@ import { PeopleCheckmarkRegular, MegaphoneRegular, ChatRegular, SparkleRegular, 
 
 const NAV: NavItem[] = [
   { to: '/psicologia', label: 'Psicología y Orientación', icon: <PeopleCheckmarkRegular />, end: true, group: 'General' },
-  { to: '/psicologia/gestion-tic', label: 'Gestión TIC', icon: <ClipboardTaskRegular />, group: 'Gestión' },
+  { to: '/psicologia/gestion-tic', label: 'Gestión de Psicología y Orientación', icon: <ClipboardTaskRegular />, group: 'Gestión' },
   { to: '/psicologia/comunicados', label: 'Comunicados', icon: <MegaphoneRegular />, group: 'Comunidad' },
   { to: '/psicologia/chat', label: 'Mensajería', icon: <ChatRegular />, group: 'Comunidad' },
   { to: '/psicologia/copilot', label: 'Copilot', icon: <SparkleRegular />, group: 'Herramientas' },
@@ -20,7 +20,7 @@ export function PsicologiaPortal() {
     <Routes>
       <Route element={<AppShell nav={NAV} />}>
         <Route index element={<PsicologiaPage />} />
-        <Route path="gestion-tic" element={<GestionTicPage />} />
+        <Route path="gestion-tic" element={<GestionTicPage title="Gestión de Psicología y Orientación" />} />
         <Route path="comunicados" element={<Comunicados />} />
         <Route path="chat" element={<ChatPage />} />
         <Route path="copilot" element={<CopilotPage />} />
