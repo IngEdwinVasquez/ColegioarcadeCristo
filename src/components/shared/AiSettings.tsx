@@ -120,13 +120,15 @@ function AiSettingsDialog({ open, onOpenChange }: { open: boolean; onOpenChange:
         <div className={styles.info}>
           <Text size={300} weight="semibold" block style={{ marginBottom: '4px' }}>¿Por qué se te pide tu clave de IA?</Text>
           <Text size={200} block style={{ color: 'var(--texto-suave)' }}>
-            El asistente de IA usa un servicio que consume tokens. Para que el uso de cada persona no consuma la cuota
-            del centro educativo, puedes conectar tu propia cuenta de IA. Así cada quien usa sus propios tokens.
+            <strong>Microsoft 365 Copilot</strong> es la única IA de uso libre para todos los usuarios del centro (con tu
+            cuenta institucional, sin costo adicional). Cualquier <strong>otra IA</strong> (OpenAI, DeepSeek, Anthropic,
+            Azure) consume tokens de pago, por lo que debes conectar <strong>tu propia clave API</strong>: así usas tu
+            cuota y no la del centro.
           </Text>
           <Text size={300} weight="semibold" block style={{ margin: '8px 0 4px' }}>Beneficios</Text>
           <Text size={200} block style={{ color: 'var(--texto-suave)' }}>
-            • Usas tu propia cuota y no afectas el servicio del colegio.{'\n'}
-            • Si perteneces al centro, puedes usar <strong>Microsoft 365 Copilot</strong> con tu cuenta institucional, sin costo adicional.{'\n'}
+            • Usas Copilot sin restricción con tu cuenta del centro.{'\n'}
+            • Si necesitas otro modelo, usas tu propia cuota sin afectar al colegio.{'\n'}
             • Tus credenciales quedan guardadas <strong>solo en este navegador</strong> y no se comparten.
           </Text>
         </div>
