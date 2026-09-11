@@ -26,7 +26,7 @@ const NAV: NavItem[] = [
   { to: '/coordinacion/planificacion', label: 'Planificación del Nivel', icon: <NotebookRegular />, group: 'Académico' },
   { to: '/coordinacion/acompanamientos', label: 'Acompañamiento Docente', icon: <HeartPulseRegular />, group: 'Académico' },
   { to: '/coordinacion/cumplimiento', label: 'Cumplimiento', icon: <CheckmarkCircleRegular />, group: 'Académico' },
-  { to: '/coordinacion/gestion-tic', label: 'Gestión TIC', icon: <ClipboardTaskRegular />, group: 'Gestión' },
+  { to: '/coordinacion/gestion-tic', label: 'Gestión de Coordinación Pedagógica', icon: <ClipboardTaskRegular />, group: 'Gestión' },
   { to: '/coordinacion/copilot', label: 'Copilot', icon: <SparkleRegular />, group: 'Herramientas' },
 ]
 
@@ -40,7 +40,7 @@ export function CoordPortal() {
         <Route path="planificacion" element={<PlanificacionNivel />} />
         <Route path="acompanamientos" element={<AcompanamientosPage />} />
         <Route path="cumplimiento" element={<CumplimientoPage />} />
-        <Route path="gestion-tic" element={<GestionTicPage />} />
+        <Route path="gestion-tic" element={<GestionTicPage title="Gestión de Coordinación Pedagógica" />} />
         <Route path="copilot" element={<CopilotPage />} />
       </Route>
     </Routes>
