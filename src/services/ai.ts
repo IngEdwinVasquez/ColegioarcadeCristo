@@ -1,6 +1,6 @@
 import { appConfig } from '../config/appConfig'
 import { acquireToken } from './msal'
-import { getUserAiSettings, isUserAiReady, aiAdminAllowed } from './aiConfig'
+import { getUserAiSettings, isUserAiReady } from './aiConfig'
 
 export interface AiMessage {
   role: 'system' | 'user' | 'assistant'
@@ -44,17 +44,9 @@ function resolvedConfig() {
     }
   }
 
-  // Respaldo SOLO para administradores: IA del centro.
-  if (aiAdminAllowed()) {
-    const provider = (appConfig.ai.provider || 'proxy') as AiProvider
-    const base = DEFAULTS[provider as Exclude<AiProvider, 'proxy'>]
-    const baseUrl = appConfig.ai.baseUrl || base?.baseUrl || ''
-    const model = appConfig.ai.model || base?.model || ''
-    return { provider, baseUrl, model, apiKey: appConfig.ai.apiKey, copilot: false }
-  }
-
-  // Sin configuración personal: TODOS los usuarios del centro pueden usar
-  // Microsoft 365 Copilot (no consume tokens del centro y no requiere clave).
+  // Única IA gratuita/ilimitada: Microsoft 365 Copilot con la cuenta del centro.
+  // Cualquier otro proveedor (OpenAI, DeepSeek, Anthropic, Azure) requiere que el
+  // usuario conecte su propia API en «Mi IA»; no se usa la IA del centro.
   return { provider: 'proxy' as AiProvider, baseUrl: appConfig.ai.baseUrl, model: appConfig.ai.model || '', apiKey: '', copilot: true }
 }
 
