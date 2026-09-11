@@ -1,6 +1,6 @@
 import { appConfig } from '../config/appConfig'
 import { acquireToken } from './msal'
-import { getUserAiSettings, isUserAiReady } from './aiConfig'
+import { getUserAiSettings, isUserAiReady, aiAdminAllowed } from './aiConfig'
 
 export interface AiMessage {
   role: 'system' | 'user' | 'assistant'
@@ -29,8 +29,9 @@ function resolvedConfig() {
     const s = user!
     if (s.provider === 'copilot') {
       // Microsoft 365 Copilot: se usa la sesión de Entra ID del usuario contra el
-      // desencadenador del centro (sin clave API propia).
-      return { provider: 'proxy' as AiProvider, baseUrl: appConfig.ai.baseUrl, model: appConfig.ai.model || '', apiKey: '' }
+      // desencadenador del centro, indicando el modo «copilot» para que el backend
+      // lo enrute a Microsoft 365 con la cuenta del centro (sin clave API personal).
+      return { provider: 'proxy' as AiProvider, baseUrl: appConfig.ai.baseUrl, model: appConfig.ai.model || '', apiKey: '', copilot: true }
     }
     const provider = s.provider as AiProvider
     const base = DEFAULTS[provider as Exclude<AiProvider, 'proxy'>]
@@ -39,15 +40,21 @@ function resolvedConfig() {
       baseUrl: s.baseUrl || base?.baseUrl || '',
       model: s.model || base?.model || '',
       apiKey: s.apiKey,
+      copilot: false,
     }
   }
 
-  // Respaldo: configuración de la plataforma (proveedor del centro).
-  const provider = (appConfig.ai.provider || 'proxy') as AiProvider
-  const base = DEFAULTS[provider as Exclude<AiProvider, 'proxy'>]
-  const baseUrl = appConfig.ai.baseUrl || base?.baseUrl || ''
-  const model = appConfig.ai.model || base?.model || ''
-  return { provider, baseUrl, model, apiKey: appConfig.ai.apiKey }
+  // Respaldo SOLO para administradores: IA del centro.
+  if (aiAdminAllowed()) {
+    const provider = (appConfig.ai.provider || 'proxy') as AiProvider
+    const base = DEFAULTS[provider as Exclude<AiProvider, 'proxy'>]
+    const baseUrl = appConfig.ai.baseUrl || base?.baseUrl || ''
+    const model = appConfig.ai.model || base?.model || ''
+    return { provider, baseUrl, model, apiKey: appConfig.ai.apiKey, copilot: false }
+  }
+
+  // Sin configuración personal: la IA no está disponible (no consume tokens del centro).
+  return { provider: 'proxy' as AiProvider, baseUrl: '', model: '', apiKey: '', copilot: false }
 }
 
 class AiServiceError extends Error {
@@ -111,11 +118,13 @@ async function authHeaders(): Promise<Record<string, string>> {
  * recomendado en desarrollo: la clave queda expuesta en el navegador).
  */
 export async function aiChat(messages: AiMessage[], options: AiChatOptions = {}): Promise<string> {
-  const { provider, baseUrl, model, apiKey } = resolvedConfig()
+  const { provider, baseUrl, model, apiKey, copilot } = resolvedConfig()
 
   if (provider === 'proxy') {
-    if (!baseUrl) throw new AiServiceError('Falta VITE_AI_API_URL (URL del desencadenador HTTP del proxy de IA).')
-    const data = await postJson(baseUrl, { messages, options }, await authHeaders())
+    if (!baseUrl) {
+      throw new AiServiceError('Configura tu cuenta de IA en «Mi IA» (arriba a la derecha) para usar el asistente. Así usas tus propios tokens y no consumes la cuota del centro.')
+    }
+    const data = await postJson(baseUrl, { messages, options, mode: copilot ? 'copilot' : undefined }, await authHeaders())
     return extractContent(data)
   }
 

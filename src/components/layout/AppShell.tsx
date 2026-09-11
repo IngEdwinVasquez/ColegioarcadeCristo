@@ -12,7 +12,7 @@ import {
 } from '@fluentui/react-components'
 import { NavigationRegular, SignOutRegular, HomeRegular, ChevronRightRegular, LightbulbFilamentRegular } from '@fluentui/react-icons'
 import { useApp } from '../../context/useApp'
-import { appConfig } from '../../config/appConfig'
+import { appConfig, isAdminEmail } from '../../config/appConfig'
 import { PORTALS } from '../../portals/portals'
 import { initials } from '../../utils/helpers'
 import { InstallPWA } from '../shared/InstallPWA'
@@ -196,8 +196,8 @@ export function AppShell({ nav }: AppShellProps) {
 
   // Mantiene las preferencias de IA asociadas al usuario conectado.
   useEffect(() => {
-    setAiCurrentUser(user?.id)
-  }, [user?.id])
+    setAiCurrentUser(user?.id, isAdminEmail(user?.email))
+  }, [user?.id, user?.email])
 
   const portal = PORTALS.find((p) => location.pathname.startsWith(p.path))
 
