@@ -193,8 +193,8 @@ export function AiSettingsCard() {
         <div className={styles.panelText}>
           <div className={styles.panelTitle}>Tu IA, tus tokens</div>
           <div className={styles.panelDesc}>
-            Conecta tu propia cuenta de IA —o usa <strong>Microsoft 365 Copilot</strong> con tu cuenta institucional—
-            para que el uso de la IA no consuma la cuota del centro. Tus credenciales se guardan solo en este navegador.
+            <strong>Microsoft 365 Copilot</strong> está disponible para todos los usuarios del centro con su cuenta institucional.
+            Si lo deseas, conecta tu propia cuenta de IA. Tus credenciales se guardan solo en este navegador.
           </div>
         </div>
         <Button appearance="primary" icon={ready ? <PersonLockRegular /> : <SparkleRegular />} onClick={() => setOpen(true)}>
