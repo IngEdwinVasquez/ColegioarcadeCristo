@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import {
   Avatar,
@@ -18,6 +18,8 @@ import { initials } from '../../utils/helpers'
 import { InstallPWA } from '../shared/InstallPWA'
 import { BrandLogo } from '../shared/BrandLogo'
 import { GuidedTour, type TourStep } from '../shared/GuidedTour'
+import { AiSettingsButton } from '../shared/AiSettings'
+import { setAiCurrentUser } from '../../services/aiConfig'
 
 export interface NavItem {
   to: string
@@ -192,6 +194,11 @@ export function AppShell({ nav }: AppShellProps) {
   const location = useLocation()
   const [mobileOpen, setMobileOpen] = useState(false)
 
+  // Mantiene las preferencias de IA asociadas al usuario conectado.
+  useEffect(() => {
+    setAiCurrentUser(user?.id)
+  }, [user?.id])
+
   const portal = PORTALS.find((p) => location.pathname.startsWith(p.path))
 
   const tourSteps: TourStep[] = useMemo(() => {
@@ -309,6 +316,7 @@ export function AppShell({ nav }: AppShellProps) {
             </div>
           </div>
           <div className={styles.userArea}>
+            <AiSettingsButton />
             <div className={styles.userName} style={{ textAlign: 'right' }}>
               <Text size={200} weight="semibold" block>{user?.displayName}</Text>
               <Text size={200} style={{ color: 'var(--texto-suave)' }}>{user?.email}</Text>

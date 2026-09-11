@@ -1,5 +1,6 @@
 import { appConfig } from '../config/appConfig'
 import { acquireToken } from './msal'
+import { getUserAiSettings, isUserAiReady } from './aiConfig'
 
 export interface AiMessage {
   role: 'system' | 'user' | 'assistant'
@@ -22,6 +23,26 @@ const DEFAULTS: Record<Exclude<AiProvider, 'proxy'>, { baseUrl: string; model: s
 }
 
 function resolvedConfig() {
+  // Prioriza la configuración personal del usuario (su propia cuenta de IA).
+  const user = getUserAiSettings()
+  if (isUserAiReady(user)) {
+    const s = user!
+    if (s.provider === 'copilot') {
+      // Microsoft 365 Copilot: se usa la sesión de Entra ID del usuario contra el
+      // desencadenador del centro (sin clave API propia).
+      return { provider: 'proxy' as AiProvider, baseUrl: appConfig.ai.baseUrl, model: appConfig.ai.model || '', apiKey: '' }
+    }
+    const provider = s.provider as AiProvider
+    const base = DEFAULTS[provider as Exclude<AiProvider, 'proxy'>]
+    return {
+      provider,
+      baseUrl: s.baseUrl || base?.baseUrl || '',
+      model: s.model || base?.model || '',
+      apiKey: s.apiKey,
+    }
+  }
+
+  // Respaldo: configuración de la plataforma (proveedor del centro).
   const provider = (appConfig.ai.provider || 'proxy') as AiProvider
   const base = DEFAULTS[provider as Exclude<AiProvider, 'proxy'>]
   const baseUrl = appConfig.ai.baseUrl || base?.baseUrl || ''
