@@ -6,6 +6,7 @@ import { HorariosPage } from '../modules/coordinacion/HorariosPage'
 import { AcompanamientosPage } from '../modules/coordinacion/AcompanamientosPage'
 import { CumplimientoPage } from '../modules/coordinacion/CumplimientoPage'
 import { PlanificacionNivel } from '../modules/coordinacion/PlanificacionNivel'
+import { GestionTicPage } from '../modules/tecnologia/GestionTicPage'
 import { CopilotPage } from '../modules/copilot/CopilotPage'
 import {
   HomeRegular,
@@ -15,6 +16,7 @@ import {
   CheckmarkCircleRegular,
   NotebookRegular,
   SparkleRegular,
+  ClipboardTaskRegular,
 } from '@fluentui/react-icons'
 
 const NAV: NavItem[] = [
@@ -24,6 +26,7 @@ const NAV: NavItem[] = [
   { to: '/coordinacion/planificacion', label: 'Planificación del Nivel', icon: <NotebookRegular />, group: 'Académico' },
   { to: '/coordinacion/acompanamientos', label: 'Acompañamiento Docente', icon: <HeartPulseRegular />, group: 'Académico' },
   { to: '/coordinacion/cumplimiento', label: 'Cumplimiento', icon: <CheckmarkCircleRegular />, group: 'Académico' },
+  { to: '/coordinacion/gestion-tic', label: 'Gestión TIC', icon: <ClipboardTaskRegular />, group: 'Gestión' },
   { to: '/coordinacion/copilot', label: 'Copilot', icon: <SparkleRegular />, group: 'Herramientas' },
 ]
 
@@ -37,6 +40,7 @@ export function CoordPortal() {
         <Route path="planificacion" element={<PlanificacionNivel />} />
         <Route path="acompanamientos" element={<AcompanamientosPage />} />
         <Route path="cumplimiento" element={<CumplimientoPage />} />
+        <Route path="gestion-tic" element={<GestionTicPage />} />
         <Route path="copilot" element={<CopilotPage />} />
       </Route>
     </Routes>
