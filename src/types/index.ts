@@ -543,6 +543,47 @@ export interface TicCategoryItem {
   name: string
 }
 
+// ------------------------------ Planificador Dinámico (IA) ------------------------------
+
+export type PlanAlcance = 'anual' | 'mensual' | 'semanal' | 'actividad'
+export type PlanEstado = 'borrador' | 'activa' | 'archivada'
+export type PlanMomentoNombre = 'inicio' | 'desarrollo' | 'cierre'
+
+/** Momento pedagógico de una planificación (Inicio / Desarrollo / Cierre). */
+export interface PlanMomento {
+  momento: PlanMomentoNombre
+  /** Duración del momento, ej. "15 min". */
+  duracion: string
+  descripcion: string
+  actividades: string[]
+}
+
+/**
+ * Planificación generada/asistida por IA. Soporta alcance anual, mensual,
+ * semanal o por actividad, con los campos pedagógicos MINERD.
+ */
+export interface PlanificacionDinamica {
+  id: string
+  teacherId: string
+  alcance: PlanAlcance
+  estado: PlanEstado
+  nivel?: string
+  gradeId: string
+  subjectId: string
+  tema: string
+  objetivo?: string
+  duracion?: string
+  competencias: string[]
+  indicadores: string[]
+  momentos: PlanMomento[]
+  recursos: string[]
+  herramientasTec: string[]
+  evaluacion?: string
+  generadoPorIA: boolean
+  createdAt: string
+  updatedAt?: string
+}
+
 /** Tema/actividad de un mes dentro de la planificación anual consolidada. */
 export interface AnnualPlanMonthItem {
   mes: string
