@@ -47,19 +47,23 @@ export function PlanificadorPage() {
     return pairs
   }, [assignCol.items, isStaff, user?.teacherId, grades, subjects])
 
+  // Solo las planificaciones de los cursos/asignaturas asignados al docente.
+  const allowedSet = useMemo(() => new Set(assignedPairs.map((p) => `${p.gradeId}::${p.subjectId}`)), [assignedPairs])
+  const mineAllowed = useMemo(() => mine.filter((p) => allowedSet.has(`${p.gradeId}::${p.subjectId}`)), [mine, allowedSet])
+
   const counts = useMemo(() => ({
-    todas: mine.length,
-    activa: mine.filter((p) => p.estado === 'activa').length,
-    borrador: mine.filter((p) => p.estado === 'borrador').length,
-    archivada: mine.filter((p) => p.estado === 'archivada').length,
-  }), [mine])
+    todas: mineAllowed.length,
+    activa: mineAllowed.filter((p) => p.estado === 'activa').length,
+    borrador: mineAllowed.filter((p) => p.estado === 'borrador').length,
+    archivada: mineAllowed.filter((p) => p.estado === 'archivada').length,
+  }), [mineAllowed])
 
   const filtered = useMemo(() => {
-    return mine
+    return mineAllowed
       .filter((p) => !filter || p.estado === filter)
       .filter((p) => !search || p.tema.toLowerCase().includes(search.toLowerCase()))
       .sort((a, b) => ((a.updatedAt ?? a.createdAt) < (b.updatedAt ?? b.createdAt) ? 1 : -1))
-  }, [mine, filter, search])
+  }, [mineAllowed, filter, search])
 
   const labels = (plan: PlanificacionDinamica): PlanLabels => ({
     grado: gradeById(plan.gradeId)?.name ?? '',
