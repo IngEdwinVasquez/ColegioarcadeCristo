@@ -23,6 +23,7 @@ import type {
   TicCategoryItem,
   WeeklySchedule,
   WorkCronograma,
+  PlanificacionDinamica,
   SchoolClassRecord,
   Student,
   StudentGuardian,
@@ -91,6 +92,7 @@ export const collections = {
   ticCategories: collection<TicCategoryItem>(SPO_LISTS.ticCategories),
     weeklySchedules: collection<WeeklySchedule>(SPO_LISTS.weeklySchedules),
     workCronogramas: collection<WorkCronograma>(SPO_LISTS.workCronogramas),
+    planificador: collection<PlanificacionDinamica>(SPO_LISTS.planificador),
 }
 
 export const dataService = {
@@ -215,6 +217,10 @@ export const dataService = {
   getWorkCronogramas: collections.workCronogramas.getAll,
   saveWorkCronograma: collections.workCronogramas.save,
   deleteWorkCronograma: collections.workCronogramas.remove,
+  // Planificador Dinámico (IA)
+  getPlanificaciones: collections.planificador.getAll,
+  savePlanificacion: collections.planificador.save,
+  deletePlanificacion: collections.planificador.remove,
 }
 
 export type DataService = typeof dataService

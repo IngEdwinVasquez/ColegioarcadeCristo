@@ -40,6 +40,7 @@ export const SPO_LISTS = {
   ticCategories: 'ARC_TicCategories',
   weeklySchedules: 'ARC_WeeklySchedules',
   workCronogramas: 'ARC_WorkCronogramas',
+  planificador: 'ARC_Planificador',
 } as const
 
 export type SpoListName = (typeof SPO_LISTS)[keyof typeof SPO_LISTS]
@@ -110,7 +111,7 @@ interface GraphColumn {
   name: string
 }
 
-const PROVISION_KEY = 'arca_spo_provisioned_v4'
+const PROVISION_KEY = 'arca_spo_provisioned_v5'
 
 /** Nombre de lista → id de SharePoint (se rellena al aprovisionar o a demanda). */
 const listIds = new Map<string, string>()
