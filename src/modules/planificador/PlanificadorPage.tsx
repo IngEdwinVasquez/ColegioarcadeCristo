@@ -3,17 +3,19 @@ import { useToastController } from '@fluentui/react-components'
 import { PageHeader } from '../../components/shared/PageHeader'
 import { useApp } from '../../context/useApp'
 import { useCollection } from '../../hooks/useCollection'
-import { appConfig } from '../../config/appConfig'
+import { appConfig, isAdminEmail } from '../../config/appConfig'
+import { dataService } from '../../services/dataService'
 import { DashboardPlanificacion } from './DashboardPlanificacion'
 import { ModalCrearIA } from './ModalCrearIA'
 import { EditorPlan } from './EditorPlan'
 import { planificadorService, type PlanLabels } from './planificadorService'
-import type { PlanificacionDinamica } from '../../types'
+import type { PlanificacionDinamica, TeacherAssignment } from '../../types'
 
 export function PlanificadorPage() {
   const toaster = useToastController()
   const { user, grades, subjects, gradeById, subjectById, role } = useApp()
   const plansCol = useCollection<PlanificacionDinamica>(planificadorService.getAll, planificadorService.save, planificadorService.remove)
+  const assignCol = useCollection<TeacherAssignment>(dataService.getTeacherAssignments)
 
   const [filter, setFilter] = useState('')
   const [search, setSearch] = useState('')
@@ -28,6 +30,22 @@ export function PlanificadorPage() {
     if (isStaff && !user?.teacherId) return items
     return items.filter((p) => p.teacherId === user?.teacherId)
   }, [plansCol.items, user?.teacherId, isStaff])
+
+  // Pares grado–asignatura permitidos: los asignados al docente (staff sin ficha ve todos).
+  const assignedPairs = useMemo(() => {
+    const staffAll = (isStaff && !user?.teacherId) || isAdminEmail(user?.email)
+    if (staffAll) return grades.flatMap((g) => subjects.map((s) => ({ gradeId: g.id, subjectId: s.id })))
+    const seen = new Set<string>()
+    const pairs: Array<{ gradeId: string; subjectId: string }> = []
+    for (const a of assignCol.items) {
+      if (a.teacherId !== user?.teacherId) continue
+      const key = `${a.gradeId}::${a.subjectId}`
+      if (seen.has(key)) continue
+      seen.add(key)
+      pairs.push({ gradeId: a.gradeId, subjectId: a.subjectId })
+    }
+    return pairs
+  }, [assignCol.items, isStaff, user?.teacherId, grades, subjects])
 
   const counts = useMemo(() => ({
     todas: mine.length,
@@ -122,6 +140,7 @@ export function PlanificadorPage() {
         onOpenChange={setCreateOpen}
         grades={grades.map((g) => ({ id: g.id, name: g.name }))}
         subjects={subjects.map((s) => ({ id: s.id, name: s.name }))}
+        assignments={assignedPairs}
         teacherId={user?.teacherId ?? user?.id ?? ''}
         onGenerated={handleGenerated}
         onError={(m) => toaster.dispatchToast(m, { intent: 'error' })}
