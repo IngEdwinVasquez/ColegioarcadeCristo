@@ -70,12 +70,16 @@ export function AsignacionesPage() {
   const cursoSel = cursosCatalogo.find((c) => c.nombre === mCurso)?.curso
   const periodActive = periods.find((p) => p.id === mPeriod)?.isActive ?? false
 
-  // Asignaturas creadas en Gestión académica (nombres únicos).
+  // Asignaturas creadas en Gestión académica PARA EL CURSO seleccionado.
   const asignaturaCatalogOptions = useMemo(
-    () => [...new Set(grades.filter((g) => isRealSubject(asignaturaDe(g))).map((g) => asignaturaDe(g)))]
+    () => [...new Set(
+      grades
+        .filter((g) => isRealSubject(asignaturaDe(g)) && cursoNombre(g) === mCurso)
+        .map((g) => asignaturaDe(g)),
+    )]
       .sort((a, b) => a.localeCompare(b))
       .map((n) => ({ id: n, label: n })),
-    [grades],
+    [grades, mCurso],
   )
 
   // Asignaturas ya agregadas al curso seleccionado en el período.
