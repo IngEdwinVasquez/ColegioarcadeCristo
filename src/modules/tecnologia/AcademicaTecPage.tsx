@@ -38,7 +38,7 @@ const GRADOS = ['1ro', '2do', '3ro', '4to', '5to', '6to']
 const SECCIONES = ['A', 'B', 'C', 'D', 'E', 'F', 'G']
 const CICLOS = ['Primer ciclo', 'Segundo ciclo']
 
-const nivelShort = (level: string) => LEVEL_SHORT[level] ?? level
+export const nivelShort = (level: string) => LEVEL_SHORT[level] ?? level
 
 // Grado en cualquier parte del nombre (1ro..6to y ordinales en palabras).
 const GRADO_RE = /\b(1ro|2do|3ro|4to|5to|6to|primer|segundo|tercero|cuarto|quinto|sexto)\b/i
@@ -63,7 +63,7 @@ const gradoDe = (curso: GradeSection): string => {
 const gradeNum = (grado: string) => ORD[grado.toLowerCase()] ?? (parseInt(grado, 10) || null)
 
 /** Grado + sección (ej. 1ro.A). Si no hay grado, solo la sección. */
-const cursoGrado = (curso: GradeSection): string => {
+export const cursoGrado = (curso: GradeSection): string => {
   const g = gradoDe(curso)
   const s = seccionDe(curso)
   return g ? `${g}.${s}` : s
@@ -80,7 +80,7 @@ const cicloFromGrade = (level: string, grado: string): string | undefined => {
 }
 
 /** Extrae la asignatura limpia del nombre del curso (sin grado, sección, nivel ni anotaciones). */
-const asignaturaDe = (curso: GradeSection): string => {
+export const asignaturaDe = (curso: GradeSection): string => {
   if (curso.asignatura) return curso.asignatura
   let s = curso.name || ''
   s = s.replace(/\s*\([^)]*\)\s*/g, ' ')          // (YOSSY VILLAFAÑA), (Geografía…)
@@ -100,7 +100,7 @@ const asignaturaDe = (curso: GradeSection): string => {
 }
 
 /** Reconoce si un nombre es una asignatura real (por palabras clave curriculares). */
-const isRealSubject = (name: string): boolean => {
+export const isRealSubject = (name: string): boolean => {
   const n = name.toLowerCase()
   const keys = ['matemat','lengua','ciencias de la naturaleza','ciencia','ciencias social','sociales','social','educación físico','ed. f','educación art','artística','formación integral','formación','religiosa','inglés','ingles','english','francés','frances','informática','informatica','artes','música','musica','natural','humanidades','historia','geografía','geografia','física','fisica','química','quimica','biología','biologia','tecnolog']
   return keys.some((k) => n.includes(k))
