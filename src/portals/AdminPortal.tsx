@@ -6,6 +6,7 @@ import { AdmisionesPage } from '../modules/administrativo/AdmisionesPage'
 import { PromocionPage } from '../modules/administrativo/PromocionPage'
 import { CatalogosPage } from '../modules/administrativo/CatalogosPage'
 import { AsignacionesPage } from '../modules/administrativo/AsignacionesPage'
+import { AcademicaTecPage } from '../modules/tecnologia/AcademicaTecPage'
 import { AnualPlanPage } from '../modules/anualPlan/AnualPlanPage'
 import { ClasesPage } from '../modules/clases/ClasesPage'
 import { ClaseDetail } from '../modules/clases/ClaseDetail'
@@ -31,6 +32,7 @@ import {
   ChatRegular,
   SparkleRegular,
   ClipboardTaskRegular,
+  BookRegular,
 } from '@fluentui/react-icons'
 
 const NAV: NavItem[] = [
@@ -39,6 +41,7 @@ const NAV: NavItem[] = [
   { to: '/administrativo/admisiones', label: 'Admisiones', icon: <PersonAddRegular />, group: 'Gestión' },
   { to: '/administrativo/promocion', label: 'Promoción', icon: <ArrowUpRegular />, group: 'Académico' },
   { to: '/administrativo/asignaciones', label: 'Asignaciones', icon: <LinkSquareRegular />, group: 'Académico' },
+  { to: '/administrativo/gestion-academica', label: 'Gestión académica', icon: <BookRegular />, group: 'Académico' },
   { to: '/administrativo/catalogos', label: 'Catálogos', icon: <DatabaseRegular />, group: 'Académico' },
   { to: '/administrativo/planificacion', label: 'Planificación Anual', icon: <CalendarTodayRegular />, group: 'Académico' },
   { to: '/administrativo/clases', label: 'Clases Impartidas', icon: <NotebookRegular />, group: 'Académico' },
@@ -59,6 +62,7 @@ export function AdminPortal() {
         <Route path="admisiones" element={<AdmisionesPage />} />
         <Route path="promocion" element={<PromocionPage />} />
         <Route path="asignaciones" element={<AsignacionesPage />} />
+        <Route path="gestion-academica" element={<AcademicaTecPage />} />
         <Route path="catalogos" element={<CatalogosPage />} />
         <Route path="planificacion" element={<AnualPlanPage />} />
         <Route path="clases" element={<ClasesPage />} />
