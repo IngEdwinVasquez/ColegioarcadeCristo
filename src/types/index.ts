@@ -31,6 +31,8 @@ export interface GradeSection {
   /** Equipo de Microsoft Teams vinculado al curso */
   teamId?: string
   teamUrl?: string
+  /** Docente encargado (titular) del curso */
+  leadTeacherId?: string
 }
 
 export interface Subject {
