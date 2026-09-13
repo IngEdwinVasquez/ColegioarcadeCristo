@@ -8,7 +8,8 @@ import { EmptyStateView } from '../../components/shared/EmptyStateView'
 import { useApp } from '../../context/useApp'
 import { dataService } from '../../services/dataService'
 import { useCollection } from '../../hooks/useCollection'
-import { aulaLabel, genId } from '../../utils/helpers'
+import { genId } from '../../utils/helpers'
+import { asignaturaDe, cursoGrado, isRealSubject, nivelShort } from '../tecnologia/AcademicaTecPage'
 import type { Enrollment, GradeSection, TeacherAssignment } from '../../types'
 
 const useStyles = makeStyles({
@@ -47,8 +48,12 @@ export function AsignacionesPage() {
   const [eGrade, setEGrade] = useState('')
   const [eTeacher, setETeacher] = useState('')
 
-  const gradeLabel = (g: GradeSection) => aulaLabel(g)
-  const gradeOptions = useMemo(() => grades.map((g) => ({ id: g.id, label: gradeLabel(g), detail: [g.nivel, g.ciclo].filter(Boolean).join(' · ') })), [grades])
+  // Misma lista/etiquetas que «Gestión académica» (Asignatura · Nivel · Grado/curso).
+  const gradeLabel = (g: GradeSection) => `${cursoGrado(g)} · ${asignaturaDe(g)}`
+  const gradeOptions = useMemo(
+    () => grades.filter((g) => isRealSubject(asignaturaDe(g))).map((g) => ({ id: g.id, label: gradeLabel(g), detail: nivelShort(g.level) })),
+    [grades],
+  )
   const studentOptions = useMemo(() => students.map((s) => ({ id: s.id, label: s.fullName, detail: s.email })), [students])
   const teacherOptions = useMemo(() => teachers.map((t) => ({ id: t.id, label: t.fullName, detail: t.email })), [teachers])
   const subjectOptions = useMemo(() => subjects.map((s) => ({ id: s.id, label: s.name })), [subjects])
