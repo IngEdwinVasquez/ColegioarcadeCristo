@@ -9,7 +9,7 @@ import { useApp } from '../../context/useApp'
 import { dataService } from '../../services/dataService'
 import { useCollection } from '../../hooks/useCollection'
 import { genId } from '../../utils/helpers'
-import { asignaturaDe, cursoNombre, isRealSubject, nivelShort, gradoDe, seccionDe, GRADOS, SECCIONES } from '../tecnologia/AcademicaTecPage'
+import { asignaturaDe, cursoNombre, isRealSubject, nivelShort, gradoDe, seccionDe, cicloFromGrade } from '../tecnologia/AcademicaTecPage'
 import type { Enrollment, GradeSection, TeacherAssignment } from '../../types'
 
 const useStyles = makeStyles({
@@ -17,9 +17,8 @@ const useStyles = makeStyles({
   card: { padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '16px' },
   row: { display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'flex-end' },
   actions: { display: 'flex', gap: '8px', marginTop: '4px', flexWrap: 'wrap' },
+  info: { display: 'flex', gap: '18px', flexWrap: 'wrap', background: tokens.colorNeutralBackground2, borderRadius: '10px', padding: '8px 12px' },
 })
-
-const NIVELES = ['Nivel Inicial', 'Nivel Primario', 'Nivel Secundario']
 
 export function AsignacionesPage() {
   const styles = useStyles()
@@ -34,10 +33,8 @@ export function AsignacionesPage() {
 
   const activePeriod = periods.find((p) => p.isActive)?.id ?? periods[0]?.id ?? ''
 
-  // Matrículas (mismas selecciones que Gestión académica: Nivel · Grado · Sección · Asignatura)
-  const [mNivel, setMNivel] = useState('')
-  const [mGrado, setMGrado] = useState('')
-  const [mSeccion, setMSeccion] = useState('')
+  // Matrículas (filtro por Curso = Grado + Sección + Nivel, tal como en Gestión académica)
+  const [mCurso, setMCurso] = useState('')
   const [mCursos, setMCursos] = useState<string[]>([])
   const [mPeriod, setMPeriod] = useState(activePeriod)
   const [mStudents, setMStudents] = useState<string[]>([])
@@ -59,18 +56,22 @@ export function AsignacionesPage() {
     [grades],
   )
 
-  // Cursos filtrados por Nivel/Grado/Sección (igual que Gestión académica).
-  const cursosFiltrados = useMemo(
-    () => grades
-      .filter((g) => isRealSubject(asignaturaDe(g)))
-      .filter((g) => !mNivel || g.level === mNivel)
-      .filter((g) => !mGrado || gradoDe(g) === mGrado)
-      .filter((g) => !mSeccion || seccionDe(g) === mSeccion),
-    [grades, mNivel, mGrado, mSeccion],
-  )
+  // Catálogo de cursos (Grado + Sección + Nivel) existentes en Gestión académica.
+  const cursosCatalogo = useMemo(() => {
+    const reales = grades.filter((g) => isRealSubject(asignaturaDe(g)))
+    const map = new Map<string, GradeSection>()
+    for (const g of reales) {
+      const nombre = cursoNombre(g)
+      if (!map.has(nombre)) map.set(nombre, g)
+    }
+    return [...map.entries()].map(([nombre, curso]) => ({ nombre, curso }))
+  }, [grades])
+  const cursoSel = cursosCatalogo.find((c) => c.nombre === mCurso)?.curso
   const asignaturaOptions = useMemo(
-    () => cursosFiltrados.map((g) => ({ id: g.id, label: asignaturaDe(g), detail: cursoNombre(g) })),
-    [cursosFiltrados],
+    () => grades
+      .filter((g) => isRealSubject(asignaturaDe(g)) && cursoNombre(g) === mCurso)
+      .map((g) => ({ id: g.id, label: asignaturaDe(g), detail: cursoNombre(g) })),
+    [grades, mCurso],
   )
   const studentOptions = useMemo(() => students.map((s) => ({ id: s.id, label: s.fullName, detail: s.email })), [students])
   const teacherOptions = useMemo(() => teachers.map((t) => ({ id: t.id, label: t.fullName, detail: t.email })), [teachers])
@@ -173,22 +174,10 @@ export function AsignacionesPage() {
         <>
           <Card className={styles.card}>
             <FieldRow>
-              <FormField label="Nivel">
-                <Select value={mNivel} onChange={(_, d) => setMNivel(d.value)}>
-                  <option value="">Todos los niveles</option>
-                  {NIVELES.map((n) => <option key={n} value={n}>{nivelShort(n)}</option>)}
-                </Select>
-              </FormField>
-              <FormField label="Grado">
-                <Select value={mGrado} onChange={(_, d) => setMGrado(d.value)}>
-                  <option value="">Todos los grados</option>
-                  {GRADOS.map((g) => <option key={g} value={g}>{g}</option>)}
-                </Select>
-              </FormField>
-              <FormField label="Sección">
-                <Select value={mSeccion} onChange={(_, d) => setMSeccion(d.value)}>
-                  <option value="">Todas las secciones</option>
-                  {SECCIONES.map((s) => <option key={s} value={s}>{s}</option>)}
+              <FormField label="Curso (Grado + Sección + Nivel)" required>
+                <Select value={mCurso} onChange={(_, d) => { setMCurso(d.value); setMCursos([]) }}>
+                  <option value="">— Selecciona un curso —</option>
+                  {cursosCatalogo.map((c) => <option key={c.nombre} value={c.nombre}>{c.nombre}</option>)}
                 </Select>
               </FormField>
               <FormField label="Período" required>
@@ -197,14 +186,22 @@ export function AsignacionesPage() {
                 </Select>
               </FormField>
             </FieldRow>
+            {cursoSel && (
+              <div className={styles.info}>
+                <Text size={200}><strong>Nivel:</strong> {nivelShort(cursoSel.level)}</Text>
+                <Text size={200}><strong>Ciclo:</strong> {cursoSel.ciclo || cicloFromGrade(cursoSel.level, gradoDe(cursoSel)) || '—'}</Text>
+                <Text size={200}><strong>Grado:</strong> {gradoDe(cursoSel)}</Text>
+                <Text size={200}><strong>Sección:</strong> {seccionDe(cursoSel)}</Text>
+              </div>
+            )}
             <MultiSelect
-              label="Asignaturas / cursos (según los filtros de Nivel, Grado y Sección)"
+              label="Asignaturas del curso"
               options={asignaturaOptions}
               selected={mCursos}
               onChange={setMCursos}
               placeholder="Filtrar asignaturas…"
               required
-              emptyMessage="No hay asignaturas para los filtros seleccionados."
+              emptyMessage={mCurso ? 'Este curso no tiene asignaturas registradas.' : 'Selecciona primero un curso.'}
             />
             <MultiSelect
               label="Estudiantes a matricular"
