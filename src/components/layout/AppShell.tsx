@@ -19,6 +19,7 @@ import { InstallPWA } from '../shared/InstallPWA'
 import { BrandLogo } from '../shared/BrandLogo'
 import { GuidedTour, type TourStep } from '../shared/GuidedTour'
 import { AiSettingsButton } from '../shared/AiSettings'
+import { GlobalAiAssistant } from '../shared/GlobalAiAssistant'
 import { setAiCurrentUser } from '../../services/aiConfig'
 
 export interface NavItem {
@@ -328,6 +329,8 @@ export function AppShell({ nav }: AppShellProps) {
           <Outlet />
         </div>
       </div>
+
+      <GlobalAiAssistant />
     </div>
   )
 }
