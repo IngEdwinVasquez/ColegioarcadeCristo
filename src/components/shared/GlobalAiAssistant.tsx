@@ -8,6 +8,7 @@ import { useApp } from '../../context/useApp'
 import { appConfig } from '../../config/appConfig'
 import { aiChat, isAiConfigured } from '../../services/ai'
 import { extractPdfText } from '../../services/pdf'
+import { getAiSection, type AiSectionConfig } from '../../config/aiSections'
 
 const useStyles = makeStyles({
   fab: {
@@ -34,8 +35,8 @@ const MODOS: Array<{ value: Modo; label: string; hint: string }> = [
 
 const escapeHtml = (s: string) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c] as string))
 
-function buildSystemPrompt(modo: Modo, section: string, rol?: string): string {
-  const base = `Eres un asistente experto de la Plataforma Virtual del ${appConfig.institution} (República Dominicana). El usuario está en la sección «${section}» con el rol «${rol ?? 'usuario'}». Responde en español, claro, profesional y listo para usar en un centro educativo.`
+function buildSystemPrompt(modo: Modo, section: AiSectionConfig, rol?: string): string {
+  const base = `Eres un asistente experto de la Plataforma Virtual del ${appConfig.institution} (República Dominicana). El usuario está en la sección «${section.label}» con el rol «${rol ?? 'usuario'}». Responde en español, claro, profesional y listo para usar en un centro educativo.`
   const porModo: Record<Modo, string> = {
     crear: 'REDACTA desde cero el recurso/actividad/material solicitado, con estructura y detalles suficientes para usarlo de inmediato.',
     modificar: 'MEJORA el contenido que se te entrega: corrige, ordena, enriquece y adapta al contexto indicado, conservando la intención original.',
@@ -43,7 +44,7 @@ function buildSystemPrompt(modo: Modo, section: string, rol?: string): string {
     reporte: 'REDACTA un informe profesional con título, introducción, desarrollo por secciones, conclusiones y recomendaciones.',
     evaluacion: 'DISEÑA instrumentos de evaluación (preguntas, rúbricas, listas de cotejo) alineados a los indicadores de logro, con criterios claros.',
   }
-  return `${base}\n${porModo[modo]}\nNo inventes datos institucionales que no se te den. Devuelve texto listo para copiar.`
+  return `${base}\nENFOQUE DE ESTA SECCIÓN: ${section.guidance}\n${porModo[modo]}\nNo inventes datos institucionales que no se te den. Devuelve texto listo para copiar.`
 }
 
 /** Asistente de IA global (Crear / Modificar / Investigar / Reporte / Evaluación) disponible en todos los portales. */
@@ -61,7 +62,7 @@ export function GlobalAiAssistant() {
   const pdfRef = useRef<HTMLInputElement>(null)
   const aiReady = isAiConfigured()
 
-  const section = location.pathname.split('/').filter(Boolean).slice(-1)[0]?.replace(/-/g, ' ') || 'inicio'
+  const sectionCfg = getAiSection(location.pathname)
   const hint = MODOS.find((m) => m.value === modo)?.hint
 
   const generar = async () => {
@@ -74,7 +75,7 @@ export function GlobalAiAssistant() {
       const contenido = `${prompt.trim()}${contexto ? `\n\nCONTEXTO:\n${contexto}` : ''}`
       const out = await aiChat(
         [
-          { role: 'system', content: buildSystemPrompt(modo, section, role ?? undefined) },
+          { role: 'system', content: buildSystemPrompt(modo, sectionCfg, role ?? undefined) },
           { role: 'user', content: contenido },
         ],
         { temperature: 0.5 },
@@ -111,7 +112,7 @@ export function GlobalAiAssistant() {
     w.document.open()
     w.document.write(`<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Asistente IA</title>
       <style>body{font-family:'Segoe UI',Arial,sans-serif;margin:18mm;color:#111;font-size:11pt;line-height:1.5}h1{font-size:16pt}pre{white-space:pre-wrap;font-family:inherit}</style>
-      </head><body><h1>Asistente IA · ${escapeHtml(section)}</h1><pre>${escapeHtml(salida)}</pre></body></html>`)
+      </head><body><h1>Asistente IA · ${escapeHtml(sectionCfg.label)}</h1><pre>${escapeHtml(salida)}</pre></body></html>`)
     w.document.close()
     w.focus()
     setTimeout(() => w.print(), 300)
@@ -127,7 +128,7 @@ export function GlobalAiAssistant() {
         open={open}
         onOpenChange={setOpen}
         title="Asistente IA"
-        subtitle={`Sección: ${section}${aiReady ? '' : ' · IA no configurada'}`}
+        subtitle={`${sectionCfg.label}${aiReady ? '' : ' · IA no configurada'}`}
         width={760}
         actions={
           <>
@@ -144,8 +145,15 @@ export function GlobalAiAssistant() {
             {MODOS.map((m) => <Tab key={m.value} value={m.value}>{m.label} con IA</Tab>)}
           </TabList>
           {hint && <div className={styles.hint}>{hint}</div>}
+          {sectionCfg.suggestions.length > 0 && (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '10px' }}>
+              {sectionCfg.suggestions.map((s) => (
+                <Button key={s} size="small" appearance="outline" onClick={() => setPrompt(s)}>{s}</Button>
+              ))}
+            </div>
+          )}
           <FormField label="¿Qué necesitas?" required>
-            <Textarea value={prompt} onChange={(_, d) => setPrompt(d.value)} resize="vertical" rows={4} placeholder="Ej. Crea una evaluación de 10 preguntas sobre fracciones para 5to grado…" />
+            <Textarea value={prompt} onChange={(_, d) => setPrompt(d.value)} resize="vertical" rows={4} placeholder={sectionCfg.placeholder} />
           </FormField>
           <FormField label="Contexto (opcional)" hint="Pega información o adjunta un PDF para dar contexto a la IA.">
             <Textarea value={contexto} onChange={(_, d) => setContexto(d.value)} resize="vertical" rows={3} />
