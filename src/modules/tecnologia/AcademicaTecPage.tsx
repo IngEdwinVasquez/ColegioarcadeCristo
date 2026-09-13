@@ -77,7 +77,7 @@ export const cursoNombre = (curso: GradeSection): string => {
 }
 
 /** Ciclo según el grado: 1-3 → Primer ciclo, 4-6 → Segundo ciclo (Primaria/Secundaria). */
-const cicloFromGrade = (level: string, grado: string): string | undefined => {
+export const cicloFromGrade = (level: string, grado: string): string | undefined => {
   if (level !== 'Nivel Primario' && level !== 'Nivel Secundario') return undefined
   const n = gradeNum(grado)
   if (n == null) return undefined
