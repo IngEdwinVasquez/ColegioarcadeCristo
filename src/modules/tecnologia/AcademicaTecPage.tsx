@@ -34,8 +34,8 @@ const LEVEL_SHORT: Record<string, string> = {
   'Nivel Secundario': 'Secundaria',
 }
 
-const GRADOS = ['1ro', '2do', '3ro', '4to', '5to', '6to']
-const SECCIONES = ['A', 'B', 'C', 'D', 'E', 'F', 'G']
+export const GRADOS = ['1ro', '2do', '3ro', '4to', '5to', '6to']
+export const SECCIONES = ['A', 'B', 'C', 'D', 'E', 'F', 'G']
 const CICLOS = ['Primer ciclo', 'Segundo ciclo']
 
 export const nivelShort = (level: string) => LEVEL_SHORT[level] ?? level
@@ -46,14 +46,14 @@ const ORD: Record<string, number> = { '1ro':1,'2do':2,'3ro':3,'4to':4,'5to':5,'6
 const GRADE_WORD = ['1ro','2do','3ro','4to','5to','6to']
 
 /** Extrae la sección del curso de forma segura: campo `section` o una letra A–G como palabra independiente. */
-const seccionDe = (curso: GradeSection): string => {
+export const seccionDe = (curso: GradeSection): string => {
   if (curso.section) return curso.section.trim().toUpperCase()
   const m = curso.name.match(/\b([A-Ga-g])\b/)
   return m ? m[1].toUpperCase() : 'A'
 }
 
 /** Extrae el grado (normalizado a 1ro…6to) desde cualquier parte del nombre. */
-const gradoDe = (curso: GradeSection): string => {
+export const gradoDe = (curso: GradeSection): string => {
   const m = curso.name.match(GRADO_RE)
   if (!m) return ''
   const num = ORD[m[1].toLowerCase()]
