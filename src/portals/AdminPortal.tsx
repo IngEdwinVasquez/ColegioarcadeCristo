@@ -4,7 +4,6 @@ import { DireccionPage } from '../modules/administrativo/DireccionPage'
 import { InformesPage } from '../modules/administrativo/InformesPage'
 import { AdmisionesPage } from '../modules/administrativo/AdmisionesPage'
 import { PromocionPage } from '../modules/administrativo/PromocionPage'
-import { CatalogosPage } from '../modules/administrativo/CatalogosPage'
 import { AsignacionesPage } from '../modules/administrativo/AsignacionesPage'
 import { AcademicaTecPage } from '../modules/tecnologia/AcademicaTecPage'
 import { AnualPlanPage } from '../modules/anualPlan/AnualPlanPage'
@@ -26,7 +25,6 @@ import {
   VideoRegular,
   VideoPersonRegular,
   LinkSquareRegular,
-  DatabaseRegular,
   ArrowUpRegular,
   MegaphoneRegular,
   ChatRegular,
@@ -42,7 +40,6 @@ const NAV: NavItem[] = [
   { to: '/administrativo/promocion', label: 'Promoción', icon: <ArrowUpRegular />, group: 'Académico' },
   { to: '/administrativo/asignaciones', label: 'Asignaciones', icon: <LinkSquareRegular />, group: 'Académico' },
   { to: '/administrativo/gestion-academica', label: 'Gestión académica', icon: <BookRegular />, group: 'Académico' },
-  { to: '/administrativo/catalogos', label: 'Catálogos', icon: <DatabaseRegular />, group: 'Académico' },
   { to: '/administrativo/planificacion', label: 'Planificación Anual', icon: <CalendarTodayRegular />, group: 'Académico' },
   { to: '/administrativo/clases', label: 'Clases Impartidas', icon: <NotebookRegular />, group: 'Académico' },
   { to: '/administrativo/asistencia', label: 'Asistencia', icon: <CalendarCheckmarkRegular />, group: 'Académico' },
@@ -63,7 +60,6 @@ export function AdminPortal() {
         <Route path="promocion" element={<PromocionPage />} />
         <Route path="asignaciones" element={<AsignacionesPage />} />
         <Route path="gestion-academica" element={<AcademicaTecPage />} />
-        <Route path="catalogos" element={<CatalogosPage />} />
         <Route path="planificacion" element={<AnualPlanPage />} />
         <Route path="clases" element={<ClasesPage />} />
         <Route path="clases/:id" element={<ClaseDetail />} />
