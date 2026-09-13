@@ -69,6 +69,13 @@ export const cursoGrado = (curso: GradeSection): string => {
   return g ? `${g}.${s}` : s
 }
 
+/** Nombre del curso = Grado + Sección + Nivel (ej. "1ro.A · Primaria"). */
+export const cursoNombre = (curso: GradeSection): string => {
+  const base = cursoGrado(curso)
+  const nivel = nivelShort(curso.level)
+  return [base, nivel].filter(Boolean).join(' · ')
+}
+
 /** Ciclo según el grado: 1-3 → Primer ciclo, 4-6 → Segundo ciclo (Primaria/Secundaria). */
 const cicloFromGrade = (level: string, grado: string): string | undefined => {
   if (level !== 'Nivel Primario' && level !== 'Nivel Secundario') return undefined
@@ -207,7 +214,7 @@ export function AcademicaTecPage() {
   const generarPdf = async () => {
     const logo = await getLogo()
     const esc = (s: string) => (s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-    const rows = cursosFiltrados.map((g) => `<tr><td>${esc(asignaturaDe(g))}</td><td>${esc(nivelShort(g.level))}</td><td>${esc(g.ciclo || cicloFromGrade(g.level, gradoDe(g)) || '—')}</td><td>${esc(cursoGrado(g))}</td><td>${esc(seccionDe(g))}</td><td>${studentCount(g.id)}</td></tr>`).join('')
+    const rows = cursosFiltrados.map((g) => `<tr><td>${esc(asignaturaDe(g))}</td><td>${esc(nivelShort(g.level))}</td><td>${esc(g.ciclo || cicloFromGrade(g.level, gradoDe(g)) || '—')}</td><td>${esc(gradoDe(g))}</td><td>${esc(seccionDe(g))}</td><td>${esc(cursoNombre(g))}</td><td>${studentCount(g.id)}</td></tr>`).join('')
     const html = `<!doctype html><html lang="es"><head><meta charset="utf-8"/><title>Asignaturas por grado</title><style>
       body{font-family:'Segoe UI',Arial,sans-serif;color:#1B2430;max-width:900px;margin:24px auto;padding:0 20px}
       .hdr{display:flex;align-items:center;gap:14px;border-bottom:3px solid #0082AD;padding-bottom:10px;margin-bottom:12px}
@@ -225,7 +232,7 @@ export function AcademicaTecPage() {
     <div class="hdr">${logo ? `<img src="${logo}" alt="Escudo"/>` : ''}<div><div class="n">${esc(appConfig.shortName)}</div><div class="i">${esc(appConfig.institution)}</div></div></div>
     <h1>Asignaturas por grado</h1>
     <div class="sub">${nivelFilter ? `Nivel: ${nivelFilter}` : 'Todos los niveles'}${gradoFilter ? ` · Grado: ${gradoFilter}` : ''}${seccionFilter ? ` · Sección ${seccionFilter}` : ''} · Generado ${new Date().toLocaleDateString('es-DO')}</div>
-    <table><thead><tr><th>Asignatura</th><th>Nivel</th><th>Ciclo</th><th>Grado/curso</th><th>Sección</th><th>Estudiantes</th></tr></thead><tbody>${rows}</tbody></table>
+    <table><thead><tr><th>Asignatura</th><th>Nivel</th><th>Ciclo</th><th>Grado</th><th>Sección</th><th>Curso</th><th>Estudiantes</th></tr></thead><tbody>${rows}</tbody></table>
     <p class="marca">Generado por la Intranet ${esc(appConfig.shortName)}</p>
     </body></html>`
     const w = window.open('', '_blank', 'noopener,width=960,height=720')
@@ -239,8 +246,8 @@ export function AcademicaTecPage() {
   /** Exporta la lista de asignaturas por grado a Excel (.xls). */
   const exportarExcel = async () => {
     const esc = (s: string) => (s ?? '').replace(/"/g, '""')
-    const rows = cursosFiltrados.map((g) => `<tr><td>${esc(asignaturaDe(g))}</td><td>${esc(nivelShort(g.level))}</td><td>${esc(g.ciclo || cicloFromGrade(g.level, gradoDe(g)) || '')}</td><td>${esc(cursoGrado(g))}</td><td>${esc(seccionDe(g))}</td><td>${studentCount(g.id)}</td></tr>`).join('')
-    const html = `<html xmlns:x="urn:schemas-microsoft-com:office:excel"><head><meta charset="utf-8"></head><body><table border="1"><tr><th>Asignatura</th><th>Nivel</th><th>Ciclo</th><th>Grado/curso</th><th>Sección</th><th>Estudiantes</th></tr>${rows}</table></body></html>`
+    const rows = cursosFiltrados.map((g) => `<tr><td>${esc(asignaturaDe(g))}</td><td>${esc(nivelShort(g.level))}</td><td>${esc(g.ciclo || cicloFromGrade(g.level, gradoDe(g)) || '')}</td><td>${esc(gradoDe(g))}</td><td>${esc(seccionDe(g))}</td><td>${esc(cursoNombre(g))}</td><td>${studentCount(g.id)}</td></tr>`).join('')
+    const html = `<html xmlns:x="urn:schemas-microsoft-com:office:excel"><head><meta charset="utf-8"></head><body><table border="1"><tr><th>Asignatura</th><th>Nivel</th><th>Ciclo</th><th>Grado</th><th>Sección</th><th>Curso</th><th>Estudiantes</th></tr>${rows}</table></body></html>`
     const blob = new Blob(['\ufeff', html], { type: 'application/vnd.ms-excel;charset=utf-8' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
@@ -403,8 +410,9 @@ export function AcademicaTecPage() {
             <TableHeaderCell>Asignatura</TableHeaderCell>
             <TableHeaderCell>Nivel</TableHeaderCell>
             <TableHeaderCell>Ciclo</TableHeaderCell>
-            <TableHeaderCell>Grado/curso</TableHeaderCell>
+            <TableHeaderCell>Grado</TableHeaderCell>
             <TableHeaderCell>Sección</TableHeaderCell>
+            <TableHeaderCell>Curso</TableHeaderCell>
             <TableHeaderCell>Estudiantes</TableHeaderCell>
             <TableHeaderCell>Microsoft Teams</TableHeaderCell>
             <TableHeaderCell>Acciones</TableHeaderCell>
@@ -416,8 +424,9 @@ export function AcademicaTecPage() {
               <TableCell><Text weight="semibold">{asignaturaDe(g)}</Text></TableCell>
               <TableCell>{nivelShort(g.level)}</TableCell>
               <TableCell>{g.ciclo || cicloFromGrade(g.level, gradoDe(g)) || '—'}</TableCell>
-              <TableCell>{cursoGrado(g)}</TableCell>
+              <TableCell>{gradoDe(g)}</TableCell>
               <TableCell>{seccionDe(g)}</TableCell>
+              <TableCell><Text weight="semibold">{cursoNombre(g)}</Text></TableCell>
               <TableCell><Badge appearance="tint" color="brand" icon={<PeopleTeamRegular />}>{studentCount(g.id)}</Badge></TableCell>
               <TableCell>
                 {g.teamId ? (

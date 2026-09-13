@@ -9,7 +9,7 @@ import { useApp } from '../../context/useApp'
 import { dataService } from '../../services/dataService'
 import { useCollection } from '../../hooks/useCollection'
 import { genId } from '../../utils/helpers'
-import { asignaturaDe, cursoGrado, isRealSubject, nivelShort, gradoDe, seccionDe, GRADOS, SECCIONES } from '../tecnologia/AcademicaTecPage'
+import { asignaturaDe, cursoNombre, isRealSubject, nivelShort, gradoDe, seccionDe, GRADOS, SECCIONES } from '../tecnologia/AcademicaTecPage'
 import type { Enrollment, GradeSection, TeacherAssignment } from '../../types'
 
 const useStyles = makeStyles({
@@ -52,8 +52,8 @@ export function AsignacionesPage() {
   const [eGrade, setEGrade] = useState('')
   const [eTeacher, setETeacher] = useState('')
 
-  // Misma lista/etiquetas que «Gestión académica» (Asignatura · Nivel · Grado/curso).
-  const gradeLabel = (g: GradeSection) => `${cursoGrado(g)} · ${asignaturaDe(g)}`
+  // Misma lista/etiquetas que «Gestión académica» (Asignatura · Curso = Grado + Sección + Nivel).
+  const gradeLabel = (g: GradeSection) => `${asignaturaDe(g)} · ${cursoNombre(g)}`
   const gradeOptions = useMemo(
     () => grades.filter((g) => isRealSubject(asignaturaDe(g))).map((g) => ({ id: g.id, label: gradeLabel(g), detail: nivelShort(g.level) })),
     [grades],
@@ -69,7 +69,7 @@ export function AsignacionesPage() {
     [grades, mNivel, mGrado, mSeccion],
   )
   const asignaturaOptions = useMemo(
-    () => cursosFiltrados.map((g) => ({ id: g.id, label: asignaturaDe(g), detail: `${cursoGrado(g)} · ${nivelShort(g.level)}` })),
+    () => cursosFiltrados.map((g) => ({ id: g.id, label: asignaturaDe(g), detail: cursoNombre(g) })),
     [cursosFiltrados],
   )
   const studentOptions = useMemo(() => students.map((s) => ({ id: s.id, label: s.fullName, detail: s.email })), [students])
