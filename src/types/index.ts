@@ -378,6 +378,17 @@ export interface TeacherAssignment {
   periodId: string
 }
 
+/** Asignatura agregada a un curso (curso = Grado + Sección + Nivel) en un período. */
+export interface CourseSubject {
+  id: string
+  /** Nombre del curso: Grado + Sección + Nivel */
+  curso: string
+  /** Curso (registro de Gestión académica) asociado a la asignatura */
+  gradeId: string
+  subject: string
+  periodId: string
+}
+
 export interface AdmissionRequest {
   id: string
   estudiante: string

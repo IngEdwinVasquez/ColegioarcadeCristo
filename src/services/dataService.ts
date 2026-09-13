@@ -17,6 +17,7 @@ import type {
   GradeSection,
   Period,
   Persona,
+  CourseSubject,
   PsychRequest,
   RoleMeta,
   TicActivity,
@@ -93,6 +94,7 @@ export const collections = {
     weeklySchedules: collection<WeeklySchedule>(SPO_LISTS.weeklySchedules),
     workCronogramas: collection<WorkCronograma>(SPO_LISTS.workCronogramas),
     planificador: collection<PlanificacionDinamica>(SPO_LISTS.planificador),
+    courseSubjects: collection<CourseSubject>(SPO_LISTS.courseSubjects),
 }
 
 export const dataService = {
@@ -221,6 +223,10 @@ export const dataService = {
   getPlanificaciones: collections.planificador.getAll,
   savePlanificacion: collections.planificador.save,
   deletePlanificacion: collections.planificador.remove,
+  // Asignaturas por curso
+  getCourseSubjects: collections.courseSubjects.getAll,
+  saveCourseSubject: collections.courseSubjects.save,
+  deleteCourseSubject: collections.courseSubjects.remove,
 }
 
 export type DataService = typeof dataService
