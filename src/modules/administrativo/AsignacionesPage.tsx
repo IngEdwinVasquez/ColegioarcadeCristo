@@ -1,16 +1,21 @@
-import { useState } from 'react'
-import { Select, Tab, TabList, Text, useToastController, makeStyles } from '@fluentui/react-components'
+import { useMemo, useState } from 'react'
+import { Button, Card, Select, Spinner, Tab, TabList, Table, TableBody, TableCell, TableHeader, TableHeaderCell, TableRow, Text, Toolbar, ToolbarButton, useToastController, makeStyles, tokens } from '@fluentui/react-components'
+import { DeleteRegular, CheckmarkCircleRegular } from '@fluentui/react-icons'
 import { PageHeader } from '../../components/shared/PageHeader'
-import { EntityCrud, type CrudColumn } from '../../components/shared/EntityCrud'
+import { MultiSelect } from '../../components/shared/MultiSelect'
 import { FormField, FieldRow } from '../../components/shared/form'
+import { EmptyStateView } from '../../components/shared/EmptyStateView'
 import { useApp } from '../../context/useApp'
 import { dataService } from '../../services/dataService'
 import { useCollection } from '../../hooks/useCollection'
-import type { Enrollment, TeacherAssignment } from '../../types'
-import { genId } from '../../utils/helpers'
+import { aulaLabel, genId } from '../../utils/helpers'
+import type { Enrollment, GradeSection, TeacherAssignment } from '../../types'
 
 const useStyles = makeStyles({
   tabs: { marginBottom: '16px' },
+  card: { padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '16px' },
+  row: { display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'flex-end' },
+  actions: { display: 'flex', gap: '8px', marginTop: '4px', flexWrap: 'wrap' },
 })
 
 export function AsignacionesPage() {
@@ -19,154 +24,327 @@ export function AsignacionesPage() {
   const { students, teachers, grades, subjects, periods, gradeById, subjectById, periodById, studentById, teacherById } = useApp()
   const enrollmentsCol = useCollection<Enrollment>(dataService.getEnrollments, dataService.saveEnrollment, dataService.deleteEnrollment)
   const assignmentsCol = useCollection<TeacherAssignment>(dataService.getTeacherAssignments, dataService.saveTeacherAssignment, dataService.deleteTeacherAssignment)
+  const gradesCol = useCollection<GradeSection>(dataService.getGrades, dataService.saveGrade, dataService.deleteGrade)
 
   const [tab, setTab] = useState('matriculas')
+  const [busy, setBusy] = useState(false)
 
-  const enrollmentColumns: CrudColumn<Enrollment>[] = [
-    { header: 'Estudiante', render: (e) => <Text weight="semibold">{studentById(e.studentId)?.fullName ?? e.studentId}</Text> },
-    { header: 'Curso', render: (e) => gradeById(e.gradeId)?.name ?? e.gradeId },
-    { header: 'Asignatura', render: (e) => (e.subjectId ? subjectById(e.subjectId)?.name ?? e.subjectId : 'Todas') },
-    { header: 'Período', render: (e) => periodById(e.periodId)?.name ?? e.periodId },
-  ]
+  const activePeriod = periods.find((p) => p.isActive)?.id ?? periods[0]?.id ?? ''
 
-  const teacherAssignmentColumns: CrudColumn<TeacherAssignment>[] = [
-    { header: 'Docente', render: (a) => <Text weight="semibold">{teacherById(a.teacherId)?.fullName ?? a.teacherId}</Text> },
-    { header: 'Curso', render: (a) => gradeById(a.gradeId)?.name ?? a.gradeId },
-    { header: 'Asignatura', render: (a) => subjectById(a.subjectId)?.name ?? a.subjectId },
-    { header: 'Período', render: (a) => periodById(a.periodId)?.name ?? a.periodId },
-  ]
+  // Matrículas
+  const [mGrade, setMGrade] = useState('')
+  const [mPeriod, setMPeriod] = useState(activePeriod)
+  const [mSubjects, setMSubjects] = useState<string[]>([])
+  const [mStudents, setMStudents] = useState<string[]>([])
 
-  const saveEnrollment = async (e: Enrollment) => {
-    await enrollmentsCol.save(e)
-    toaster.dispatchToast('Matrícula guardada', { intent: 'success' })
+  // Asignaciones docentes
+  const [dGrade, setDGrade] = useState('')
+  const [dPeriod, setDPeriod] = useState(activePeriod)
+  const [dSubject, setDSubject] = useState('')
+  const [dTeachers, setDTeachers] = useState<string[]>([])
+
+  // Docente encargado
+  const [eGrade, setEGrade] = useState('')
+  const [eTeacher, setETeacher] = useState('')
+
+  const gradeLabel = (g: GradeSection) => aulaLabel(g)
+  const gradeOptions = useMemo(() => grades.map((g) => ({ id: g.id, label: gradeLabel(g), detail: [g.nivel, g.ciclo].filter(Boolean).join(' · ') })), [grades])
+  const studentOptions = useMemo(() => students.map((s) => ({ id: s.id, label: s.fullName, detail: s.email })), [students])
+  const teacherOptions = useMemo(() => teachers.map((t) => ({ id: t.id, label: t.fullName, detail: t.email })), [teachers])
+  const subjectOptions = useMemo(() => subjects.map((s) => ({ id: s.id, label: s.name })), [subjects])
+
+  // ---------------------------------------------------------------- Matrículas en lote
+  const matricular = async () => {
+    if (!mGrade || !mPeriod || mStudents.length === 0) {
+      toaster.dispatchToast('Selecciona curso, período y al menos un estudiante.', { intent: 'error' })
+      return
+    }
+    setBusy(true)
+    try {
+      const subjectList = mSubjects.length ? mSubjects : ['']
+      let created = 0
+      let skipped = 0
+      for (const studentId of mStudents) {
+        for (const subj of subjectList) {
+          const dup = enrollmentsCol.items.some(
+            (e) => e.studentId === studentId && e.gradeId === mGrade && e.periodId === mPeriod && (e.subjectId ?? '') === subj,
+          )
+          if (dup) { skipped += 1; continue }
+          await enrollmentsCol.save({ id: genId('enr'), studentId, gradeId: mGrade, subjectId: subj || undefined, periodId: mPeriod })
+          created += 1
+        }
+      }
+      toaster.dispatchToast(`${created} matrícula(s) creada(s)${skipped ? `; ${skipped} ya existían` : ''}.`, { intent: 'success' })
+      setMStudents([])
+    } catch (error) {
+      toaster.dispatchToast(error instanceof Error ? error.message : 'No se pudieron crear las matrículas.', { intent: 'error' })
+    } finally {
+      setBusy(false)
+    }
   }
-  const saveAssignment = async (a: TeacherAssignment) => {
-    await assignmentsCol.save(a)
-    toaster.dispatchToast('Asignación guardada', { intent: 'success' })
+
+  // ---------------------------------------------------------------- Docentes en lote
+  const asignarDocentes = async () => {
+    if (!dGrade || !dPeriod || !dSubject || dTeachers.length === 0) {
+      toaster.dispatchToast('Selecciona curso, asignatura, período y al menos un docente.', { intent: 'error' })
+      return
+    }
+    setBusy(true)
+    try {
+      let created = 0
+      let skipped = 0
+      for (const teacherId of dTeachers) {
+        const dup = assignmentsCol.items.some(
+          (a) => a.teacherId === teacherId && a.gradeId === dGrade && a.subjectId === dSubject && a.periodId === dPeriod,
+        )
+        if (dup) { skipped += 1; continue }
+        await assignmentsCol.save({ id: genId('ta'), teacherId, gradeId: dGrade, subjectId: dSubject, periodId: dPeriod })
+        created += 1
+      }
+      toaster.dispatchToast(`${created} asignación(es) creada(s)${skipped ? `; ${skipped} ya existían` : ''}.`, { intent: 'success' })
+      setDTeachers([])
+    } catch (error) {
+      toaster.dispatchToast(error instanceof Error ? error.message : 'No se pudieron crear las asignaciones.', { intent: 'error' })
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  // ---------------------------------------------------------------- Docente encargado
+  const asignarEncargado = async () => {
+    const grade = gradeById(eGrade)
+    if (!grade || !eTeacher) {
+      toaster.dispatchToast('Selecciona curso y docente encargado.', { intent: 'error' })
+      return
+    }
+    try {
+      await gradesCol.save({ ...grade, leadTeacherId: eTeacher })
+      toaster.dispatchToast(`Docente encargado asignado en ${gradeLabel(grade)}.`, { intent: 'success' })
+      setETeacher('')
+    } catch (error) {
+      toaster.dispatchToast(error instanceof Error ? error.message : 'No se pudo asignar el encargado.', { intent: 'error' })
+    }
+  }
+
+  const quitarEncargado = async (grade: GradeSection) => {
+    try {
+      await gradesCol.save({ ...grade, leadTeacherId: undefined })
+      toaster.dispatchToast('Docente encargado removido.', { intent: 'success' })
+    } catch (error) {
+      toaster.dispatchToast(error instanceof Error ? error.message : 'No se pudo remover.', { intent: 'error' })
+    }
   }
 
   return (
     <div>
       <PageHeader
         title="Asignaciones"
-        subtitle="Asigne estudiantes y docentes a cursos, asignaturas y períodos escolares."
+        subtitle="Matricula estudiantes y asigna docentes en lote por curso, asignatura y período. Curso y grado son lo mismo."
       />
+
       <TabList className={styles.tabs} selectedValue={tab} onTabSelect={(_, d) => setTab(String(d.value))}>
         <Tab value="matriculas">Matrículas de estudiantes ({enrollmentsCol.items.length})</Tab>
         <Tab value="docentes">Asignaciones docentes ({assignmentsCol.items.length})</Tab>
+        <Tab value="encargado">Docente encargado por curso</Tab>
       </TabList>
 
+      {/* ------------------------------ Matrículas ------------------------------ */}
       {tab === 'matriculas' && (
-        <EntityCrud
-          title="Matrículas"
-          items={enrollmentsCol.items}
-          loading={enrollmentsCol.loading}
-          columns={enrollmentColumns}
-          searchText={(e) => `${studentById(e.studentId)?.fullName ?? ''} ${gradeById(e.gradeId)?.name ?? ''}`}
-          newLabel="Nueva matrícula"
-          createDefault={() => ({
-            id: genId('enr'),
-            studentId: students[0]?.id ?? '',
-            gradeId: grades[0]?.id ?? '',
-            subjectId: '',
-            periodId: periods.find((p) => p.isActive)?.id ?? periods[0]?.id ?? '',
-          })}
-          renderForm={(e, set) => (
-            <div>
-              <FieldRow>
-                <FormField label="Estudiante" required>
-                  <Select value={e.studentId} onChange={(_, d) => set({ ...e, studentId: d.value })}>
-                    {students.map((s) => (
-                      <option key={s.id} value={s.id}>{s.fullName}</option>
-                    ))}
-                  </Select>
-                </FormField>
-                <FormField label="Curso" required>
-                  <Select value={e.gradeId} onChange={(_, d) => set({ ...e, gradeId: d.value })}>
-                    {grades.map((g) => (
-                      <option key={g.id} value={g.id}>{g.name}</option>
-                    ))}
-                  </Select>
-                </FormField>
-              </FieldRow>
-              <FieldRow>
-                <FormField label="Asignatura (opcional)">
-                  <Select value={e.subjectId ?? ''} onChange={(_, d) => set({ ...e, subjectId: d.value || undefined })}>
-                    <option value="">Todas las asignaturas</option>
-                    {subjects.map((s) => (
-                      <option key={s.id} value={s.id}>{s.name}</option>
-                    ))}
-                  </Select>
-                </FormField>
-                <FormField label="Período" required>
-                  <Select value={e.periodId} onChange={(_, d) => set({ ...e, periodId: d.value })}>
-                    {periods.map((p) => (
-                      <option key={p.id} value={p.id}>{p.name}{p.isActive ? ' (activo)' : ''}</option>
-                    ))}
-                  </Select>
-                </FormField>
-              </FieldRow>
+        <>
+          <Card className={styles.card}>
+            <FieldRow>
+              <FormField label="Curso (grado)" required>
+                <Select value={mGrade} onChange={(_, d) => setMGrade(d.value)}>
+                  <option value="">— Selecciona un curso —</option>
+                  {gradeOptions.map((g) => <option key={g.id} value={g.id}>{g.label}{g.detail ? ` · ${g.detail}` : ''}</option>)}
+                </Select>
+              </FormField>
+              <FormField label="Período" required>
+                <Select value={mPeriod} onChange={(_, d) => setMPeriod(d.value)}>
+                  {periods.map((p) => <option key={p.id} value={p.id}>{p.name}{p.isActive ? ' (activo)' : ''}</option>)}
+                </Select>
+              </FormField>
+            </FieldRow>
+            <MultiSelect
+              label="Asignaturas (opcional; vacío = todas las del curso)"
+              options={subjectOptions}
+              selected={mSubjects}
+              onChange={setMSubjects}
+              placeholder="Filtrar asignaturas…"
+            />
+            <MultiSelect
+              label="Estudiantes a matricular"
+              options={studentOptions}
+              selected={mStudents}
+              onChange={setMStudents}
+              placeholder="Filtrar estudiantes…"
+              required
+              emptyMessage="No hay estudiantes en el catálogo."
+            />
+            <div className={styles.actions}>
+              <Button appearance="primary" icon={busy ? <Spinner size="tiny" /> : <CheckmarkCircleRegular />} disabled={busy} onClick={() => void matricular()}>
+                {busy ? 'Procesando…' : 'Matricular seleccionados'}
+              </Button>
             </div>
+          </Card>
+
+          {enrollmentsCol.loading ? (
+            <Spinner label="Cargando matrículas…" />
+          ) : enrollmentsCol.items.length === 0 ? (
+            <EmptyStateView title="Sin matrículas" message="Selecciona un curso y estudiantes para matricularlos." />
+          ) : (
+            <Table aria-label="Matrículas">
+              <TableHeader>
+                <TableRow>
+                  <TableHeaderCell>Estudiante</TableHeaderCell>
+                  <TableHeaderCell>Curso</TableHeaderCell>
+                  <TableHeaderCell>Asignatura</TableHeaderCell>
+                  <TableHeaderCell>Período</TableHeaderCell>
+                  <TableHeaderCell>Acciones</TableHeaderCell>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {enrollmentsCol.items.map((e) => (
+                  <TableRow key={e.id}>
+                    <TableCell><Text weight="semibold">{studentById(e.studentId)?.fullName ?? e.studentId}</Text></TableCell>
+                    <TableCell>{gradeById(e.gradeId) ? gradeLabel(gradeById(e.gradeId) as GradeSection) : e.gradeId}</TableCell>
+                    <TableCell>{e.subjectId ? subjectById(e.subjectId)?.name ?? e.subjectId : 'Todas'}</TableCell>
+                    <TableCell>{periodById(e.periodId)?.name ?? e.periodId}</TableCell>
+                    <TableCell>
+                      <Toolbar size="small">
+                        <ToolbarButton icon={<DeleteRegular />} onClick={() => void enrollmentsCol.remove(e.id)} aria-label="Eliminar" />
+                      </Toolbar>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
           )}
-          onSave={saveEnrollment}
-          onDelete={(id) => enrollmentsCol.remove(id)}
-        />
+        </>
       )}
 
+      {/* ------------------------------ Docentes ------------------------------ */}
       {tab === 'docentes' && (
-        <EntityCrud
-          title="Asignaciones docentes"
-          items={assignmentsCol.items}
-          loading={assignmentsCol.loading}
-          columns={teacherAssignmentColumns}
-          searchText={(a) => `${teacherById(a.teacherId)?.fullName ?? ''} ${subjectById(a.subjectId)?.name ?? ''}`}
-          newLabel="Nueva asignación"
-          createDefault={() => ({
-            id: genId('ta'),
-            teacherId: teachers[0]?.id ?? '',
-            gradeId: grades[0]?.id ?? '',
-            subjectId: subjects[0]?.id ?? '',
-            periodId: periods.find((p) => p.isActive)?.id ?? periods[0]?.id ?? '',
-          })}
-          renderForm={(a, set) => (
-            <div>
-              <FieldRow>
-                <FormField label="Docente" required>
-                  <Select value={a.teacherId} onChange={(_, d) => set({ ...a, teacherId: d.value })}>
-                    {teachers.map((t) => (
-                      <option key={t.id} value={t.id}>{t.fullName}</option>
-                    ))}
-                  </Select>
-                </FormField>
-                <FormField label="Curso" required>
-                  <Select value={a.gradeId} onChange={(_, d) => set({ ...a, gradeId: d.value })}>
-                    {grades.map((g) => (
-                      <option key={g.id} value={g.id}>{g.name}</option>
-                    ))}
-                  </Select>
-                </FormField>
-              </FieldRow>
-              <FieldRow>
-                <FormField label="Asignatura" required>
-                  <Select value={a.subjectId} onChange={(_, d) => set({ ...a, subjectId: d.value })}>
-                    {subjects.map((s) => (
-                      <option key={s.id} value={s.id}>{s.name}</option>
-                    ))}
-                  </Select>
-                </FormField>
-                <FormField label="Período" required>
-                  <Select value={a.periodId} onChange={(_, d) => set({ ...a, periodId: d.value })}>
-                    {periods.map((p) => (
-                      <option key={p.id} value={p.id}>{p.name}{p.isActive ? ' (activo)' : ''}</option>
-                    ))}
-                  </Select>
-                </FormField>
-              </FieldRow>
+        <>
+          <Card className={styles.card}>
+            <FieldRow>
+              <FormField label="Curso (grado)" required>
+                <Select value={dGrade} onChange={(_, d) => setDGrade(d.value)}>
+                  <option value="">— Selecciona un curso —</option>
+                  {gradeOptions.map((g) => <option key={g.id} value={g.id}>{g.label}{g.detail ? ` · ${g.detail}` : ''}</option>)}
+                </Select>
+              </FormField>
+              <FormField label="Asignatura" required>
+                <Select value={dSubject} onChange={(_, d) => setDSubject(d.value)}>
+                  <option value="">— Selecciona una asignatura —</option>
+                  {subjectOptions.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
+                </Select>
+              </FormField>
+            </FieldRow>
+            <FieldRow>
+              <FormField label="Período" required>
+                <Select value={dPeriod} onChange={(_, d) => setDPeriod(d.value)}>
+                  {periods.map((p) => <option key={p.id} value={p.id}>{p.name}{p.isActive ? ' (activo)' : ''}</option>)}
+                </Select>
+              </FormField>
+            </FieldRow>
+            <MultiSelect
+              label="Docentes a asignar"
+              options={teacherOptions}
+              selected={dTeachers}
+              onChange={setDTeachers}
+              placeholder="Filtrar docentes…"
+              required
+              emptyMessage="No hay docentes en el catálogo."
+            />
+            <div className={styles.actions}>
+              <Button appearance="primary" icon={busy ? <Spinner size="tiny" /> : <CheckmarkCircleRegular />} disabled={busy} onClick={() => void asignarDocentes()}>
+                {busy ? 'Procesando…' : 'Asignar seleccionados'}
+              </Button>
             </div>
+          </Card>
+
+          {assignmentsCol.loading ? (
+            <Spinner label="Cargando asignaciones…" />
+          ) : assignmentsCol.items.length === 0 ? (
+            <EmptyStateView title="Sin asignaciones" message="Selecciona curso, asignatura y docentes para asignarlos." />
+          ) : (
+            <Table aria-label="Asignaciones docentes">
+              <TableHeader>
+                <TableRow>
+                  <TableHeaderCell>Docente</TableHeaderCell>
+                  <TableHeaderCell>Curso</TableHeaderCell>
+                  <TableHeaderCell>Asignatura</TableHeaderCell>
+                  <TableHeaderCell>Período</TableHeaderCell>
+                  <TableHeaderCell>Acciones</TableHeaderCell>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {assignmentsCol.items.map((a) => (
+                  <TableRow key={a.id}>
+                    <TableCell><Text weight="semibold">{teacherById(a.teacherId)?.fullName ?? a.teacherId}</Text></TableCell>
+                    <TableCell>{gradeById(a.gradeId) ? gradeLabel(gradeById(a.gradeId) as GradeSection) : a.gradeId}</TableCell>
+                    <TableCell>{subjectById(a.subjectId)?.name ?? a.subjectId}</TableCell>
+                    <TableCell>{periodById(a.periodId)?.name ?? a.periodId}</TableCell>
+                    <TableCell>
+                      <Toolbar size="small">
+                        <ToolbarButton icon={<DeleteRegular />} onClick={() => void assignmentsCol.remove(a.id)} aria-label="Eliminar" />
+                      </Toolbar>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
           )}
-          onSave={saveAssignment}
-          onDelete={(id) => assignmentsCol.remove(id)}
-        />
+        </>
+      )}
+
+      {/* ------------------------------ Docente encargado ------------------------------ */}
+      {tab === 'encargado' && (
+        <>
+          <Card className={styles.card}>
+            <FieldRow>
+              <FormField label="Curso (grado)" required>
+                <Select value={eGrade} onChange={(_, d) => setEGrade(d.value)}>
+                  <option value="">— Selecciona un curso —</option>
+                  {gradeOptions.map((g) => <option key={g.id} value={g.id}>{g.label}{g.detail ? ` · ${g.detail}` : ''}</option>)}
+                </Select>
+              </FormField>
+              <FormField label="Docente encargado" required>
+                <Select value={eTeacher} onChange={(_, d) => setETeacher(d.value)}>
+                  <option value="">— Selecciona un docente —</option>
+                  {teacherOptions.map((t) => <option key={t.id} value={t.id}>{t.label}</option>)}
+                </Select>
+              </FormField>
+            </FieldRow>
+            <div className={styles.actions}>
+              <Button appearance="primary" icon={<CheckmarkCircleRegular />} onClick={() => void asignarEncargado()}>Asignar encargado</Button>
+            </div>
+          </Card>
+
+          <Table aria-label="Docente encargado por curso">
+            <TableHeader>
+              <TableRow>
+                <TableHeaderCell>Curso (grado)</TableHeaderCell>
+                <TableHeaderCell>Docente encargado</TableHeaderCell>
+                <TableHeaderCell>Acciones</TableHeaderCell>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {grades.map((g) => (
+                <TableRow key={g.id}>
+                  <TableCell><Text weight="semibold">{gradeLabel(g)}</Text></TableCell>
+                  <TableCell>{g.leadTeacherId ? teacherById(g.leadTeacherId)?.fullName ?? g.leadTeacherId : <Text style={{ color: tokens.colorNeutralForeground2 }}>Sin asignar</Text>}</TableCell>
+                  <TableCell>
+                    <Toolbar size="small">
+                      <ToolbarButton icon={<DeleteRegular />} onClick={() => void quitarEncargado(g)} aria-label="Quitar encargado" disabled={!g.leadTeacherId} />
+                    </Toolbar>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </>
       )}
     </div>
   )
