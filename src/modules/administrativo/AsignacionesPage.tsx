@@ -119,18 +119,46 @@ export function AsignacionesPage() {
     try {
       let created = 0
       let skipped = 0
+      const conflicts: string[] = []
       for (const studentId of mStudents) {
-        for (const g of cursoMaterias) {
-          const dup = enrollmentsCol.items.some((e) => e.studentId === studentId && e.gradeId === g.id && e.periodId === mPeriod)
-          if (dup) { skipped += 1; continue }
-          await enrollmentsCol.save({ id: genId('enr'), studentId, gradeId: g.id, periodId: mPeriod })
-          created += 1
+        const existing = enrollmentsCol.items.filter((e) => e.studentId === studentId && e.periodId === mPeriod)
+        // Regla: un estudiante solo puede estar en UN curso por período.
+        const otherCourse = existing.some((e) => {
+          const g = gradeById(e.gradeId)
+          return g && cursoNombre(g) !== mCurso
+        })
+        if (otherCourse) {
+          conflicts.push(studentById(studentId)?.fullName ?? studentId)
+          continue
         }
+        const already = existing.some((e) => {
+          const g = gradeById(e.gradeId)
+          return g && cursoNombre(g) === mCurso
+        })
+        if (already) { skipped += 1; continue }
+        // Una sola matrícula por estudiante = el curso completo (todas sus asignaturas).
+        await enrollmentsCol.save({ id: genId('enr'), studentId, gradeId: cursoMaterias[0].id, periodId: mPeriod })
+        created += 1
       }
-      toaster.dispatchToast(`${created} matrícula(s) creada(s)${skipped ? `; ${skipped} ya existían` : ''}.`, { intent: 'success' })
+      const extra = conflicts.length ? ` No se matricularon (ya están en otro curso): ${conflicts.join(', ')}.` : ''
+      toaster.dispatchToast(`${created} matrícula(s) creada(s)${skipped ? `; ${skipped} ya existían` : ''}.${extra}`, { intent: conflicts.length ? 'warning' : 'success' })
       setMStudents([])
     } catch (error) {
       toaster.dispatchToast(error instanceof Error ? error.message : 'No se pudieron crear las matrículas.', { intent: 'error' })
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  /** Elimina TODAS las matrículas para iniciar desde cero. */
+  const vaciarMatriculas = async () => {
+    if (!window.confirm('¿Eliminar TODAS las matrículas? Esta acción no se puede deshacer.')) return
+    setBusy(true)
+    try {
+      for (const e of enrollmentsCol.items) await enrollmentsCol.remove(e.id)
+      toaster.dispatchToast('Se eliminaron todas las matrículas.', { intent: 'success' })
+    } catch (error) {
+      toaster.dispatchToast(error instanceof Error ? error.message : 'No se pudieron eliminar las matrículas.', { intent: 'error' })
     } finally {
       setBusy(false)
     }
@@ -256,6 +284,12 @@ export function AsignacionesPage() {
             </div>
           </Card>
 
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '10px' }}>
+            <Button appearance="secondary" icon={<DeleteRegular />} disabled={busy || enrollmentsCol.items.length === 0} onClick={() => void vaciarMatriculas()}>
+              Vaciar matrículas
+            </Button>
+          </div>
+
           {enrollmentsCol.loading ? (
             <Spinner label="Cargando matrículas…" />
           ) : enrollmentsCol.items.length === 0 ? (
@@ -275,7 +309,7 @@ export function AsignacionesPage() {
                 {enrollmentsCol.items.map((e) => (
                   <TableRow key={e.id}>
                     <TableCell><Text weight="semibold">{studentById(e.studentId)?.fullName ?? e.studentId}</Text></TableCell>
-                    <TableCell>{gradeById(e.gradeId) ? gradeLabel(gradeById(e.gradeId) as GradeSection) : e.gradeId}</TableCell>
+                    <TableCell>{gradeById(e.gradeId) ? cursoNombre(gradeById(e.gradeId) as GradeSection) : e.gradeId}</TableCell>
                     <TableCell>{e.subjectId ? subjectById(e.subjectId)?.name ?? e.subjectId : 'Todas'}</TableCell>
                     <TableCell>{periodById(e.periodId)?.name ?? e.periodId}</TableCell>
                     <TableCell>
