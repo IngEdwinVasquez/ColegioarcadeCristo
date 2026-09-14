@@ -247,7 +247,7 @@ export function AsignacionesPage() {
         <>
           <Card className={styles.card}>
             <FieldRow>
-              <FormField label="Curso (Grado + Sección + Nivel)" required>
+              <FormField label="Curso" required>
                 <Select value={mCurso} onChange={(_, d) => { setMCurso(d.value); setMAsignaturas([]) }}>
                   <option value="">— Selecciona un curso —</option>
                   {cursosCatalogo.map((c) => <option key={c.nombre} value={c.nombre}>{c.nombre}</option>)}
@@ -382,13 +382,13 @@ export function AsignacionesPage() {
               </FormField>
             </FieldRow>
             <FieldRow>
-              <FormField label="Curso (asignatura · grado · sección · nivel)" required>
+              <FormField label="Curso" required>
                 <Select value={dGrade} onChange={(_, d) => setDGrade(d.value)}>
                   <option value="">— Selecciona un curso —</option>
                   {cursoGradeOptions.map((g) => <option key={g.id} value={g.id}>{g.label}</option>)}
                 </Select>
               </FormField>
-              <FormField label="Asignatura (catálogo)" required>
+              <FormField label="Asignatura" required>
                 <Select value={dSubject} onChange={(_, d) => setDSubject(d.value)}>
                   <option value="">— Selecciona una asignatura —</option>
                   {subjectOptions.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
@@ -458,7 +458,7 @@ export function AsignacionesPage() {
         <>
           <Card className={styles.card}>
             <FieldRow>
-              <FormField label="Curso (asignatura · grado · sección · nivel)" required>
+              <FormField label="Curso" required>
                 <Select value={eGrade} onChange={(_, d) => setEGrade(d.value)}>
                   <option value="">— Selecciona un curso —</option>
                   {gradeOptions.map((g) => <option key={g.id} value={g.id}>{g.label}</option>)}
