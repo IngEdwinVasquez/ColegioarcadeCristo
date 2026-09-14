@@ -1,8 +1,9 @@
 import { useMemo, useRef, useState } from 'react'
 import { Button, Card, Select, Spinner, Tab, TabList, Table, TableBody, TableCell, TableHeader, TableHeaderCell, TableRow, Text, Toolbar, ToolbarButton, useToastController, makeStyles, tokens } from '@fluentui/react-components'
-import { DeleteRegular, CheckmarkCircleRegular, ArrowUploadRegular } from '@fluentui/react-icons'
+import { DeleteRegular, CheckmarkCircleRegular, ArrowUploadRegular, EditRegular } from '@fluentui/react-icons'
 import * as XLSX from 'xlsx'
 import { PageHeader } from '../../components/shared/PageHeader'
+import { ModalForm } from '../../components/shared/ModalForm'
 import { MultiSelect } from '../../components/shared/MultiSelect'
 import { FormField, FieldRow } from '../../components/shared/form'
 import { EmptyStateView } from '../../components/shared/EmptyStateView'
@@ -28,6 +29,7 @@ export function AsignacionesPage() {
   const enrollmentsCol = useCollection<Enrollment>(dataService.getEnrollments, dataService.saveEnrollment, dataService.deleteEnrollment)
   const assignmentsCol = useCollection<TeacherAssignment>(dataService.getTeacherAssignments, dataService.saveTeacherAssignment, dataService.deleteTeacherAssignment)
   const gradesCol = useCollection<GradeSection>(dataService.getGrades, dataService.saveGrade, dataService.deleteGrade)
+  const studentsCol = useCollection<Student>(dataService.getStudents, dataService.saveStudent)
 
   const [tab, setTab] = useState('matriculas')
   const [busy, setBusy] = useState(false)
@@ -40,6 +42,8 @@ export function AsignacionesPage() {
   const [mStudents, setMStudents] = useState<string[]>([])
   const [importingExcel, setImportingExcel] = useState(false)
   const excelRef = useRef<HTMLInputElement>(null)
+  const [editEnr, setEditEnr] = useState<Enrollment | null>(null)
+  const [editEnrCurso, setEditEnrCurso] = useState('')
 
   // Asignaciones docentes (filtros: Docente y Curso)
   const [dDocente, setDDocente] = useState('')
@@ -272,6 +276,33 @@ export function AsignacionesPage() {
     }
   }
 
+  const abrirEdicionMatricula = (e: Enrollment) => {
+    const g = gradeById(e.gradeId)
+    setEditEnr(e)
+    setEditEnrCurso(g ? cursoNombre(g) : '')
+  }
+
+  const guardarEdicionMatricula = async () => {
+    if (!editEnr || !editEnrCurso) return
+    const rep = grades.find((g) => cursoNombre(g) === editEnrCurso)
+    if (!rep) {
+      toaster.dispatchToast('Curso no válido.', { intent: 'error' })
+      return
+    }
+    setBusy(true)
+    try {
+      await enrollmentsCol.save({ ...editEnr, gradeId: rep.id })
+      const st = studentsCol.items.find((s) => s.id === editEnr.studentId)
+      if (st) await studentsCol.save({ ...st, gradeId: rep.id })
+      toaster.dispatchToast('Matrícula actualizada.', { intent: 'success' })
+      setEditEnr(null)
+    } catch (error) {
+      toaster.dispatchToast(error instanceof Error ? error.message : 'No se pudo actualizar la matrícula.', { intent: 'error' })
+    } finally {
+      setBusy(false)
+    }
+  }
+
   // ---------------------------------------------------------------- Asignaciones docentes
   const asignarSeleccionadas = async () => {
     if (!dCurso || !dDocente || dAsignaturas.length === 0) {
@@ -370,6 +401,7 @@ export function AsignacionesPage() {
         <Tab value="matriculas">Matrículas de estudiantes ({enrollmentsCol.items.length})</Tab>
         <Tab value="docentes">Asignaciones docentes ({assignmentsCol.items.length})</Tab>
         <Tab value="encargado">Docente encargado por curso</Tab>
+        <Tab value="matricular">Matricular estudiantes</Tab>
       </TabList>
 
       {/* ------------------------------ Matrículas ------------------------------ */}
@@ -410,26 +442,6 @@ export function AsignacionesPage() {
               </div>
             )}
 
-            <MultiSelect
-              label="Estudiantes a matricular"
-              options={studentOptions}
-              selected={mStudents}
-              onChange={setMStudents}
-              placeholder="Filtrar estudiantes…"
-              emptyMessage="No hay estudiantes en el catálogo."
-            />
-            <input ref={excelRef} type="file" accept=".xlsx,.xls,.csv" style={{ display: 'none' }} onChange={(e) => void matricularDesdeExcel(e.target.files?.[0])} />
-            <div className={styles.actions}>
-              <Button appearance="primary" icon={busy ? <Spinner size="tiny" /> : <CheckmarkCircleRegular />} disabled={busy || !periodActive || cursoMaterias.length === 0 || mStudents.length === 0} onClick={() => void matricular()}>
-                {busy ? 'Procesando…' : 'Matricular seleccionados'}
-              </Button>
-              <Button appearance="secondary" icon={importingExcel ? <Spinner size="tiny" /> : <ArrowUploadRegular />} disabled={importingExcel || !mCurso || !periodActive || cursoMaterias.length === 0} onClick={() => excelRef.current?.click()}>
-                {importingExcel ? 'Procesando…' : 'Matricular desde Excel'}
-              </Button>
-            </div>
-            <Text size={200} block style={{ color: 'var(--texto-suave)' }}>
-              Excel/csv: incluye una columna con los <strong>nombres</strong> y/o <strong>correos</strong> de los estudiantes del curso.
-            </Text>
           </Card>
 
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginBottom: '10px', flexWrap: 'wrap' }}>
@@ -467,7 +479,8 @@ export function AsignacionesPage() {
                     <TableCell>{periodById(e.periodId)?.name ?? e.periodId}</TableCell>
                     <TableCell>
                       <Toolbar size="small">
-                        <ToolbarButton icon={<DeleteRegular />} onClick={() => void enrollmentsCol.remove(e.id)} aria-label="Eliminar" />
+                        <ToolbarButton icon={<EditRegular />} onClick={() => abrirEdicionMatricula(e)}>Editar</ToolbarButton>
+                        <ToolbarButton icon={<DeleteRegular />} onClick={() => void enrollmentsCol.remove(e.id)}>Desmatricular</ToolbarButton>
                       </Toolbar>
                     </TableCell>
                   </TableRow>
@@ -634,6 +647,88 @@ export function AsignacionesPage() {
           )}
         </>
       )}
+
+      {/* ------------------------------ Matricular estudiantes ------------------------------ */}
+      {tab === 'matricular' && (
+        <Card className={styles.card}>
+          <FieldRow>
+            <FormField label="Curso" required>
+              <Select value={mCurso} onChange={(_, d) => setMCurso(d.value)}>
+                <option value="">— Selecciona un curso —</option>
+                {cursosCatalogo.map((c) => <option key={c.nombre} value={c.nombre}>{c.nombre}</option>)}
+              </Select>
+            </FormField>
+            <FormField label="Período" required hint={periodActive ? 'Período activo' : 'Debe ser un período ACTIVO'}>
+              <Select value={mPeriod} onChange={(_, d) => setMPeriod(d.value)}>
+                {periods.map((p) => <option key={p.id} value={p.id}>{p.name}{p.isActive ? ' (activo)' : ''}</option>)}
+              </Select>
+            </FormField>
+          </FieldRow>
+          {cursoSel && (
+            <div className={styles.info}>
+              <Text size={200}><strong>Nivel:</strong> {nivelShort(cursoSel.level)}</Text>
+              <Text size={200}><strong>Ciclo:</strong> {cursoSel.ciclo || cicloFromGrade(cursoSel.level, gradoDe(cursoSel)) || '—'}</Text>
+              <Text size={200}><strong>Grado:</strong> {gradoDe(cursoSel)}</Text>
+              <Text size={200}><strong>Sección:</strong> {seccionDe(cursoSel)}</Text>
+            </div>
+          )}
+          <Text weight="semibold" size={300} block>Asignaturas del curso ({cursoAsignaturas.length})</Text>
+          {!mCurso ? (
+            <Text size={200} style={{ color: 'var(--texto-suave)' }}>Selecciona un curso para ver sus asignaturas.</Text>
+          ) : cursoAsignaturas.length === 0 ? (
+            <Text size={200} style={{ color: tokens.colorNeutralForeground2 }}>Este curso no tiene asignaturas registradas en Gestión académica.</Text>
+          ) : (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+              {cursoAsignaturas.map((s) => (
+                <span key={s} style={{ border: '1px solid var(--borde)', borderRadius: '999px', padding: '3px 12px' }}><Text size={200}>{s}</Text></span>
+              ))}
+            </div>
+          )}
+          <MultiSelect
+            label="Estudiantes a matricular"
+            options={studentOptions}
+            selected={mStudents}
+            onChange={setMStudents}
+            placeholder="Filtrar estudiantes…"
+            emptyMessage="No hay estudiantes en el catálogo."
+          />
+          <input ref={excelRef} type="file" accept=".xlsx,.xls,.csv" style={{ display: 'none' }} onChange={(e) => void matricularDesdeExcel(e.target.files?.[0])} />
+          <div className={styles.actions}>
+            <Button appearance="primary" icon={busy ? <Spinner size="tiny" /> : <CheckmarkCircleRegular />} disabled={busy || !periodActive || cursoMaterias.length === 0 || mStudents.length === 0} onClick={() => void matricular()}>
+              {busy ? 'Procesando…' : `Matricular seleccionados (${mStudents.length})`}
+            </Button>
+            <Button appearance="secondary" icon={importingExcel ? <Spinner size="tiny" /> : <ArrowUploadRegular />} disabled={importingExcel || !mCurso || !periodActive || cursoMaterias.length === 0} onClick={() => excelRef.current?.click()}>
+              {importingExcel ? 'Procesando…' : 'Matricular desde Excel'}
+            </Button>
+          </div>
+          <Text size={200} block style={{ color: 'var(--texto-suave)' }}>
+            Excel/csv: incluye una columna con los <strong>nombres</strong> y/o <strong>correos</strong> de los estudiantes del curso.
+          </Text>
+        </Card>
+      )}
+
+      {/* -------- Editar matrícula -------- */}
+      <ModalForm
+        open={!!editEnr}
+        onOpenChange={(o) => { if (!o) setEditEnr(null) }}
+        title="Editar matrícula"
+        subtitle={editEnr ? (studentById(editEnr.studentId)?.fullName ?? '') : undefined}
+        actions={
+          <>
+            <Button appearance="secondary" onClick={() => setEditEnr(null)}>Cancelar</Button>
+            <Button appearance="primary" onClick={() => void guardarEdicionMatricula()} disabled={busy}>Guardar</Button>
+          </>
+        }
+      >
+        {editEnr && (
+          <FormField label="Curso" required>
+            <Select value={editEnrCurso} onChange={(_, d) => setEditEnrCurso(d.value)}>
+              <option value="">— Selecciona un curso —</option>
+              {cursosCatalogo.map((c) => <option key={c.nombre} value={c.nombre}>{c.nombre}</option>)}
+            </Select>
+          </FormField>
+        )}
+      </ModalForm>
     </div>
   )
 }
