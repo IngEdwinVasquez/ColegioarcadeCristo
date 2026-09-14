@@ -8,7 +8,7 @@ import { StatusBadge } from '../../components/shared/StatusBadge'
 import { useApp } from '../../context/useApp'
 import { dataService } from '../../services/dataService'
 import { useCollection } from '../../hooks/useCollection'
-import type { Persona, Student, StudentGuardian, Teacher } from '../../types'
+import type { Enrollment, Persona, Student, StudentGuardian, Teacher } from '../../types'
 import type { Role } from '../../types/roles'
 import { genId } from '../../utils/helpers'
 import { cursoNombre } from '../../utils/academic'
@@ -70,6 +70,7 @@ export function PersonasPage() {
   const teachersCol = useCollection<Teacher>(dataService.getTeachers, dataService.saveTeacher, dataService.deleteTeacher)
   const guardiansCol = useCollection<StudentGuardian>(dataService.getGuardians, dataService.saveGuardian, dataService.deleteGuardian)
   const personasCol = useCollection<Persona>(dataService.getPersonas, dataService.savePersona, dataService.deletePersona)
+  const enrollmentsCol = useCollection<Enrollment>(dataService.getEnrollments)
 
   const [tab, setTab] = useState('estudiantes')
   const [importOpen, setImportOpen] = useState(false)
@@ -250,10 +251,22 @@ export function PersonasPage() {
   const takenTeacherUsers = teachersCol.items.map((x) => x.userId ?? '').filter(Boolean)
   const takenPersonaUsers = personasCol.items.map((x) => x.userId ?? '').filter(Boolean)
 
+  // Curso (Grado + Sección + Nivel) al que fue matriculado cada estudiante (período activo).
+  const activePeriodId = periods.find((p) => p.isActive)?.id ?? periods[0]?.id ?? ''
+  const cursoPorEstudiante = useMemo(() => {
+    const map = new Map<string, string>()
+    for (const e of enrollmentsCol.items) {
+      if (activePeriodId && e.periodId !== activePeriodId) continue
+      const g = grades.find((x) => x.id === e.gradeId)
+      if (g) map.set(e.studentId, cursoNombre(g))
+    }
+    return map
+  }, [enrollmentsCol.items, activePeriodId, grades])
+
   const studentColumns: CrudColumn<Student>[] = [
     { header: 'Estudiante', render: (s) => <Text weight="semibold">{s.fullName}</Text> },
     { header: 'Cuenta M365', render: (s) => s.email || <Text size={200} style={{ color: '#B42318' }}>Sin vincular</Text> },
-    { header: 'Grado', render: (s) => grades.find((g) => g.id === s.gradeId)?.name ?? s.gradeId },
+    { header: 'Curso', render: (s) => cursoPorEstudiante.get(s.id) ?? '' },
     { header: 'Tipo', render: (s) => tipoCell('estudiante', s) },
     { header: 'Padre / Tutor', render: (s) => s.parentName || '—' },
     { header: 'Contacto', render: (s) => s.parentEmail || '—', hideMobile: true },
