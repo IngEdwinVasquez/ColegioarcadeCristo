@@ -1,9 +1,9 @@
-import { useMemo, useState } from 'react'
-import { Button, Input, Select, Table, TableBody, TableCell, TableHeader, TableHeaderCell, TableRow, Text, Toolbar, ToolbarButton, useToastController, makeStyles } from '@fluentui/react-components'
+import { useEffect, useMemo, useState } from 'react'
+import { Button, Checkbox, Input, Select, Table, TableBody, TableCell, TableHeader, TableHeaderCell, TableRow, Text, useToastController, makeStyles } from '@fluentui/react-components'
 import { ArrowUpRegular } from '@fluentui/react-icons'
 import { PageHeader } from '../../components/shared/PageHeader'
-import { ModalForm } from '../../components/shared/ModalForm'
-import { FormField } from '../../components/shared/form'
+import { FormField, FieldRow } from '../../components/shared/form'
+import { EmptyStateView } from '../../components/shared/EmptyStateView'
 import { useApp } from '../../context/useApp'
 import { dataService } from '../../services/dataService'
 import { useCollection } from '../../hooks/useCollection'
@@ -13,6 +13,7 @@ import { cursoNombre } from '../../utils/academic'
 
 const useStyles = makeStyles({
   cell: { verticalAlign: 'middle' },
+  filters: { display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'flex-end', marginBottom: '16px' },
 })
 
 const LEVEL_ORDER = ['Nivel Inicial', 'Nivel Primario', 'Nivel Secundario']
@@ -35,118 +36,177 @@ function suggestedNext(currentId: string, grades: GradeSection[]): string | unde
 export function PromocionPage() {
   const styles = useStyles()
   const toaster = useToastController()
-  const { grades, gradeById } = useApp()
+  const { grades, gradeById, periods } = useApp()
   const studentsCol = useCollection<Student>(dataService.getStudents, dataService.saveStudent)
-  const enrollmentsCol = useCollection<Enrollment>(dataService.getEnrollments, dataService.saveEnrollment)
+  const enrollmentsCol = useCollection<Enrollment>(dataService.getEnrollments, dataService.saveEnrollment, dataService.deleteEnrollment)
 
-  const [target, setTarget] = useState<Student | null>(null)
-  const [newGrade, setNewGrade] = useState('')
+  const [cursoActual, setCursoActual] = useState('')
+  const [targetCurso, setTargetCurso] = useState('')
+  const [selected, setSelected] = useState<string[]>([])
   const [search, setSearch] = useState('')
+  const [busy, setBusy] = useState(false)
 
-  const filtered = useMemo(() => {
-    const q = search.toLowerCase()
+  const activePeriodId = periods.find((p) => p.isActive)?.id ?? periods[0]?.id ?? ''
+
+  // Todos los cursos existentes (Grado + Sección + Nivel), sin repetir.
+  const cursos = useMemo(() => {
+    const map = new Map<string, GradeSection>()
+    for (const g of grades) {
+      const n = cursoNombre(g)
+      if (!map.has(n)) map.set(n, g)
+    }
+    return [...map.keys()].sort((a, b) => a.localeCompare(b))
+  }, [grades])
+
+  // Estudiantes del curso seleccionado (por matrícula del período o por su curso).
+  const studentsOfCourse = useMemo(() => {
+    if (!cursoActual) return []
+    const byEnroll = new Set(
+      enrollmentsCol.items
+        .filter((e) => !activePeriodId || e.periodId === activePeriodId)
+        .filter((e) => {
+          const g = gradeById(e.gradeId)
+          return !!g && cursoNombre(g) === cursoActual
+        })
+        .map((e) => e.studentId),
+    )
+    const q = search.trim().toLowerCase()
     return studentsCol.items
-      .filter((s) => !q || s.fullName.toLowerCase().includes(q))
+      .filter((s) => {
+        const belongs = byEnroll.has(s.id) || (() => {
+          const g = gradeById(s.gradeId)
+          return !!g && cursoNombre(g) === cursoActual
+        })()
+        return belongs && (!q || s.fullName.toLowerCase().includes(q))
+      })
       .sort((a, b) => a.fullName.localeCompare(b.fullName))
-  }, [studentsCol.items, search])
+  }, [cursoActual, enrollmentsCol.items, studentsCol.items, gradeById, activePeriodId, search])
 
-  const openPromote = (s: Student) => {
-    setTarget(s)
-    setNewGrade(suggestedNext(s.gradeId, grades) ?? s.gradeId)
-  }
+  // Al cambiar de curso: limpiar selección y sugerir el siguiente curso.
+  useEffect(() => {
+    setSelected([])
+    if (!cursoActual) { setTargetCurso(''); return }
+    const rep = grades.find((g) => cursoNombre(g) === cursoActual)
+    const next = rep ? suggestedNext(rep.id, grades) : undefined
+    const nextG = next ? gradeById(next) : undefined
+    setTargetCurso(nextG ? cursoNombre(nextG) : '')
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cursoActual])
 
-  const promote = async () => {
-    if (!target || !newGrade || newGrade === target.gradeId) {
-      window.alert('Seleccione el nuevo curso.')
+  const allSelected = studentsOfCourse.length > 0 && studentsOfCourse.every((s) => selected.includes(s.id))
+  const someSelected = studentsOfCourse.some((s) => selected.includes(s.id))
+
+  const toggleAll = (checked: boolean) => setSelected(checked ? studentsOfCourse.map((s) => s.id) : [])
+  const toggle = (id: string, checked: boolean) => setSelected((prev) => (checked ? [...new Set([...prev, id])] : prev.filter((x) => x !== id)))
+
+  const promover = async () => {
+    if (!cursoActual || !targetCurso) {
+      toaster.dispatchToast('Selecciona el curso actual y el curso sugerido.', { intent: 'error' })
       return
     }
-    await studentsCol.save({ ...target, gradeId: newGrade })
-    const enrollment = enrollmentsCol.items.find((e) => e.studentId === target.id)
-    if (enrollment) {
-      await enrollmentsCol.save({ ...enrollment, gradeId: newGrade })
-    } else {
-      await enrollmentsCol.save({
-        id: genId('enr'),
-        studentId: target.id,
-        gradeId: newGrade,
-        subjectId: '',
-        periodId: '',
-      })
+    if (targetCurso === cursoActual) {
+      toaster.dispatchToast('El curso sugerido debe ser diferente al curso actual.', { intent: 'error' })
+      return
     }
-    toaster.dispatchToast(`${target.fullName} fue promovido(a) a ${gradeById(newGrade)?.name ?? ''}`, { intent: 'success' })
-    setTarget(null)
+    if (selected.length === 0) {
+      toaster.dispatchToast('Marca al menos un estudiante para promover.', { intent: 'error' })
+      return
+    }
+    const repTarget = grades.find((g) => cursoNombre(g) === targetCurso)
+    if (!repTarget) {
+      toaster.dispatchToast('El curso sugerido no existe.', { intent: 'error' })
+      return
+    }
+    setBusy(true)
+    try {
+      let count = 0
+      for (const studentId of selected) {
+        const student = studentsCol.items.find((s) => s.id === studentId)
+        if (!student) continue
+        await studentsCol.save({ ...student, gradeId: repTarget.id })
+        const enrollment = enrollmentsCol.items.find((e) => e.studentId === studentId && (!activePeriodId || e.periodId === activePeriodId))
+        if (enrollment) await enrollmentsCol.save({ ...enrollment, gradeId: repTarget.id, periodId: enrollment.periodId || activePeriodId })
+        else await enrollmentsCol.save({ id: genId('enr'), studentId, gradeId: repTarget.id, periodId: activePeriodId })
+        count += 1
+      }
+      toaster.dispatchToast(`${count} estudiante(s) promovido(s) a «${targetCurso}».`, { intent: 'success' })
+      setSelected([])
+    } catch (error) {
+      toaster.dispatchToast(error instanceof Error ? error.message : 'No se pudieron promover los estudiantes.', { intent: 'error' })
+    } finally {
+      setBusy(false)
+    }
   }
 
   return (
     <div>
       <PageHeader
         title="Promoción de estudiantes"
-        subtitle="Promueva estudiantes al siguiente curso académico. Al promover se actualiza su matrícula."
+        subtitle="Selecciona un curso, marca los estudiantes y promuévelos al curso sugerido. Al promover se actualiza su matrícula."
       />
 
-      <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', marginBottom: '16px' }}>
-        <Input
-          placeholder="Buscar estudiante…"
-          value={search}
-          onChange={(_, d) => setSearch(d.value)}
-          style={{ minWidth: '260px', flex: 1 }}
-        />
+      <div className={styles.filters}>
+        <FormField label="Curso actual" required>
+          <Select value={cursoActual} onChange={(_, d) => setCursoActual(d.value)} style={{ minWidth: '240px' }}>
+            <option value="">— Selecciona un curso —</option>
+            {cursos.map((c) => <option key={c} value={c}>{c}</option>)}
+          </Select>
+        </FormField>
+        <FormField label="Curso sugerido" required>
+          <Select value={targetCurso} onChange={(_, d) => setTargetCurso(d.value)} style={{ minWidth: '240px' }}>
+            <option value="">— Selecciona el curso destino —</option>
+            {cursos.map((c) => <option key={c} value={c} disabled={c === cursoActual}>{c}</option>)}
+          </Select>
+        </FormField>
+        <FormField label="Buscar">
+          <Input value={search} onChange={(_, d) => setSearch(d.value)} placeholder="Buscar estudiante…" style={{ minWidth: '200px' }} />
+        </FormField>
+        <span style={{ flex: 1 }} />
+        <Button appearance="primary" icon={<ArrowUpRegular />} disabled={busy || !cursoActual || !targetCurso || selected.length === 0} onClick={() => void promover()}>
+          {busy ? 'Promoviendo…' : `Promover (${selected.length})`}
+        </Button>
       </div>
 
-      <Table aria-label="Promoción">
-        <TableHeader>
-          <TableRow>
-            <TableHeaderCell>Estudiante</TableHeaderCell>
-            <TableHeaderCell>Curso actual</TableHeaderCell>
-            <TableHeaderCell>Sugerido</TableHeaderCell>
-            <TableHeaderCell>Acciones</TableHeaderCell>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {filtered.map((s) => {
-            const next = suggestedNext(s.gradeId, grades)
-            return (
+      {!cursoActual ? (
+        <EmptyStateView title="Selecciona un curso" message="Elige un curso actual para ver a sus estudiantes y promoverlos." />
+      ) : studentsOfCourse.length === 0 ? (
+        <EmptyStateView title="Sin estudiantes" message="Este curso no tiene estudiantes matriculados." />
+      ) : (
+        <Table aria-label="Promoción">
+          <TableHeader>
+            <TableRow>
+              <TableHeaderCell style={{ width: '48px' }}>
+                <Checkbox
+                  checked={allSelected ? true : someSelected ? 'mixed' : false}
+                  onChange={(_, d) => toggleAll(!!d.checked)}
+                  aria-label="Seleccionar todos"
+                />
+              </TableHeaderCell>
+              <TableHeaderCell>Estudiante</TableHeaderCell>
+              <TableHeaderCell>Curso actual</TableHeaderCell>
+              <TableHeaderCell>Curso sugerido</TableHeaderCell>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {studentsOfCourse.map((s) => (
               <TableRow key={s.id}>
                 <TableCell className={styles.cell}>
-                  <Text weight="semibold">{s.fullName}</Text>
+                  <Checkbox checked={selected.includes(s.id)} onChange={(_, d) => toggle(s.id, !!d.checked)} aria-label={`Seleccionar ${s.fullName}`} />
                 </TableCell>
-                <TableCell className={styles.cell}>{gradeById(s.gradeId)?.name ?? s.gradeId}</TableCell>
-                <TableCell className={styles.cell}>{next ? gradeById(next)?.name ?? '' : 'Último curso'}</TableCell>
-                <TableCell className={styles.cell}>
-                  <Toolbar size="small">
-                    <ToolbarButton icon={<ArrowUpRegular />} disabled={!next} onClick={() => openPromote(s)}>
-                      Promover
-                    </ToolbarButton>
-                  </Toolbar>
-                </TableCell>
+                <TableCell className={styles.cell}><Text weight="semibold">{s.fullName}</Text></TableCell>
+                <TableCell className={styles.cell}>{cursoActual}</TableCell>
+                <TableCell className={styles.cell}>{targetCurso || '—'}</TableCell>
               </TableRow>
-            )
-          })}
-        </TableBody>
-      </Table>
+            ))}
+          </TableBody>
+        </Table>
+      )}
 
-      <ModalForm
-        open={!!target}
-        onOpenChange={(o) => { if (!o) setTarget(null) }}
-        title={`Promover · ${target?.fullName ?? ''}`}
-        subtitle={target ? `Curso actual: ${gradeById(target.gradeId)?.name ?? ''}` : ''}
-        actions={
-          <>
-            <Button appearance="secondary" onClick={() => setTarget(null)}>Cancelar</Button>
-            <Button appearance="primary" icon={<ArrowUpRegular />} onClick={() => void promote()}>Promover</Button>
-          </>
-        }
-      >
-        {target && (
-          <FormField label="Nuevo curso" required>
-            <Select value={newGrade} onChange={(_, d) => setNewGrade(d.value)}>
-              {grades.map((g) => (
-                <option key={g.id} value={g.id}>{cursoNombre(g)}</option>
-              ))}
-            </Select>
-          </FormField>
-        )}
-      </ModalForm>
+      <FieldRow>
+        <Text size={200} style={{ color: 'var(--texto-suave)' }}>
+          {studentsOfCourse.length} estudiante(s) en el curso · {selected.length} marcado(s)
+        </Text>
+      </FieldRow>
     </div>
   )
 }
