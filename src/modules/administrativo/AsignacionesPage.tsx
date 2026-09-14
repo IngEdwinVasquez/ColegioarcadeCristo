@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Button, Card, Select, Spinner, Tab, TabList, Table, TableBody, TableCell, TableHeader, TableHeaderCell, TableRow, Text, Toolbar, ToolbarButton, useToastController, makeStyles, tokens } from '@fluentui/react-components'
-import { DeleteRegular, CheckmarkCircleRegular, AddRegular } from '@fluentui/react-icons'
+import { DeleteRegular, CheckmarkCircleRegular } from '@fluentui/react-icons'
 import { PageHeader } from '../../components/shared/PageHeader'
 import { MultiSelect } from '../../components/shared/MultiSelect'
 import { FormField, FieldRow } from '../../components/shared/form'
@@ -10,7 +10,7 @@ import { dataService } from '../../services/dataService'
 import { useCollection } from '../../hooks/useCollection'
 import { genId } from '../../utils/helpers'
 import { NIVELES, GRADOS, SECCIONES, asignaturaDe, cursoNombre, isRealSubject, nivelShort, gradoDe, seccionDe, cicloFromGrade } from '../../utils/academic'
-import type { CourseSubject, Enrollment, GradeSection, TeacherAssignment } from '../../types'
+import type { Enrollment, GradeSection, TeacherAssignment } from '../../types'
 
 const useStyles = makeStyles({
   tabs: { marginBottom: '16px' },
@@ -27,7 +27,6 @@ export function AsignacionesPage() {
   const enrollmentsCol = useCollection<Enrollment>(dataService.getEnrollments, dataService.saveEnrollment, dataService.deleteEnrollment)
   const assignmentsCol = useCollection<TeacherAssignment>(dataService.getTeacherAssignments, dataService.saveTeacherAssignment, dataService.deleteTeacherAssignment)
   const gradesCol = useCollection<GradeSection>(dataService.getGrades, dataService.saveGrade, dataService.deleteGrade)
-  const courseSubjectsCol = useCollection<CourseSubject>(dataService.getCourseSubjects, dataService.saveCourseSubject, dataService.deleteCourseSubject)
 
   const [tab, setTab] = useState('matriculas')
   const [busy, setBusy] = useState(false)
@@ -36,7 +35,6 @@ export function AsignacionesPage() {
 
   // Matrículas (filtro por Curso = Grado + Sección + Nivel, tal como en Gestión académica)
   const [mCurso, setMCurso] = useState('')
-  const [mAsignaturas, setMAsignaturas] = useState<string[]>([])
   const [mPeriod, setMPeriod] = useState(activePeriod)
   const [mStudents, setMStudents] = useState<string[]>([])
 
@@ -84,22 +82,14 @@ export function AsignacionesPage() {
   const cursoSel = cursosCatalogo.find((c) => c.nombre === mCurso)?.curso
   const periodActive = periods.find((p) => p.id === mPeriod)?.isActive ?? false
 
-  // Asignaturas creadas en Gestión académica PARA EL CURSO seleccionado.
-  const asignaturaCatalogOptions = useMemo(
-    () => [...new Set(
-      grades
-        .filter((g) => isRealSubject(asignaturaDe(g)) && cursoNombre(g) === mCurso)
-        .map((g) => asignaturaDe(g)),
-    )]
-      .sort((a, b) => a.localeCompare(b))
-      .map((n) => ({ id: n, label: n })),
+  // Asignaturas que pertenecen al curso seleccionado (según Gestión académica).
+  const cursoMaterias = useMemo(
+    () => grades.filter((g) => isRealSubject(asignaturaDe(g)) && cursoNombre(g) === mCurso),
     [grades, mCurso],
   )
-
-  // Asignaturas ya agregadas al curso seleccionado en el período.
-  const addedSubjects = useMemo(
-    () => courseSubjectsCol.items.filter((cs) => cs.curso === mCurso && cs.periodId === mPeriod),
-    [courseSubjectsCol.items, mCurso, mPeriod],
+  const cursoAsignaturas = useMemo(
+    () => [...new Set(cursoMaterias.map((g) => asignaturaDe(g)))].sort((a, b) => a.localeCompare(b)),
+    [cursoMaterias],
   )
   const studentOptions = useMemo(() => students.map((s) => ({ id: s.id, label: s.fullName, detail: s.email })), [students])
   const teacherOptions = useMemo(() => teachers.map((t) => ({ id: t.id, label: t.fullName, detail: t.email })), [teachers])
@@ -112,49 +102,13 @@ export function AsignacionesPage() {
   )
 
   // ---------------------------------------------------------------- Matrículas en lote
-  // -------------------------------- Asignaturas del curso
-  const agregarAsignaturasAlCurso = async () => {
-    if (!mCurso || !periodActive) {
-      toaster.dispatchToast('Selecciona un curso y un período/año educativo activo.', { intent: 'error' })
-      return
-    }
-    if (mAsignaturas.length === 0) {
-      toaster.dispatchToast('Selecciona al menos una asignatura.', { intent: 'error' })
-      return
-    }
-    setBusy(true)
-    try {
-      let created = 0
-      for (const name of mAsignaturas) {
-        if (addedSubjects.some((cs) => cs.subject === name)) continue
-        const grade = grades.find((g) => cursoNombre(g) === mCurso && asignaturaDe(g) === name)
-        await courseSubjectsCol.save({ id: genId('cs'), curso: mCurso, gradeId: grade?.id ?? '', subject: name, periodId: mPeriod })
-        created += 1
-      }
-      toaster.dispatchToast(`${created} asignatura(s) agregada(s) al curso.`, { intent: 'success' })
-      setMAsignaturas([])
-    } catch (error) {
-      toaster.dispatchToast(error instanceof Error ? error.message : 'No se pudieron agregar las asignaturas.', { intent: 'error' })
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  const quitarAsignaturaDelCurso = async (cs: CourseSubject) => {
-    try {
-      await courseSubjectsCol.remove(cs.id)
-    } catch (error) {
-      toaster.dispatchToast(error instanceof Error ? error.message : 'No se pudo quitar la asignatura.', { intent: 'error' })
-    }
-  }
-
   const matricular = async () => {
     if (!mCurso || !mPeriod || !periodActive) {
       toaster.dispatchToast('Selecciona un curso y un período/año educativo activo.', { intent: 'error' })
       return
     }
-    if (addedSubjects.length === 0) {
-      toaster.dispatchToast('Agrega asignaturas al curso antes de matricular.', { intent: 'error' })
+    if (cursoMaterias.length === 0) {
+      toaster.dispatchToast('El curso no tiene asignaturas registradas en Gestión académica.', { intent: 'error' })
       return
     }
     if (mStudents.length === 0) {
@@ -166,11 +120,10 @@ export function AsignacionesPage() {
       let created = 0
       let skipped = 0
       for (const studentId of mStudents) {
-        for (const cs of addedSubjects) {
-          if (!cs.gradeId) continue
-          const dup = enrollmentsCol.items.some((e) => e.studentId === studentId && e.gradeId === cs.gradeId && e.periodId === mPeriod)
+        for (const g of cursoMaterias) {
+          const dup = enrollmentsCol.items.some((e) => e.studentId === studentId && e.gradeId === g.id && e.periodId === mPeriod)
           if (dup) { skipped += 1; continue }
-          await enrollmentsCol.save({ id: genId('enr'), studentId, gradeId: cs.gradeId, periodId: mPeriod })
+          await enrollmentsCol.save({ id: genId('enr'), studentId, gradeId: g.id, periodId: mPeriod })
           created += 1
         }
       }
@@ -256,7 +209,7 @@ export function AsignacionesPage() {
           <Card className={styles.card}>
             <FieldRow>
               <FormField label="Curso" required>
-                <Select value={mCurso} onChange={(_, d) => { setMCurso(d.value); setMAsignaturas([]) }}>
+                <Select value={mCurso} onChange={(_, d) => setMCurso(d.value)}>
                   <option value="">— Selecciona un curso —</option>
                   {cursosCatalogo.map((c) => <option key={c.nombre} value={c.nombre}>{c.nombre}</option>)}
                 </Select>
@@ -275,44 +228,17 @@ export function AsignacionesPage() {
                 <Text size={200}><strong>Sección:</strong> {seccionDe(cursoSel)}</Text>
               </div>
             )}
-            {!periodActive ? (
-              <Text size={200} style={{ color: 'var(--rojo)' }}>Selecciona un período/año educativo <strong>activo</strong> para agregar asignaturas al curso.</Text>
-            ) : !mCurso ? (
-              <Text size={200} style={{ color: 'var(--texto-suave)' }}>Selecciona primero un curso.</Text>
+            <Text weight="semibold" size={300} block>Asignaturas del curso ({cursoAsignaturas.length})</Text>
+            {!mCurso ? (
+              <Text size={200} style={{ color: 'var(--texto-suave)' }}>Selecciona un curso para ver sus asignaturas.</Text>
+            ) : cursoAsignaturas.length === 0 ? (
+              <Text size={200} style={{ color: tokens.colorNeutralForeground2 }}>Este curso no tiene asignaturas registradas en Gestión académica.</Text>
             ) : (
-              <>
-                <MultiSelect
-                  label="Asignaturas del curso"
-                  options={asignaturaCatalogOptions}
-                  selected={mAsignaturas}
-                  onChange={setMAsignaturas}
-                  placeholder="Filtrar asignaturas…"
-                  emptyMessage="No hay asignaturas creadas en Gestión académica."
-                />
-                <div className={styles.actions}>
-                  <Button appearance="secondary" icon={<AddRegular />} disabled={busy || mAsignaturas.length === 0} onClick={() => void agregarAsignaturasAlCurso()}>
-                    Agregar al curso
-                  </Button>
-                </div>
-              </>
-            )}
-
-            {mCurso && (
-              <>
-                <Text weight="semibold" size={300} block>Asignaturas agregadas al curso ({addedSubjects.length})</Text>
-                {addedSubjects.length === 0 ? (
-                  <Text size={200} style={{ color: tokens.colorNeutralForeground2 }}>Sin asignaturas agregadas.</Text>
-                ) : (
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                    {addedSubjects.map((cs) => (
-                      <span key={cs.id} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', border: '1px solid var(--borde)', borderRadius: '999px', padding: '3px 10px' }}>
-                        <Text size={200}>{cs.subject}</Text>
-                        <Button size="small" appearance="subtle" icon={<DeleteRegular />} aria-label="Quitar asignatura" onClick={() => void quitarAsignaturaDelCurso(cs)} />
-                      </span>
-                    ))}
-                  </div>
-                )}
-              </>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                {cursoAsignaturas.map((s) => (
+                  <span key={s} style={{ border: '1px solid var(--borde)', borderRadius: '999px', padding: '3px 12px' }}><Text size={200}>{s}</Text></span>
+                ))}
+              </div>
             )}
 
             <MultiSelect
@@ -324,7 +250,7 @@ export function AsignacionesPage() {
               emptyMessage="No hay estudiantes en el catálogo."
             />
             <div className={styles.actions}>
-              <Button appearance="primary" icon={busy ? <Spinner size="tiny" /> : <CheckmarkCircleRegular />} disabled={busy || !periodActive || addedSubjects.length === 0 || mStudents.length === 0} onClick={() => void matricular()}>
+              <Button appearance="primary" icon={busy ? <Spinner size="tiny" /> : <CheckmarkCircleRegular />} disabled={busy || !periodActive || cursoMaterias.length === 0 || mStudents.length === 0} onClick={() => void matricular()}>
                 {busy ? 'Procesando…' : 'Matricular seleccionados'}
               </Button>
             </div>
