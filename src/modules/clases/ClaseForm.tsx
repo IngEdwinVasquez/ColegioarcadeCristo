@@ -4,6 +4,7 @@ import { FormActions, FormField, FieldRow } from '../../components/shared/form'
 import { useApp } from '../../context/useApp'
 import type { SchoolClassRecord } from '../../types'
 import { genId, todayIso } from '../../utils/helpers'
+import { cursoNombre } from '../../utils/academic'
 
 interface ClaseFormProps {
   onSave: (record: SchoolClassRecord) => void | Promise<void>
@@ -58,7 +59,7 @@ export function ClaseForm({ onSave, onCancel }: ClaseFormProps) {
         <FormField label="Grado" required>
           <Select value={gradeId} onChange={(_, d) => setGradeId(d.value)}>
             {grades.map((g) => (
-              <option key={g.id} value={g.id}>{g.name}</option>
+              <option key={g.id} value={g.id}>{cursoNombre(g)}</option>
             ))}
           </Select>
         </FormField>

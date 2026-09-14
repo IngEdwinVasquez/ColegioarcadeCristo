@@ -9,7 +9,7 @@ import { useApp } from '../../context/useApp'
 import { dataService } from '../../services/dataService'
 import { useCollection } from '../../hooks/useCollection'
 import { genId } from '../../utils/helpers'
-import { asignaturaDe, cursoNombre, isRealSubject, nivelShort, gradoDe, seccionDe, cicloFromGrade } from '../../utils/academic'
+import { NIVELES, GRADOS, SECCIONES, asignaturaDe, cursoNombre, isRealSubject, nivelShort, gradoDe, seccionDe, cicloFromGrade } from '../../utils/academic'
 import type { CourseSubject, Enrollment, GradeSection, TeacherAssignment } from '../../types'
 
 const useStyles = makeStyles({
@@ -40,7 +40,10 @@ export function AsignacionesPage() {
   const [mPeriod, setMPeriod] = useState(activePeriod)
   const [mStudents, setMStudents] = useState<string[]>([])
 
-  // Asignaciones docentes
+  // Asignaciones docentes (filtros Nivel · Grado · Sección como Gestión académica)
+  const [dNivel, setDNivel] = useState('')
+  const [dGrado, setDGrado] = useState('')
+  const [dSeccion, setDSeccion] = useState('')
   const [dGrade, setDGrade] = useState('')
   const [dPeriod, setDPeriod] = useState(activePeriod)
   const [dSubject, setDSubject] = useState('')
@@ -53,8 +56,19 @@ export function AsignacionesPage() {
   // Misma lista/etiquetas que «Gestión académica» (Asignatura · Curso = Grado + Sección + Nivel).
   const gradeLabel = (g: GradeSection) => `${asignaturaDe(g)} · ${cursoNombre(g)}`
   const gradeOptions = useMemo(
-    () => grades.filter((g) => isRealSubject(asignaturaDe(g))).map((g) => ({ id: g.id, label: gradeLabel(g), detail: nivelShort(g.level) })),
+    () => grades.filter((g) => isRealSubject(asignaturaDe(g))).map((g) => ({ id: g.id, label: gradeLabel(g) })),
     [grades],
+  )
+
+  // Cursos para Asignaciones docentes, filtrados por Nivel · Grado · Sección.
+  const cursoGradeOptions = useMemo(
+    () => grades
+      .filter((g) => isRealSubject(asignaturaDe(g)))
+      .filter((g) => !dNivel || nivelShort(g.level) === dNivel)
+      .filter((g) => !dGrado || gradoDe(g) === dGrado)
+      .filter((g) => !dSeccion || seccionDe(g) === dSeccion)
+      .map((g) => ({ id: g.id, label: gradeLabel(g) })),
+    [grades, dNivel, dGrado, dSeccion],
   )
 
   // Catálogo de cursos (Grado + Sección + Nivel) existentes en Gestión académica.
@@ -348,13 +362,33 @@ export function AsignacionesPage() {
         <>
           <Card className={styles.card}>
             <FieldRow>
-              <FormField label="Curso (grado)" required>
-                <Select value={dGrade} onChange={(_, d) => setDGrade(d.value)}>
-                  <option value="">— Selecciona un curso —</option>
-                  {gradeOptions.map((g) => <option key={g.id} value={g.id}>{g.label}{g.detail ? ` · ${g.detail}` : ''}</option>)}
+              <FormField label="Nivel">
+                <Select value={dNivel} onChange={(_, d) => setDNivel(d.value)}>
+                  <option value="">Todos los niveles</option>
+                  {NIVELES.map((n) => <option key={n} value={n}>{n}</option>)}
                 </Select>
               </FormField>
-              <FormField label="Asignatura" required>
+              <FormField label="Grado">
+                <Select value={dGrado} onChange={(_, d) => setDGrado(d.value)}>
+                  <option value="">Todos los grados</option>
+                  {GRADOS.map((g) => <option key={g} value={g}>{g}</option>)}
+                </Select>
+              </FormField>
+              <FormField label="Sección">
+                <Select value={dSeccion} onChange={(_, d) => setDSeccion(d.value)}>
+                  <option value="">Todas las secciones</option>
+                  {SECCIONES.map((s) => <option key={s} value={s}>Sección {s}</option>)}
+                </Select>
+              </FormField>
+            </FieldRow>
+            <FieldRow>
+              <FormField label="Curso (asignatura · grado · sección · nivel)" required>
+                <Select value={dGrade} onChange={(_, d) => setDGrade(d.value)}>
+                  <option value="">— Selecciona un curso —</option>
+                  {cursoGradeOptions.map((g) => <option key={g.id} value={g.id}>{g.label}</option>)}
+                </Select>
+              </FormField>
+              <FormField label="Asignatura (catálogo)" required>
                 <Select value={dSubject} onChange={(_, d) => setDSubject(d.value)}>
                   <option value="">— Selecciona una asignatura —</option>
                   {subjectOptions.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
@@ -424,10 +458,10 @@ export function AsignacionesPage() {
         <>
           <Card className={styles.card}>
             <FieldRow>
-              <FormField label="Curso (grado)" required>
+              <FormField label="Curso (asignatura · grado · sección · nivel)" required>
                 <Select value={eGrade} onChange={(_, d) => setEGrade(d.value)}>
                   <option value="">— Selecciona un curso —</option>
-                  {gradeOptions.map((g) => <option key={g.id} value={g.id}>{g.label}{g.detail ? ` · ${g.detail}` : ''}</option>)}
+                  {gradeOptions.map((g) => <option key={g.id} value={g.id}>{g.label}</option>)}
                 </Select>
               </FormField>
               <FormField label="Docente encargado" required>

@@ -3,6 +3,7 @@ import { Badge, Select, Table, TableBody, TableCell, TableHeader, TableHeaderCel
 import { PageHeader } from '../../components/shared/PageHeader'
 import { EmptyStateView } from '../../components/shared/EmptyStateView'
 import { useApp } from '../../context/useApp'
+import { cursoNombre } from '../../utils/academic'
 import { NivelSelector } from './NivelSelector'
 import { useCoordinationLevel } from './useCoordinationLevel'
 import { PersonSupportRegular, PeopleRegular } from '@fluentui/react-icons'
@@ -51,7 +52,7 @@ export function PersonasNivel() {
         <Select value={gradeFilter} onChange={(_, d) => setGradeFilter(d.value)} style={{ minWidth: '180px' }}>
           <option value="">Todos los cursos</option>
           {levelGrades.map((g) => (
-            <option key={g.id} value={g.id}>{g.name}</option>
+            <option key={g.id} value={g.id}>{cursoNombre(g)}</option>
           ))}
         </Select>
         <TabList selectedValue={tab} onTabSelect={(_, d) => setTab(d.value as 'docentes' | 'estudiantes')}>
