@@ -54,8 +54,8 @@ export const PORTALS: PortalMeta[] = [
   {
     role: 'admin',
     path: '/administrativo',
-    title: 'Portal Administrativo',
-    shortTitle: 'Administrativo',
+    title: 'Portal de Dirección Académica',
+    shortTitle: 'Dirección Académica',
     description:
       'Espacio ejecutivo para el monitoreo institucional, análisis de indicadores de rendimiento académico, supervisión docente y toma de decisiones estratégicas.',
     icon: <PremiumPersonRegular />,
