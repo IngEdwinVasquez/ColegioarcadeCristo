@@ -378,6 +378,20 @@ export interface TeacherAssignment {
   periodId: string
 }
 
+/** Registro del historial de promoción de un estudiante. */
+export interface PromotionRecord {
+  id: string
+  studentId: string
+  studentName: string
+  /** Curso de origen (Grado + Sección + Nivel) o vacío. */
+  fromCurso: string
+  /** Curso destino (Grado + Sección + Nivel) o «Egresado». */
+  toCurso: string
+  periodId: string
+  date: string
+  promotedBy?: string
+}
+
 /** Asignatura agregada a un curso (curso = Grado + Sección + Nivel) en un período. */
 export interface CourseSubject {
   id: string
