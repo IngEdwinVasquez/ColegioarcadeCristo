@@ -66,6 +66,8 @@ export interface Student {
   parentName?: string
   parentEmail?: string
   birthDate?: string
+  /** Id. de estudiante del SIGERD (MINERD) para referencia y evitar duplicados. */
+  sigerdId?: string
 }
 
 export type ClassPlanStatus = 'planificada' | 'pendiente' | 'impartida' | 'cancelada'

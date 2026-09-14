@@ -1,7 +1,10 @@
 import { useMemo, useRef, useState } from 'react'
 import { Button, Card, Select, Spinner, Tab, TabList, Table, TableBody, TableCell, TableHeader, TableHeaderCell, TableRow, Text, Toolbar, ToolbarButton, useToastController, makeStyles, tokens } from '@fluentui/react-components'
-import { DeleteRegular, CheckmarkCircleRegular, ArrowUploadRegular, EditRegular } from '@fluentui/react-icons'
+import { DeleteRegular, CheckmarkCircleRegular, ArrowUploadRegular, EditRegular, DocumentPdfRegular } from '@fluentui/react-icons'
 import * as XLSX from 'xlsx'
+import { extractPdfText } from '../../services/pdf'
+import { parseSigerdStudentsPdf } from '../../services/sigerdAi'
+import { listEntraUsers } from '../../services/entraUsers'
 import { PageHeader } from '../../components/shared/PageHeader'
 import { ModalForm } from '../../components/shared/ModalForm'
 import { MultiSelect } from '../../components/shared/MultiSelect'
@@ -42,6 +45,7 @@ export function AsignacionesPage() {
   const [mStudents, setMStudents] = useState<string[]>([])
   const [importingExcel, setImportingExcel] = useState(false)
   const excelRef = useRef<HTMLInputElement>(null)
+  const sigerdRef = useRef<HTMLInputElement>(null)
   const [editEnr, setEditEnr] = useState<Enrollment | null>(null)
   const [editEnrCurso, setEditEnrCurso] = useState('')
 
@@ -300,6 +304,59 @@ export function AsignacionesPage() {
       toaster.dispatchToast(error instanceof Error ? error.message : 'No se pudo actualizar la matrícula.', { intent: 'error' })
     } finally {
       setBusy(false)
+    }
+  }
+
+  /** Matrícula masiva desde un PDF del SIGERD: crea/actualiza estudiantes y los matricula en el curso. */
+  const matricularDesdeSigerd = async (file: File | undefined) => {
+    if (!file) return
+    if (!mCurso || !periodActive || cursoMaterias.length === 0) {
+      toaster.dispatchToast('Selecciona un curso con asignaturas y un período activo.', { intent: 'error' })
+      return
+    }
+    setImportingExcel(true)
+    try {
+      const text = await extractPdfText(file)
+      const parsed = await parseSigerdStudentsPdf(text)
+      if (parsed.length === 0) throw new Error('No se encontraron estudiantes en el PDF del SIGERD.')
+
+      // Usuarios de Microsoft 365 (para vincular la cuenta del estudiante).
+      let dir: Array<{ id: string; displayName?: string; email?: string }> = []
+      try { dir = await listEntraUsers() } catch { dir = [] }
+      const norm = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z ]/g, ' ').replace(/\s+/g, ' ').trim().toLowerCase()
+      const dirByName = new Map(dir.map((u) => [norm(u.displayName ?? ''), u]))
+
+      const isoNac = (d?: string) => {
+        const m = (d ?? '').match(/(\d{2})\/(\d{2})\/(\d{4})/)
+        return m ? `${m[3]}-${m[2]}-${m[1]}` : undefined
+      }
+
+      let created = 0
+      let enrolled = 0
+      let linked = 0
+      for (const s of parsed) {
+        const fullName = `${s.nombres} ${s.primerApellido} ${s.segundoApellido}`.replace(/\s+/g, ' ').trim().toUpperCase()
+        const alt = `${s.primerApellido} ${s.segundoApellido} ${s.nombres}`.replace(/\s+/g, ' ').trim().toUpperCase()
+        const match = dirByName.get(norm(fullName)) ?? dirByName.get(norm(alt))
+        if (match) linked += 1
+        const existing = studentsCol.items.find((st) => (s.idEstudiante && st.sigerdId === s.idEstudiante) || norm(st.fullName) === norm(fullName))
+        const student: Student = existing
+          ? { ...existing, fullName, email: match?.email ?? existing.email, userId: match?.id ?? existing.userId, sigerdId: s.idEstudiante || existing.sigerdId, birthDate: isoNac(s.nacimiento) ?? existing.birthDate }
+          : { id: genId('stu'), fullName, email: match?.email, userId: match?.id, sigerdId: s.idEstudiante, gradeId: cursoMaterias[0].id, birthDate: isoNac(s.nacimiento) }
+        if (!existing) created += 1
+        await studentsCol.save(student)
+        const already = enrollmentsCol.items.some((e) => e.studentId === student.id && (!activePeriod || e.periodId === activePeriod))
+        if (!already) {
+          await enrollmentsCol.save({ id: genId('enr'), studentId: student.id, gradeId: cursoMaterias[0].id, periodId: activePeriod })
+          enrolled += 1
+        }
+      }
+      toaster.dispatchToast(`SIGERD: ${parsed.length} estudiante(s) leído(s), ${created} nuevo(s), ${enrolled} matriculado(s), ${linked} vinculado(s) a Microsoft 365.`, { intent: 'success' })
+    } catch (error) {
+      toaster.dispatchToast(error instanceof Error ? error.message : 'No se pudo procesar el PDF del SIGERD.', { intent: 'error' })
+    } finally {
+      setImportingExcel(false)
+      if (sigerdRef.current) sigerdRef.current.value = ''
     }
   }
 
@@ -693,6 +750,7 @@ export function AsignacionesPage() {
             emptyMessage="No hay estudiantes en el catálogo."
           />
           <input ref={excelRef} type="file" accept=".xlsx,.xls,.csv" style={{ display: 'none' }} onChange={(e) => void matricularDesdeExcel(e.target.files?.[0])} />
+          <input ref={sigerdRef} type="file" accept="application/pdf" style={{ display: 'none' }} onChange={(e) => void matricularDesdeSigerd(e.target.files?.[0])} />
           <div className={styles.actions}>
             <Button appearance="primary" icon={busy ? <Spinner size="tiny" /> : <CheckmarkCircleRegular />} disabled={busy || !periodActive || cursoMaterias.length === 0 || mStudents.length === 0} onClick={() => void matricular()}>
               {busy ? 'Procesando…' : `Matricular seleccionados (${mStudents.length})`}
@@ -700,9 +758,12 @@ export function AsignacionesPage() {
             <Button appearance="secondary" icon={importingExcel ? <Spinner size="tiny" /> : <ArrowUploadRegular />} disabled={importingExcel || !mCurso || !periodActive || cursoMaterias.length === 0} onClick={() => excelRef.current?.click()}>
               {importingExcel ? 'Procesando…' : 'Matricular desde Excel'}
             </Button>
+            <Button appearance="secondary" icon={importingExcel ? <Spinner size="tiny" /> : <DocumentPdfRegular />} disabled={importingExcel || !mCurso || !periodActive || cursoMaterias.length === 0} onClick={() => sigerdRef.current?.click()}>
+              {importingExcel ? 'Procesando…' : 'Matricular desde PDF SIGERD'}
+            </Button>
           </div>
           <Text size={200} block style={{ color: 'var(--texto-suave)' }}>
-            Excel/csv: incluye una columna con los <strong>nombres</strong> y/o <strong>correos</strong> de los estudiantes del curso.
+            Excel/csv: incluye una columna con los <strong>nombres</strong> y/o <strong>correos</strong>. PDF: reporte del <strong>SIGERD</strong> con la relación de estudiantes del curso (crea/actualiza la ficha y vincula la cuenta de Microsoft 365 por nombre).
           </Text>
         </Card>
       )}
