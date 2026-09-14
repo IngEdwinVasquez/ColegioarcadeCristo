@@ -12,105 +12,12 @@ import { createClassTeam, listTenantTeams, resolveTeamUrl, type TeamInfo } from 
 import { graphErrorMessage } from '../../services/graph'
 import type { GradeSection } from '../../types'
 import { genId } from '../../utils/helpers'
-import { CICLOS, GRADOS, SECCIONES } from '../../utils/academic'
+import { CICLOS, GRADOS, SECCIONES, LEVEL_SHORT, asignaturaDe, cicloFromGrade, cursoNombre, detectLevel, gradoDe, isRealSubject, nivelShort, seccionDe } from '../../utils/academic'
 import { appConfig } from '../../config/appConfig'
 
 const useStyles = makeStyles({
   hint: { marginBottom: '14px', color: 'var(--texto-suave)' },
 })
-
-/** Deduce el nivel educativo a partir del nombre del curso o del equipo. */
-export function detectLevel(name: string): string | null {
-  const n = ` ${name.toLowerCase()} `
-  if (/(inicial|kinder|kínder|pre\s*-?\s*primar|preescolar|maternal|nido|kids)/.test(n)) return 'Nivel Inicial'
-  // "Secundaria", "1roSec.", "2do Sec", "media", "bachillerato", "liceo"
-  if (/(secundaria|secundario|bachiller|liceo|\bmedia\b|sec\.|\bsec\b|\dro?\.?\s*sec)/.test(n)) return 'Nivel Secundario'
-  if (/(primaria|primario|b[aá]sica)/.test(n)) return 'Nivel Primario'
-  return null
-}
-
-const LEVEL_SHORT: Record<string, string> = {
-  'Nivel Inicial': 'Inicial',
-  'Nivel Primario': 'Primaria',
-  'Nivel Secundario': 'Secundaria',
-}
-
-export { GRADOS, SECCIONES } from '../../utils/academic'
-
-export const nivelShort = (level: string) => LEVEL_SHORT[level] ?? level
-
-// Grado en cualquier parte del nombre (1ro..6to y ordinales en palabras).
-const GRADO_RE = /\b(1ro|2do|3ro|4to|5to|6to|primer|segundo|tercero|cuarto|quinto|sexto)\b/i
-const ORD: Record<string, number> = { '1ro':1,'2do':2,'3ro':3,'4to':4,'5to':5,'6to':6, primer:1,segundo:2,tercero:3,cuarto:4,quinto:5,sexto:6 }
-const GRADE_WORD = ['1ro','2do','3ro','4to','5to','6to']
-
-/** Extrae la sección del curso de forma segura: campo `section` o una letra A–G como palabra independiente. */
-export const seccionDe = (curso: GradeSection): string => {
-  if (curso.section) return curso.section.trim().toUpperCase()
-  const m = curso.name.match(/\b([A-Ga-g])\b/)
-  return m ? m[1].toUpperCase() : 'A'
-}
-
-/** Extrae el grado (normalizado a 1ro…6to) desde cualquier parte del nombre. */
-export const gradoDe = (curso: GradeSection): string => {
-  const m = curso.name.match(GRADO_RE)
-  if (!m) return ''
-  const num = ORD[m[1].toLowerCase()]
-  return (num && GRADE_WORD[num - 1]) || m[1]
-}
-
-const gradeNum = (grado: string) => ORD[grado.toLowerCase()] ?? (parseInt(grado, 10) || null)
-
-/** Grado + sección (ej. 1ro.A). Si no hay grado, solo la sección. */
-export const cursoGrado = (curso: GradeSection): string => {
-  const g = gradoDe(curso)
-  const s = seccionDe(curso)
-  return g ? `${g}.${s}` : s
-}
-
-/** Nombre del curso = Grado + Sección + Nivel (ej. "1ro.A · Primaria"). */
-export const cursoNombre = (curso: GradeSection): string => {
-  const base = cursoGrado(curso)
-  const nivel = nivelShort(curso.level)
-  return [base, nivel].filter(Boolean).join(' · ')
-}
-
-/** Ciclo según el grado: 1-3 → Primer ciclo, 4-6 → Segundo ciclo (Primaria/Secundaria). */
-export const cicloFromGrade = (level: string, grado: string): string | undefined => {
-  if (level !== 'Nivel Primario' && level !== 'Nivel Secundario') return undefined
-  const n = gradeNum(grado)
-  if (n == null) return undefined
-  if (n >= 1 && n <= 3) return 'Primer ciclo'
-  if (n >= 4 && n <= 6) return 'Segundo ciclo'
-  return undefined
-}
-
-/** Extrae la asignatura limpia del nombre del curso (sin grado, sección, nivel ni anotaciones). */
-export const asignaturaDe = (curso: GradeSection): string => {
-  if (curso.asignatura) return curso.asignatura
-  let s = curso.name || ''
-  s = s.replace(/\s*\([^)]*\)\s*/g, ' ')          // (YOSSY VILLAFAÑA), (Geografía…)
-  s = s.replace(/\s*\[[^\]]*\]\s*/g, ' ')          // [copia]
-  s = s.replace(/\b1(?:ro|°|er|a)|2(?:do|da|°)|3(?:ro|°)|4(?:to|°)|5(?:to|°)|6(?:to|°)\b/gi, ' ')
-  s = s.replace(/\b(primer|segundo|tercero|cuarto|quinto|sexto)\b/gi, ' ')
-  s = s.replace(/\bde\s+(primaria|secundaria|inicial)\b/gi, ' ')
-  s = s.replace(/\b(primaria|secundaria|inicial|nivel)\b\.?/gi, ' ')
-  s = s.replace(/\b[.-]?\s*[A-G]\s*\b/g, ' ')      // secciones sueltas
-  s = s.replace(/\d{4}\s*[–\-/]\s*\d{4}/g, ' ')    // años
-  s = s.replace(/\d+/g, ' ')
-  s = s.replace(/\b(colegio|del|el|la|los|las|arca|cristo|tripulaci|espacial|equipo|implementaci|aula|practica|pr[aá]ctica|encuentros|virtual|imple)\b/gi, ' ')
-  s = s.replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{FE0F}]/gu, ' ') // emojis
-  s = s.replace(/[|·,;:()\[\]+\-_.]+/g, ' ')
-  s = s.replace(/\s+/g, ' ').trim()
-  return s
-}
-
-/** Reconoce si un nombre es una asignatura real (por palabras clave curriculares). */
-export const isRealSubject = (name: string): boolean => {
-  const n = name.toLowerCase()
-  const keys = ['matemat','lengua','ciencias de la naturaleza','ciencia','ciencias social','sociales','social','educación físico','ed. f','educación art','artística','formación integral','formación','religiosa','inglés','ingles','english','francés','frances','informática','informatica','artes','música','musica','natural','humanidades','historia','geografía','geografia','física','fisica','química','quimica','biología','biologia','tecnolog']
-  return keys.some((k) => n.includes(k))
-}
 
 /**
  * RM-008: gestión académica desde Tecnología — cursos y secciones con
