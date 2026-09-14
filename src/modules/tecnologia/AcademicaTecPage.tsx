@@ -12,6 +12,7 @@ import { createClassTeam, listTenantTeams, resolveTeamUrl, type TeamInfo } from 
 import { graphErrorMessage } from '../../services/graph'
 import type { GradeSection } from '../../types'
 import { genId } from '../../utils/helpers'
+import { CICLOS, GRADOS, SECCIONES } from '../../utils/academic'
 import { appConfig } from '../../config/appConfig'
 
 const useStyles = makeStyles({
@@ -34,9 +35,7 @@ const LEVEL_SHORT: Record<string, string> = {
   'Nivel Secundario': 'Secundaria',
 }
 
-export const GRADOS = ['1ro', '2do', '3ro', '4to', '5to', '6to']
-export const SECCIONES = ['A', 'B', 'C', 'D', 'E', 'F', 'G']
-const CICLOS = ['Primer ciclo', 'Segundo ciclo']
+export { GRADOS, SECCIONES } from '../../utils/academic'
 
 export const nivelShort = (level: string) => LEVEL_SHORT[level] ?? level
 
