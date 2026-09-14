@@ -25,6 +25,7 @@ import type {
   WeeklySchedule,
   WorkCronograma,
   PlanificacionDinamica,
+  PromotionRecord,
   SchoolClassRecord,
   Student,
   StudentGuardian,
@@ -95,6 +96,7 @@ export const collections = {
     workCronogramas: collection<WorkCronograma>(SPO_LISTS.workCronogramas),
     planificador: collection<PlanificacionDinamica>(SPO_LISTS.planificador),
     courseSubjects: collection<CourseSubject>(SPO_LISTS.courseSubjects),
+    promotions: collection<PromotionRecord>(SPO_LISTS.promotions),
 }
 
 export const dataService = {
@@ -227,6 +229,10 @@ export const dataService = {
   getCourseSubjects: collections.courseSubjects.getAll,
   saveCourseSubject: collections.courseSubjects.save,
   deleteCourseSubject: collections.courseSubjects.remove,
+  // Historial de promoción
+  getPromotions: collections.promotions.getAll,
+  savePromotion: collections.promotions.save,
+  deletePromotion: collections.promotions.remove,
 }
 
 export type DataService = typeof dataService
