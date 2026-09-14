@@ -9,7 +9,7 @@ import { useApp } from '../../context/useApp'
 import { dataService } from '../../services/dataService'
 import { useCollection } from '../../hooks/useCollection'
 import { genId } from '../../utils/helpers'
-import { NIVELES, GRADOS, SECCIONES, asignaturaDe, cursoNombre, ordenarCursos, isRealSubject, nivelShort, gradoDe, seccionDe, cicloFromGrade } from '../../utils/academic'
+import { asignaturaDe, cursoNombre, ordenarCursos, isRealSubject, nivelShort, gradoDe, seccionDe, cicloFromGrade } from '../../utils/academic'
 import type { Enrollment, GradeSection, TeacherAssignment } from '../../types'
 
 const useStyles = makeStyles({
@@ -38,14 +38,10 @@ export function AsignacionesPage() {
   const [mPeriod, setMPeriod] = useState(activePeriod)
   const [mStudents, setMStudents] = useState<string[]>([])
 
-  // Asignaciones docentes (filtros Nivel · Grado · Sección como Gestión académica)
-  const [dNivel, setDNivel] = useState('')
-  const [dGrado, setDGrado] = useState('')
-  const [dSeccion, setDSeccion] = useState('')
-  const [dGrade, setDGrade] = useState('')
-  const [dPeriod, setDPeriod] = useState(activePeriod)
-  const [dSubject, setDSubject] = useState('')
-  const [dTeachers, setDTeachers] = useState<string[]>([])
+  // Asignaciones docentes (filtros: Docente y Curso)
+  const [dDocente, setDDocente] = useState('')
+  const [dCurso, setDCurso] = useState('')
+  const [dAsignaturas, setDAsignaturas] = useState<string[]>([])
 
   // Docente encargado
   const [eGrade, setEGrade] = useState('')
@@ -58,15 +54,24 @@ export function AsignacionesPage() {
     [grades],
   )
 
-  // Cursos para Asignaciones docentes, filtrados por Nivel · Grado · Sección.
-  const cursoGradeOptions = useMemo(
-    () => ordenarCursos(grades
-      .filter((g) => isRealSubject(asignaturaDe(g)))
-      .filter((g) => !dNivel || nivelShort(g.level) === dNivel)
-      .filter((g) => !dGrado || gradoDe(g) === dGrado)
-      .filter((g) => !dSeccion || seccionDe(g) === dSeccion))
-      .map((g) => ({ id: g.id, label: gradeLabel(g) })),
-    [grades, dNivel, dGrado, dSeccion],
+  // Asignaturas del curso seleccionado (para Asignaciones docentes).
+  const docenteCursoMaterias = useMemo(
+    () => grades.filter((g) => isRealSubject(asignaturaDe(g)) && cursoNombre(g) === dCurso),
+    [grades, dCurso],
+  )
+  const docenteCursoAsignaturas = useMemo(
+    () => [...new Set(docenteCursoMaterias.map((g) => asignaturaDe(g)))].sort((a, b) => a.localeCompare(b)),
+    [docenteCursoMaterias],
+  )
+  // Asignaturas que el docente seleccionado imparte en ese curso (período activo).
+  const asignacionesDocente = useMemo(
+    () => assignmentsCol.items.filter((a) => {
+      if (a.teacherId !== dDocente) return false
+      if (activePeriod && a.periodId !== activePeriod) return false
+      const g = gradeById(a.gradeId)
+      return !!g && cursoNombre(g) === dCurso
+    }),
+    [assignmentsCol.items, dDocente, activePeriod, dCurso, gradeById],
   )
 
   // Catálogo de cursos (Grado + Sección + Nivel) existentes en Gestión académica.
@@ -98,14 +103,6 @@ export function AsignacionesPage() {
   }, [enrollmentsCol.items, mCurso, mPeriod, gradeById])
   const studentOptions = useMemo(() => students.map((s) => ({ id: s.id, label: s.fullName, detail: s.email })), [students])
   const teacherOptions = useMemo(() => teachers.map((t) => ({ id: t.id, label: t.fullName, detail: t.email })), [teachers])
-  // Asignaturas tal como se ven en Gestión académica (derivadas de los cursos).
-  const asignaturaGAOptions = useMemo(
-    () => [...new Set(grades.filter((g) => isRealSubject(asignaturaDe(g))).map((g) => asignaturaDe(g)))]
-      .sort((a, b) => a.localeCompare(b))
-      .map((n) => ({ id: n, label: n })),
-    [grades],
-  )
-
   // ---------------------------------------------------------------- Matrículas en lote
   const matricular = async () => {
     if (!mCurso || !mPeriod || !periodActive) {
@@ -202,30 +199,53 @@ export function AsignacionesPage() {
     }
   }
 
-  // ---------------------------------------------------------------- Docentes en lote
-  const asignarDocentes = async () => {
-    if (!dGrade || !dPeriod || !dSubject || dTeachers.length === 0) {
-      toaster.dispatchToast('Selecciona curso, asignatura, período y al menos un docente.', { intent: 'error' })
+  // ---------------------------------------------------------------- Asignaciones docentes
+  const asignarSeleccionadas = async () => {
+    if (!dCurso || !dDocente || dAsignaturas.length === 0) {
+      toaster.dispatchToast('Selecciona un docente, un curso y al menos una asignatura.', { intent: 'error' })
       return
     }
     setBusy(true)
     try {
-      // La asignatura viene de Gestión académica (por nombre); se vincula al catálogo si existe.
-      const subjectId = subjects.find((s) => s.name.trim().toLowerCase() === dSubject.trim().toLowerCase())?.id ?? dSubject
       let created = 0
       let skipped = 0
-      for (const teacherId of dTeachers) {
+      for (const name of dAsignaturas) {
+        const grade = docenteCursoMaterias.find((g) => asignaturaDe(g) === name)
+        if (!grade) continue
+        const subjectId = subjects.find((s) => s.name.trim().toLowerCase() === name.trim().toLowerCase())?.id ?? name
         const dup = assignmentsCol.items.some(
-          (a) => a.teacherId === teacherId && a.gradeId === dGrade && a.subjectId === subjectId && a.periodId === dPeriod,
+          (a) => a.teacherId === dDocente && a.gradeId === grade.id && a.subjectId === subjectId && (!activePeriod || a.periodId === activePeriod),
         )
         if (dup) { skipped += 1; continue }
-        await assignmentsCol.save({ id: genId('ta'), teacherId, gradeId: dGrade, subjectId, periodId: dPeriod })
+        await assignmentsCol.save({ id: genId('ta'), teacherId: dDocente, gradeId: grade.id, subjectId, periodId: activePeriod })
         created += 1
       }
-      toaster.dispatchToast(`${created} asignación(es) creada(s)${skipped ? `; ${skipped} ya existían` : ''}.`, { intent: 'success' })
-      setDTeachers([])
+      toaster.dispatchToast(`${created} asignatura(s) asignada(s)${skipped ? `; ${skipped} ya estaban` : ''}.`, { intent: 'success' })
+      setDAsignaturas([])
     } catch (error) {
-      toaster.dispatchToast(error instanceof Error ? error.message : 'No se pudieron crear las asignaciones.', { intent: 'error' })
+      toaster.dispatchToast(error instanceof Error ? error.message : 'No se pudieron asignar las asignaturas.', { intent: 'error' })
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const quitarAsignacion = async (a: TeacherAssignment) => {
+    try {
+      await assignmentsCol.remove(a.id)
+    } catch (error) {
+      toaster.dispatchToast(error instanceof Error ? error.message : 'No se pudo eliminar.', { intent: 'error' })
+    }
+  }
+
+  const eliminarTodasAsignaciones = async () => {
+    if (assignmentsCol.items.length === 0) return
+    if (!window.confirm('¿Eliminar TODAS las asignaciones de docentes para iniciar desde cero?')) return
+    setBusy(true)
+    try {
+      for (const a of assignmentsCol.items) await assignmentsCol.remove(a.id)
+      toaster.dispatchToast('Se eliminaron todas las asignaciones de docentes.', { intent: 'success' })
+    } catch (error) {
+      toaster.dispatchToast(error instanceof Error ? error.message : 'No se pudieron eliminar las asignaciones.', { intent: 'error' })
     } finally {
       setBusy(false)
     }
@@ -372,94 +392,99 @@ export function AsignacionesPage() {
       {tab === 'docentes' && (
         <>
           <Card className={styles.card}>
-            <FieldRow>
-              <FormField label="Nivel">
-                <Select value={dNivel} onChange={(_, d) => setDNivel(d.value)}>
-                  <option value="">Todos los niveles</option>
-                  {NIVELES.map((n) => <option key={n} value={n}>{n}</option>)}
-                </Select>
-              </FormField>
-              <FormField label="Grado">
-                <Select value={dGrado} onChange={(_, d) => setDGrado(d.value)}>
-                  <option value="">Todos los grados</option>
-                  {GRADOS.map((g) => <option key={g} value={g}>{g}</option>)}
-                </Select>
-              </FormField>
-              <FormField label="Sección">
-                <Select value={dSeccion} onChange={(_, d) => setDSeccion(d.value)}>
-                  <option value="">Todas las secciones</option>
-                  {SECCIONES.map((s) => <option key={s} value={s}>Sección {s}</option>)}
-                </Select>
-              </FormField>
-            </FieldRow>
-            <FieldRow>
-              <FormField label="Curso" required>
-                <Select value={dGrade} onChange={(_, d) => setDGrade(d.value)}>
-                  <option value="">— Selecciona un curso —</option>
-                  {cursoGradeOptions.map((g) => <option key={g.id} value={g.id}>{g.label}</option>)}
-                </Select>
-              </FormField>
-              <FormField label="Asignatura" required>
-                <Select value={dSubject} onChange={(_, d) => setDSubject(d.value)}>
-                  <option value="">— Selecciona una asignatura —</option>
-                  {asignaturaGAOptions.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
-                </Select>
-              </FormField>
-            </FieldRow>
-            <FieldRow>
-              <FormField label="Período" required>
-                <Select value={dPeriod} onChange={(_, d) => setDPeriod(d.value)}>
-                  {periods.map((p) => <option key={p.id} value={p.id}>{p.name}{p.isActive ? ' (activo)' : ''}</option>)}
-                </Select>
-              </FormField>
-            </FieldRow>
-            <MultiSelect
-              label="Docentes a asignar"
-              options={teacherOptions}
-              selected={dTeachers}
-              onChange={setDTeachers}
-              placeholder="Filtrar docentes…"
-              required
-              emptyMessage="No hay docentes en el catálogo."
-            />
-            <div className={styles.actions}>
-              <Button appearance="primary" icon={busy ? <Spinner size="tiny" /> : <CheckmarkCircleRegular />} disabled={busy} onClick={() => void asignarDocentes()}>
-                {busy ? 'Procesando…' : 'Asignar seleccionados'}
+            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+              <Button appearance="secondary" icon={<DeleteRegular />} disabled={busy || assignmentsCol.items.length === 0} onClick={() => void eliminarTodasAsignaciones()}>
+                Eliminar todas las asignaciones
               </Button>
             </div>
+            <FieldRow>
+              <FormField label="Curso" required hint="Al seleccionarlo se muestran sus asignaturas.">
+                <Select value={dCurso} onChange={(_, d) => { setDCurso(d.value); setDAsignaturas([]) }}>
+                  <option value="">— Selecciona un curso —</option>
+                  {cursosCatalogo.map((c) => <option key={c.nombre} value={c.nombre}>{c.nombre}</option>)}
+                </Select>
+              </FormField>
+              <FormField label="Docente" hint="Opcional: filtra por docente para ver/asignar/eliminar sus asignaturas.">
+                <Select value={dDocente} onChange={(_, d) => { setDDocente(d.value); setDAsignaturas([]) }}>
+                  <option value="">— Todos los docentes —</option>
+                  {teacherOptions.map((t) => <option key={t.id} value={t.id}>{t.label}</option>)}
+                </Select>
+              </FormField>
+            </FieldRow>
+
+            {!dCurso ? (
+              <Text size={200} style={{ color: 'var(--texto-suave)' }}>Selecciona un curso para ver sus asignaturas.</Text>
+            ) : dDocente ? (
+              <>
+                <MultiSelect
+                  label="Asignaturas del curso (marca las que impartirá)"
+                  options={docenteCursoAsignaturas.map((n) => ({ id: n, label: n }))}
+                  selected={dAsignaturas}
+                  onChange={setDAsignaturas}
+                  placeholder="Filtrar asignaturas…"
+                  emptyMessage="Este curso no tiene asignaturas registradas."
+                />
+                <div className={styles.actions}>
+                  <Button appearance="primary" icon={busy ? <Spinner size="tiny" /> : <CheckmarkCircleRegular />} disabled={busy || dAsignaturas.length === 0} onClick={() => void asignarSeleccionadas()}>
+                    {busy ? 'Procesando…' : 'Asignar seleccionadas'}
+                  </Button>
+                </div>
+              </>
+            ) : (
+              <>
+                <Text weight="semibold" size={300} block>Asignaturas del curso ({docenteCursoAsignaturas.length})</Text>
+                {docenteCursoAsignaturas.length === 0 ? (
+                  <Text size={200} style={{ color: 'var(--texto-suave)' }}>Este curso no tiene asignaturas registradas.</Text>
+                ) : (
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                    {docenteCursoAsignaturas.map((s) => (
+                      <span key={s} style={{ border: '1px solid var(--borde)', borderRadius: '999px', padding: '3px 12px' }}><Text size={200}>{s}</Text></span>
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
           </Card>
 
-          {assignmentsCol.loading ? (
-            <Spinner label="Cargando asignaciones…" />
-          ) : assignmentsCol.items.length === 0 ? (
-            <EmptyStateView title="Sin asignaciones" message="Selecciona curso, asignatura y docentes para asignarlos." />
-          ) : (
-            <Table aria-label="Asignaciones docentes">
-              <TableHeader>
-                <TableRow>
-                  <TableHeaderCell>Docente</TableHeaderCell>
-                  <TableHeaderCell>Curso</TableHeaderCell>
-                  <TableHeaderCell>Asignatura</TableHeaderCell>
-                  <TableHeaderCell>Período</TableHeaderCell>
-                  <TableHeaderCell>Acciones</TableHeaderCell>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {assignmentsCol.items.map((a) => (
-                  <TableRow key={a.id}>
-                    <TableCell><Text weight="semibold">{teacherById(a.teacherId)?.fullName ?? a.teacherId}</Text></TableCell>
-                    <TableCell>{gradeById(a.gradeId) ? gradeLabel(gradeById(a.gradeId) as GradeSection) : a.gradeId}</TableCell>
-                    <TableCell>{subjectById(a.subjectId)?.name ?? a.subjectId}</TableCell>
-                    <TableCell>{periodById(a.periodId)?.name ?? a.periodId}</TableCell>
-                    <TableCell>
-                      <Toolbar size="small">
-                        <ToolbarButton icon={<DeleteRegular />} onClick={() => void assignmentsCol.remove(a.id)} aria-label="Eliminar" />
-                      </Toolbar>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+          {dDocente && dCurso && (
+            <>
+              <Text weight="semibold" size={300} block style={{ marginBottom: '8px' }}>
+                Asignaturas de {teacherById(dDocente)?.fullName ?? ''} en {dCurso} ({asignacionesDocente.length})
+              </Text>
+              {asignacionesDocente.length === 0 ? (
+                <EmptyStateView title="Sin asignaturas" message="Este docente no tiene asignaturas en este curso." />
+              ) : (
+                <Table aria-label="Asignaturas del docente">
+                  <TableHeader>
+                    <TableRow>
+                      <TableHeaderCell>Docente</TableHeaderCell>
+                      <TableHeaderCell>Curso</TableHeaderCell>
+                      <TableHeaderCell>Asignatura</TableHeaderCell>
+                      <TableHeaderCell>Período</TableHeaderCell>
+                      <TableHeaderCell>Acciones</TableHeaderCell>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {asignacionesDocente.map((a) => {
+                      const g = gradeById(a.gradeId)
+                      return (
+                        <TableRow key={a.id}>
+                          <TableCell><Text weight="semibold">{teacherById(a.teacherId)?.fullName ?? a.teacherId}</Text></TableCell>
+                          <TableCell>{g ? cursoNombre(g) : a.gradeId}</TableCell>
+                          <TableCell>{subjectById(a.subjectId)?.name ?? a.subjectId}</TableCell>
+                          <TableCell>{periodById(a.periodId)?.name ?? a.periodId}</TableCell>
+                          <TableCell>
+                            <Toolbar size="small">
+                              <ToolbarButton icon={<DeleteRegular />} onClick={() => void quitarAsignacion(a)} aria-label="Eliminar" />
+                            </Toolbar>
+                          </TableCell>
+                        </TableRow>
+                      )
+                    })}
+                  </TableBody>
+                </Table>
+              )}
+            </>
           )}
         </>
       )}
