@@ -107,6 +107,38 @@ export const asignaturaDe = (curso: GradeSection): string => {
   return s
 }
 
+const NIVEL_ORDEN = ['Inicial', 'Primaria', 'Secundaria']
+const GRADO_ORDEN = ['1ro', '2do', '3ro', '4to', '5to', '6to']
+
+/** Indica si un curso tiene estructura válida (tiene grado, o es de Inicial). */
+export const esCursoValido = (g: GradeSection): boolean => !(gradoDe(g) === '' && nivelShort(g.level) !== 'Inicial')
+
+const rankGrado = (g: GradeSection): number => {
+  const i = GRADO_ORDEN.indexOf(gradoDe(g))
+  return i === -1 ? 99 : i
+}
+
+/** Ordena y deduplica cursos por Nivel (Inicial → Primaria → Secundaria) → Grado → Sección. */
+export function ordenarCursos(grades: GradeSection[]): GradeSection[] {
+  const unicos = [...new Map(grades.map((g) => [cursoNombre(g), g])).values()]
+  return unicos.sort((a, b) => {
+    const ni = NIVEL_ORDEN.indexOf(nivelShort(a.level)) - NIVEL_ORDEN.indexOf(nivelShort(b.level))
+    if (ni) return ni
+    const gi = rankGrado(a) - rankGrado(b)
+    if (gi) return gi
+    return seccionDe(a).localeCompare(seccionDe(b))
+  })
+}
+
+/**
+ * Nombres de curso ordenados (Grado + Sección + Nivel). Única fuente para todos
+ * los filtros de «Curso» de la plataforma. Si `soloReales`, limita a asignaturas.
+ */
+export function cursoNombresOrdenados(grades: GradeSection[], soloReales = false): string[] {
+  const base = grades.filter((g) => esCursoValido(g) && (!soloReales || isRealSubject(asignaturaDe(g))))
+  return ordenarCursos(base).map(cursoNombre)
+}
+
 /** Reconoce si un nombre es una asignatura real (por palabras clave curriculares). */
 export const isRealSubject = (name: string): boolean => {
   const n = name.toLowerCase()

@@ -9,7 +9,7 @@ import { useApp } from '../../context/useApp'
 import { dataService } from '../../services/dataService'
 import { useCollection } from '../../hooks/useCollection'
 import { genId } from '../../utils/helpers'
-import { NIVELES, GRADOS, SECCIONES, asignaturaDe, cursoNombre, isRealSubject, nivelShort, gradoDe, seccionDe, cicloFromGrade } from '../../utils/academic'
+import { NIVELES, GRADOS, SECCIONES, asignaturaDe, cursoNombre, ordenarCursos, isRealSubject, nivelShort, gradoDe, seccionDe, cicloFromGrade } from '../../utils/academic'
 import type { Enrollment, GradeSection, TeacherAssignment } from '../../types'
 
 const useStyles = makeStyles({
@@ -60,25 +60,20 @@ export function AsignacionesPage() {
 
   // Cursos para Asignaciones docentes, filtrados por Nivel · Grado · Sección.
   const cursoGradeOptions = useMemo(
-    () => grades
+    () => ordenarCursos(grades
       .filter((g) => isRealSubject(asignaturaDe(g)))
       .filter((g) => !dNivel || nivelShort(g.level) === dNivel)
       .filter((g) => !dGrado || gradoDe(g) === dGrado)
-      .filter((g) => !dSeccion || seccionDe(g) === dSeccion)
+      .filter((g) => !dSeccion || seccionDe(g) === dSeccion))
       .map((g) => ({ id: g.id, label: gradeLabel(g) })),
     [grades, dNivel, dGrado, dSeccion],
   )
 
   // Catálogo de cursos (Grado + Sección + Nivel) existentes en Gestión académica.
-  const cursosCatalogo = useMemo(() => {
-    const reales = grades.filter((g) => isRealSubject(asignaturaDe(g)))
-    const map = new Map<string, GradeSection>()
-    for (const g of reales) {
-      const nombre = cursoNombre(g)
-      if (!map.has(nombre)) map.set(nombre, g)
-    }
-    return [...map.entries()].map(([nombre, curso]) => ({ nombre, curso }))
-  }, [grades])
+  const cursosCatalogo = useMemo(
+    () => ordenarCursos(grades.filter((g) => isRealSubject(asignaturaDe(g)))).map((g) => ({ nombre: cursoNombre(g), curso: g })),
+    [grades],
+  )
   const cursoSel = cursosCatalogo.find((c) => c.nombre === mCurso)?.curso
   const periodActive = periods.find((p) => p.id === mPeriod)?.isActive ?? false
 
