@@ -90,17 +90,46 @@ export function AcademicaTecPage() {
 
   const linkedTeamIds = gradesCol.items.map((g) => g.teamId ?? '').filter(Boolean)
 
+  /** Curso válido = tiene grado (o es de Inicial). Descarta registros sin estructura (ej. «A · Primaria»). */
+  const esCursoValido = (g: GradeSection) => !(gradoDe(g) === '' && nivelShort(g.level) !== 'Inicial')
   /** Solo cursos que corresponden a una asignatura real (filtra "Equipo de implementación", etc.). */
-  const cursos = gradesCol.items.filter((g) => isRealSubject(asignaturaDe(g)))
+  const cursos = gradesCol.items.filter((g) => isRealSubject(asignaturaDe(g)) && esCursoValido(g))
+  const cursosInvalidos = gradesCol.items.filter((g) => !esCursoValido(g))
   const ignorados = gradesCol.items.length - cursos.length
+
+  /** Elimina los cursos sin estructura (sin grado) de la lista de Gestión académica. */
+  const eliminarInvalidos = async () => {
+    if (cursosInvalidos.length === 0) return
+    if (!window.confirm(`¿Eliminar ${cursosInvalidos.length} curso(s) sin grado (por ejemplo «A · Primaria», «A · Secundaria»)?`)) return
+    try {
+      for (const g of cursosInvalidos) await gradesCol.remove(g.id)
+      toaster.dispatchToast(`${cursosInvalidos.length} curso(s) eliminado(s).`, { intent: 'success' })
+    } catch (error) {
+      toaster.dispatchToast(`No se pudieron eliminar: ${graphErrorMessage(error)}`, { intent: 'error' })
+    }
+  }
   const cursosPorNivelGradoSeccion = (gradoFilter || seccionFilter || nivelFilter)
     ? cursos.filter((g) =>
         (!gradoFilter || gradoDe(g).toLowerCase() === gradoFilter.toLowerCase()) &&
         (!seccionFilter || seccionDe(g) === seccionFilter) &&
         (!nivelFilter || nivelShort(g.level) === nivelFilter))
     : cursos
-  // Opciones del filtro «Curso» (Grado + Sección + Nivel) según Nivel/Grado/Sección.
-  const cursoFilterOptions = [...new Set(cursosPorNivelGradoSeccion.map((g) => cursoNombre(g)))].sort((a, b) => a.localeCompare(b))
+  // Opciones del filtro «Curso» (Grado + Sección + Nivel), ordenadas por Nivel → Grado → Sección.
+  const NIVEL_ORDEN = ['Inicial', 'Primaria', 'Secundaria']
+  const GRADO_ORDEN = ['1ro', '2do', '3ro', '4to', '5to', '6to']
+  const rankGrado = (g: GradeSection) => {
+    const i = GRADO_ORDEN.indexOf(gradoDe(g))
+    return i === -1 ? 99 : i
+  }
+  const cursoFilterOptions = [...new Map(cursosPorNivelGradoSeccion.map((g) => [cursoNombre(g), g])).values()]
+    .sort((a, b) => {
+      const ni = NIVEL_ORDEN.indexOf(nivelShort(a.level)) - NIVEL_ORDEN.indexOf(nivelShort(b.level))
+      if (ni) return ni
+      const gi = rankGrado(a) - rankGrado(b)
+      if (gi) return gi
+      return seccionDe(a).localeCompare(seccionDe(b))
+    })
+    .map((g) => cursoNombre(g))
   const cursosFiltrados = cursoFilter
     ? cursosPorNivelGradoSeccion.filter((g) => cursoNombre(g) === cursoFilter)
     : cursosPorNivelGradoSeccion
@@ -318,6 +347,11 @@ export function AcademicaTecPage() {
           {cursoFilterOptions.map((c) => (<option key={c} value={c}>{c}</option>))}
         </Select>
         <Text size={200} style={{ color: 'var(--texto-suave)' }}>{cursosFiltrados.length} asignatura(s)</Text>
+        {cursosInvalidos.length > 0 && (
+          <Button size="small" appearance="outline" icon={<DeleteRegular />} onClick={() => void eliminarInvalidos()}>
+            Eliminar sin grado ({cursosInvalidos.length})
+          </Button>
+        )}
       </div>
 
       <Table aria-label="Cursos">
