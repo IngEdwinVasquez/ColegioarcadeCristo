@@ -9,7 +9,7 @@ import { dataService } from '../../services/dataService'
 import { useCollection } from '../../hooks/useCollection'
 import type { Enrollment, GradeSection, PromotionRecord, Student } from '../../types'
 import { formatDate, genId } from '../../utils/helpers'
-import { cursoNombre, gradoDe, nivelShort, seccionDe } from '../../utils/academic'
+import { cursoNombre, cursoNombresOrdenados, gradoDe, nivelShort, seccionDe } from '../../utils/academic'
 
 const useStyles = makeStyles({
   cell: { verticalAlign: 'middle' },
@@ -74,11 +74,7 @@ export function PromocionPage() {
   const activePeriodId = periods.find((p) => p.isActive)?.id ?? periods[0]?.id ?? ''
 
   // Todos los cursos existentes (Grado + Sección + Nivel) + Egresado.
-  const cursos = useMemo(() => {
-    const set = new Set<string>()
-    for (const g of grades) set.add(cursoNombre(g))
-    return [...set].sort((a, b) => a.localeCompare(b))
-  }, [grades])
+  const cursos = useMemo(() => cursoNombresOrdenados(grades, true), [grades])
   const cursosDestino = useMemo(() => [...cursos, EGRESADO], [cursos])
 
   // Estudiantes del curso seleccionado (por matrícula del período o por su curso).

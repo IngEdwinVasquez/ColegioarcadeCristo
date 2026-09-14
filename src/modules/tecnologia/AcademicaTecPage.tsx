@@ -12,7 +12,7 @@ import { createClassTeam, listTenantTeams, resolveTeamUrl, type TeamInfo } from 
 import { graphErrorMessage } from '../../services/graph'
 import type { GradeSection } from '../../types'
 import { genId } from '../../utils/helpers'
-import { CICLOS, GRADOS, SECCIONES, LEVEL_SHORT, asignaturaDe, cicloFromGrade, cursoNombre, detectLevel, gradoDe, isRealSubject, nivelShort, seccionDe } from '../../utils/academic'
+import { CICLOS, GRADOS, SECCIONES, LEVEL_SHORT, asignaturaDe, cicloFromGrade, cursoNombre, cursoNombresOrdenados, detectLevel, gradoDe, isRealSubject, nivelShort, seccionDe } from '../../utils/academic'
 import { appConfig } from '../../config/appConfig'
 
 const useStyles = makeStyles({
@@ -114,22 +114,8 @@ export function AcademicaTecPage() {
         (!seccionFilter || seccionDe(g) === seccionFilter) &&
         (!nivelFilter || nivelShort(g.level) === nivelFilter))
     : cursos
-  // Opciones del filtro «Curso» (Grado + Sección + Nivel), ordenadas por Nivel → Grado → Sección.
-  const NIVEL_ORDEN = ['Inicial', 'Primaria', 'Secundaria']
-  const GRADO_ORDEN = ['1ro', '2do', '3ro', '4to', '5to', '6to']
-  const rankGrado = (g: GradeSection) => {
-    const i = GRADO_ORDEN.indexOf(gradoDe(g))
-    return i === -1 ? 99 : i
-  }
-  const cursoFilterOptions = [...new Map(cursosPorNivelGradoSeccion.map((g) => [cursoNombre(g), g])).values()]
-    .sort((a, b) => {
-      const ni = NIVEL_ORDEN.indexOf(nivelShort(a.level)) - NIVEL_ORDEN.indexOf(nivelShort(b.level))
-      if (ni) return ni
-      const gi = rankGrado(a) - rankGrado(b)
-      if (gi) return gi
-      return seccionDe(a).localeCompare(seccionDe(b))
-    })
-    .map((g) => cursoNombre(g))
+  // Opciones del filtro «Curso» — misma lista y orden que el resto de la plataforma.
+  const cursoFilterOptions = cursoNombresOrdenados(cursosPorNivelGradoSeccion)
   const cursosFiltrados = cursoFilter
     ? cursosPorNivelGradoSeccion.filter((g) => cursoNombre(g) === cursoFilter)
     : cursosPorNivelGradoSeccion
