@@ -1,8 +1,8 @@
 // Constantes curriculares del sistema educativo dominicano (MINERD).
 
-export const NIVELES = ['Inicial', 'Primaria', 'Secundaria']
-
-export const SECCIONES = ['A', 'B', 'C', 'D']
+// Listas académicas compartidas (fuente única: utils/academic) para que todos
+// los desplegables coincidan con los de Gestión académica.
+export { NIVELES, GRADOS, SECCIONES, CICLOS } from '../../utils/academic'
 
 export const COMPETENCIAS_FUNDAMENTALES = [
   'Competencia Ética y Ciudadana',
