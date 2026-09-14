@@ -103,7 +103,13 @@ export function AsignacionesPage() {
   )
   const studentOptions = useMemo(() => students.map((s) => ({ id: s.id, label: s.fullName, detail: s.email })), [students])
   const teacherOptions = useMemo(() => teachers.map((t) => ({ id: t.id, label: t.fullName, detail: t.email })), [teachers])
-  const subjectOptions = useMemo(() => subjects.map((s) => ({ id: s.id, label: s.name })), [subjects])
+  // Asignaturas tal como se ven en Gestión académica (derivadas de los cursos).
+  const asignaturaGAOptions = useMemo(
+    () => [...new Set(grades.filter((g) => isRealSubject(asignaturaDe(g))).map((g) => asignaturaDe(g)))]
+      .sort((a, b) => a.localeCompare(b))
+      .map((n) => ({ id: n, label: n })),
+    [grades],
+  )
 
   // ---------------------------------------------------------------- Matrículas en lote
   // -------------------------------- Asignaturas del curso
@@ -185,14 +191,16 @@ export function AsignacionesPage() {
     }
     setBusy(true)
     try {
+      // La asignatura viene de Gestión académica (por nombre); se vincula al catálogo si existe.
+      const subjectId = subjects.find((s) => s.name.trim().toLowerCase() === dSubject.trim().toLowerCase())?.id ?? dSubject
       let created = 0
       let skipped = 0
       for (const teacherId of dTeachers) {
         const dup = assignmentsCol.items.some(
-          (a) => a.teacherId === teacherId && a.gradeId === dGrade && a.subjectId === dSubject && a.periodId === dPeriod,
+          (a) => a.teacherId === teacherId && a.gradeId === dGrade && a.subjectId === subjectId && a.periodId === dPeriod,
         )
         if (dup) { skipped += 1; continue }
-        await assignmentsCol.save({ id: genId('ta'), teacherId, gradeId: dGrade, subjectId: dSubject, periodId: dPeriod })
+        await assignmentsCol.save({ id: genId('ta'), teacherId, gradeId: dGrade, subjectId, periodId: dPeriod })
         created += 1
       }
       toaster.dispatchToast(`${created} asignación(es) creada(s)${skipped ? `; ${skipped} ya existían` : ''}.`, { intent: 'success' })
@@ -274,7 +282,7 @@ export function AsignacionesPage() {
             ) : (
               <>
                 <MultiSelect
-                  label="Asignaturas del curso (creadas en Gestión académica)"
+                  label="Asignaturas del curso"
                   options={asignaturaCatalogOptions}
                   selected={mAsignaturas}
                   onChange={setMAsignaturas}
@@ -391,7 +399,7 @@ export function AsignacionesPage() {
               <FormField label="Asignatura" required>
                 <Select value={dSubject} onChange={(_, d) => setDSubject(d.value)}>
                   <option value="">— Selecciona una asignatura —</option>
-                  {subjectOptions.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
+                  {asignaturaGAOptions.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
                 </Select>
               </FormField>
             </FieldRow>
