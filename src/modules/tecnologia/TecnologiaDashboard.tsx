@@ -67,7 +67,7 @@ export function TecnologiaDashboard() {
     { tipo: 'tic', label: 'Tecnología (TIC)', path: '/tecnologia/personas' },
     { tipo: 'director', label: 'Directores', path: '/tecnologia/directores' },
     { tipo: 'administrador', label: 'Administradores', path: '/tecnologia/administradores' },
-    { tipo: 'siger', label: 'SIGER', path: '/tecnologia/siger' },
+    { tipo: 'siger', label: 'SIGERD', path: '/tecnologia/siger' },
     { tipo: 'apoyo', label: 'Personal de apoyo', path: '/tecnologia/apoyo' },
     { tipo: 'psicologia', label: 'Orientación y Psicología', path: '/tecnologia/personas' },
   ] as const

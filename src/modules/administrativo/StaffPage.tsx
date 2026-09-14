@@ -19,7 +19,7 @@ const useStyles = makeStyles({
 export const STAFF_TIPOS: Record<string, { label: string; tipo: PersonaTipo; rol: Role; plural: string; desc: string }> = {
   directores: { label: 'Director', tipo: 'director', rol: 'admin', plural: 'Directores', desc: 'Registro de la dirección del centro educativo (rol Administrativo).' },
   administradores: { label: 'Administrador', tipo: 'administrador', rol: 'admin', plural: 'Administradores', desc: 'Personal de administración del centro (rol Administrativo).' },
-  siger: { label: 'SIGER', tipo: 'siger', rol: 'admin', plural: 'SIGER', desc: 'Personal responsable del sistema SIGER (rol Administrativo).' },
+  siger: { label: 'SIGERD', tipo: 'siger', rol: 'admin', plural: 'SIGERD', desc: 'Personal responsable del sistema SIGERD (rol Administrativo).' },
   apoyo: { label: 'Personal de apoyo', tipo: 'apoyo', rol: 'admin', plural: 'Personal de apoyo', desc: 'Personal de apoyo institucional (rol Administrativo).' },
 }
 
