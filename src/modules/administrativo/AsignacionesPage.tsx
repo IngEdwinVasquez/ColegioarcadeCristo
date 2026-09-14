@@ -44,15 +44,8 @@ export function AsignacionesPage() {
   const [dAsignaturas, setDAsignaturas] = useState<string[]>([])
 
   // Docente encargado
-  const [eGrade, setEGrade] = useState('')
+  const [eCurso, setECurso] = useState('')
   const [eTeacher, setETeacher] = useState('')
-
-  // Misma lista/etiquetas que «Gestión académica» (Asignatura · Curso = Grado + Sección + Nivel).
-  const gradeLabel = (g: GradeSection) => `${asignaturaDe(g)} · ${cursoNombre(g)}`
-  const gradeOptions = useMemo(
-    () => grades.filter((g) => isRealSubject(asignaturaDe(g))).map((g) => ({ id: g.id, label: gradeLabel(g) })),
-    [grades],
-  )
 
   // Asignaturas del curso seleccionado (para Asignaciones docentes).
   const docenteCursoMaterias = useMemo(
@@ -253,26 +246,37 @@ export function AsignacionesPage() {
 
   // ---------------------------------------------------------------- Docente encargado
   const asignarEncargado = async () => {
-    const grade = gradeById(eGrade)
-    if (!grade || !eTeacher) {
+    if (!eCurso || !eTeacher) {
       toaster.dispatchToast('Selecciona curso y docente encargado.', { intent: 'error' })
       return
     }
+    const materias = grades.filter((g) => cursoNombre(g) === eCurso)
+    if (materias.length === 0) {
+      toaster.dispatchToast('El curso no tiene registros en Gestión académica.', { intent: 'error' })
+      return
+    }
+    setBusy(true)
     try {
-      await gradesCol.save({ ...grade, leadTeacherId: eTeacher })
-      toaster.dispatchToast(`Docente encargado asignado en ${gradeLabel(grade)}.`, { intent: 'success' })
+      for (const g of materias) await gradesCol.save({ ...g, leadTeacherId: eTeacher })
+      toaster.dispatchToast(`Docente encargado asignado en ${eCurso}.`, { intent: 'success' })
       setETeacher('')
     } catch (error) {
       toaster.dispatchToast(error instanceof Error ? error.message : 'No se pudo asignar el encargado.', { intent: 'error' })
+    } finally {
+      setBusy(false)
     }
   }
 
-  const quitarEncargado = async (grade: GradeSection) => {
+  const quitarEncargado = async (curso: string) => {
+    const materias = grades.filter((g) => cursoNombre(g) === curso)
+    setBusy(true)
     try {
-      await gradesCol.save({ ...grade, leadTeacherId: undefined })
+      for (const g of materias) await gradesCol.save({ ...g, leadTeacherId: undefined })
       toaster.dispatchToast('Docente encargado removido.', { intent: 'success' })
     } catch (error) {
       toaster.dispatchToast(error instanceof Error ? error.message : 'No se pudo remover.', { intent: 'error' })
+    } finally {
+      setBusy(false)
     }
   }
 
@@ -494,10 +498,10 @@ export function AsignacionesPage() {
         <>
           <Card className={styles.card}>
             <FieldRow>
-              <FormField label="Curso" required>
-                <Select value={eGrade} onChange={(_, d) => setEGrade(d.value)}>
+              <FormField label="Curso" required hint="Cursos creados en Gestión académica.">
+                <Select value={eCurso} onChange={(_, d) => setECurso(d.value)}>
                   <option value="">— Selecciona un curso —</option>
-                  {gradeOptions.map((g) => <option key={g.id} value={g.id}>{g.label}</option>)}
+                  {cursosCatalogo.map((c) => <option key={c.nombre} value={c.nombre}>{c.nombre}</option>)}
                 </Select>
               </FormField>
               <FormField label="Docente encargado" required>
@@ -521,17 +525,20 @@ export function AsignacionesPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {grades.map((g) => (
-                <TableRow key={g.id}>
-                  <TableCell><Text weight="semibold">{gradeLabel(g)}</Text></TableCell>
-                  <TableCell>{g.leadTeacherId ? teacherById(g.leadTeacherId)?.fullName ?? g.leadTeacherId : <Text style={{ color: tokens.colorNeutralForeground2 }}>Sin asignar</Text>}</TableCell>
-                  <TableCell>
-                    <Toolbar size="small">
-                      <ToolbarButton icon={<DeleteRegular />} onClick={() => void quitarEncargado(g)} aria-label="Quitar encargado" disabled={!g.leadTeacherId} />
-                    </Toolbar>
-                  </TableCell>
-                </TableRow>
-              ))}
+              {cursosCatalogo.map((c) => {
+                const lead = c.curso.leadTeacherId
+                return (
+                  <TableRow key={c.nombre}>
+                    <TableCell><Text weight="semibold">{c.nombre}</Text></TableCell>
+                    <TableCell>{lead ? teacherById(lead)?.fullName ?? lead : <Text style={{ color: tokens.colorNeutralForeground2 }}>Sin asignar</Text>}</TableCell>
+                    <TableCell>
+                      <Toolbar size="small">
+                        <ToolbarButton icon={<DeleteRegular />} onClick={() => void quitarEncargado(c.nombre)} aria-label="Quitar encargado" disabled={!lead} />
+                      </Toolbar>
+                    </TableCell>
+                  </TableRow>
+                )
+              })}
             </TableBody>
           </Table>
         </>
