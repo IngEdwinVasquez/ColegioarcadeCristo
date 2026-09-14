@@ -23,7 +23,7 @@ const NAV: NavItem[] = [
   { to: '/tecnologia/personas', label: 'Personal', icon: <PeopleTeamRegular />, group: 'Personas' },
   { to: '/tecnologia/directores', label: 'Directores', icon: <PersonShieldRegular />, group: 'Personas' },
   { to: '/tecnologia/administradores', label: 'Administradores', icon: <PremiumPersonRegular />, group: 'Personas' },
-  { to: '/tecnologia/siger', label: 'SIGER', icon: <BookOpenRegular />, group: 'Personas' },
+  { to: '/tecnologia/siger', label: 'SIGERD', icon: <BookOpenRegular />, group: 'Personas' },
   { to: '/tecnologia/apoyo', label: 'Personal de apoyo', icon: <HandOpenHeartRegular />, group: 'Personas' },
   { to: '/tecnologia/usuarios', label: 'Usuarios y roles', icon: <ShieldPersonRegular />, group: 'Personas' },
   { to: '/tecnologia/roles', label: 'Roles', icon: <ShieldCheckmarkRegular />, group: 'Personas' },
