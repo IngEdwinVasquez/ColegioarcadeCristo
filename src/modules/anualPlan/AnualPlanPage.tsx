@@ -12,6 +12,7 @@ import { useCollection } from '../../hooks/useCollection'
 import { PlanForm } from './PlanForm'
 import type { ClassPlan, SchoolClassRecord } from '../../types'
 import { formatDate, genId, relativeDay } from '../../utils/helpers'
+import { cursoNombre } from '../../utils/academic'
 
 const useStyles = makeStyles({
   toolbar: { marginBottom: '16px', gap: '12px', flexWrap: 'wrap' },
@@ -115,7 +116,7 @@ export function AnualPlanPage() {
         <Select value={gradeFilter} onChange={(_, d) => setGradeFilter(d.value)} style={{ minWidth: '160px' }}>
           <option value="">Todos los grados</option>
           {grades.map((g) => (
-            <option key={g.id} value={g.id}>{g.name}</option>
+                <option key={g.id} value={g.id}>{cursoNombre(g)}</option>
           ))}
         </Select>
         <Input

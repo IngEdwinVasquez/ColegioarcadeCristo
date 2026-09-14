@@ -11,6 +11,7 @@ import { secuenciasDeAsignatura, anioEscolar } from './curriculum'
 import { PlanDiarioForm } from './PlanDiarioForm'
 import type { DailyPlan } from '../../types'
 import { formatDate, genId } from '../../utils/helpers'
+import { cursoNombre } from '../../utils/academic'
 
 const useStyles = makeStyles({
   controls: { display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center', marginBottom: '16px' },
@@ -131,7 +132,7 @@ export function PlanificadorSemanal() {
 
       <div className={styles.controls}>
         <Select value={gradeId} onChange={(_, d) => setGradeId(d.value)} style={{ minWidth: '160px' }}>
-          {grades.map((g) => (<option key={g.id} value={g.id}>{g.name}</option>))}
+          {grades.map((g) => (<option key={g.id} value={g.id}>{cursoNombre(g)}</option>))}
         </Select>
         <Select value={section} onChange={(_, d) => setSection(d.value)} style={{ minWidth: '110px' }}>
           <option value="">Toda la sección</option>

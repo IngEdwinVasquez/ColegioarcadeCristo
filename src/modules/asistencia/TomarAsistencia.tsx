@@ -8,6 +8,7 @@ import { FormField, FieldRow } from '../../components/shared/form'
 import { StatusBadge } from '../../components/shared/StatusBadge'
 import type { AttendanceRecord, AttendanceStatus, SchoolClassRecord } from '../../types'
 import { formatDate, genId, todayIso } from '../../utils/helpers'
+import { cursoNombre } from '../../utils/academic'
 
 const useStyles = makeStyles({
   row: { display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'flex-end', marginBottom: '8px' },
@@ -138,7 +139,7 @@ export function TomarAsistencia({ classes }: { classes: SchoolClassRecord[] }) {
         <FormField label="Grado" required>
           <Select value={gradeId} onChange={(_, d) => setGradeId(d.value)}>
             {grades.map((g) => (
-              <option key={g.id} value={g.id}>{g.name}</option>
+              <option key={g.id} value={g.id}>{cursoNombre(g)}</option>
             ))}
           </Select>
         </FormField>
