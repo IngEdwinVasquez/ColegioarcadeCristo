@@ -30,7 +30,7 @@ const PERSON_TYPES = [
   { value: 'tic', label: 'Tecnología (TIC)' },
   { value: 'director', label: 'Director' },
   { value: 'administrador', label: 'Administrador' },
-  { value: 'siger', label: 'SIGER' },
+  { value: 'siger', label: 'SIGERD' },
   { value: 'apoyo', label: 'Personal de apoyo' },
   { value: 'psicologia', label: 'Orientación y Psicología' },
 ] as const
@@ -493,7 +493,7 @@ export function PersonasPage() {
           )}
           onSave={savePersona}
           onDelete={deletePersona}
-          emptyMessage="Registre al personal institucional: coordinadores, TIC, dirección, administración, SIGER, apoyo y orientación/psicología."
+            emptyMessage="Registre al personal institucional: coordinadores, TIC, dirección, administración, SIGERD, apoyo y orientación/psicología."
         />
       )}
     </div>
