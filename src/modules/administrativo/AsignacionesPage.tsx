@@ -72,6 +72,20 @@ export function AsignacionesPage() {
     () => ordenarCursos(grades.filter((g) => isRealSubject(asignaturaDe(g)))).map((g) => ({ nombre: cursoNombre(g), curso: g })),
     [grades],
   )
+  // Cursos con docente encargado, filtrados por el curso y/o docente seleccionados.
+  const cursosEncargado = useMemo(
+    () => cursosCatalogo.filter((c) => {
+      if (eCurso) return c.nombre === eCurso && !!c.curso.leadTeacherId
+      if (eTeacher) return c.curso.leadTeacherId === eTeacher
+      return !!c.curso.leadTeacherId
+    }),
+    [cursosCatalogo, eCurso, eTeacher],
+  )
+  const encargadoTitulo = eCurso
+    ? `Curso: ${eCurso}`
+    : eTeacher
+      ? `Cursos de ${teacherById(eTeacher)?.fullName ?? ''} como encargado`
+      : 'Cursos con docente encargado'
   const cursoSel = cursosCatalogo.find((c) => c.nombre === mCurso)?.curso
   const periodActive = periods.find((p) => p.id === mPeriod)?.isActive ?? false
 
@@ -259,7 +273,6 @@ export function AsignacionesPage() {
     try {
       for (const g of materias) await gradesCol.save({ ...g, leadTeacherId: eTeacher })
       toaster.dispatchToast(`Docente encargado asignado en ${eCurso}.`, { intent: 'success' })
-      setETeacher('')
     } catch (error) {
       toaster.dispatchToast(error instanceof Error ? error.message : 'No se pudo asignar el encargado.', { intent: 'error' })
     } finally {
@@ -516,7 +529,8 @@ export function AsignacionesPage() {
             </div>
           </Card>
 
-          {cursosCatalogo.some((c) => c.curso.leadTeacherId) ? (
+          <Text weight="semibold" size={300} block style={{ marginBottom: '8px' }}>{encargadoTitulo}</Text>
+          {cursosEncargado.length > 0 ? (
           <Table aria-label="Docente encargado por curso">
             <TableHeader>
               <TableRow>
@@ -526,7 +540,7 @@ export function AsignacionesPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {cursosCatalogo.filter((c) => c.curso.leadTeacherId).map((c) => {
+              {cursosEncargado.map((c) => {
                 const lead = c.curso.leadTeacherId
                 return (
                   <TableRow key={c.nombre}>
