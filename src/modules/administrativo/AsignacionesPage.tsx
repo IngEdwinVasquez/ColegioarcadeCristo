@@ -86,6 +86,16 @@ export function AsignacionesPage() {
     () => [...new Set(cursoMaterias.map((g) => asignaturaDe(g)))].sort((a, b) => a.localeCompare(b)),
     [cursoMaterias],
   )
+
+  // Matrículas del curso seleccionado en el período (solo estudiantes de ese curso).
+  const matriculasCurso = useMemo(() => {
+    if (!mCurso) return []
+    return enrollmentsCol.items.filter((e) => {
+      if (mPeriod && e.periodId !== mPeriod) return false
+      const g = gradeById(e.gradeId)
+      return !!g && cursoNombre(g) === mCurso
+    })
+  }, [enrollmentsCol.items, mCurso, mPeriod, gradeById])
   const studentOptions = useMemo(() => students.map((s) => ({ id: s.id, label: s.fullName, detail: s.email })), [students])
   const teacherOptions = useMemo(() => teachers.map((t) => ({ id: t.id, label: t.fullName, detail: t.email })), [teachers])
   // Asignaturas tal como se ven en Gestión académica (derivadas de los cursos).
@@ -323,8 +333,10 @@ export function AsignacionesPage() {
 
           {enrollmentsCol.loading ? (
             <Spinner label="Cargando matrículas…" />
-          ) : enrollmentsCol.items.length === 0 ? (
-            <EmptyStateView title="Sin matrículas" message="Selecciona un curso y estudiantes para matricularlos." />
+          ) : !mCurso ? (
+            <EmptyStateView title="Sin curso seleccionado" message="Selecciona un curso para ver sus estudiantes matriculados." />
+          ) : matriculasCurso.length === 0 ? (
+            <EmptyStateView title="Sin estudiantes" message="Este curso no tiene estudiantes matriculados." />
           ) : (
             <Table aria-label="Matrículas">
               <TableHeader>
@@ -337,7 +349,7 @@ export function AsignacionesPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {enrollmentsCol.items.map((e) => (
+                {matriculasCurso.map((e) => (
                   <TableRow key={e.id}>
                     <TableCell><Text weight="semibold">{studentById(e.studentId)?.fullName ?? e.studentId}</Text></TableCell>
                     <TableCell>{gradeById(e.gradeId) ? cursoNombre(gradeById(e.gradeId) as GradeSection) : e.gradeId}</TableCell>
