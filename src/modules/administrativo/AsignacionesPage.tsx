@@ -1,6 +1,7 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { Button, Card, Select, Spinner, Tab, TabList, Table, TableBody, TableCell, TableHeader, TableHeaderCell, TableRow, Text, Toolbar, ToolbarButton, useToastController, makeStyles, tokens } from '@fluentui/react-components'
-import { DeleteRegular, CheckmarkCircleRegular } from '@fluentui/react-icons'
+import { DeleteRegular, CheckmarkCircleRegular, ArrowUploadRegular } from '@fluentui/react-icons'
+import * as XLSX from 'xlsx'
 import { PageHeader } from '../../components/shared/PageHeader'
 import { MultiSelect } from '../../components/shared/MultiSelect'
 import { FormField, FieldRow } from '../../components/shared/form'
@@ -10,7 +11,7 @@ import { dataService } from '../../services/dataService'
 import { useCollection } from '../../hooks/useCollection'
 import { genId } from '../../utils/helpers'
 import { asignaturaDe, cursoNombre, ordenarCursos, isRealSubject, nivelShort, gradoDe, seccionDe, cicloFromGrade } from '../../utils/academic'
-import type { Enrollment, GradeSection, TeacherAssignment } from '../../types'
+import type { Enrollment, GradeSection, Student, TeacherAssignment } from '../../types'
 
 const useStyles = makeStyles({
   tabs: { marginBottom: '16px' },
@@ -37,6 +38,8 @@ export function AsignacionesPage() {
   const [mCurso, setMCurso] = useState('')
   const [mPeriod, setMPeriod] = useState(activePeriod)
   const [mStudents, setMStudents] = useState<string[]>([])
+  const [importingExcel, setImportingExcel] = useState(false)
+  const excelRef = useRef<HTMLInputElement>(null)
 
   // Asignaciones docentes (filtros: Docente y Curso)
   const [dDocente, setDDocente] = useState('')
@@ -206,6 +209,69 @@ export function AsignacionesPage() {
     }
   }
 
+  /** Matrícula masiva desde un archivo Excel con los estudiantes del curso. */
+  const matricularDesdeExcel = async (file: File | undefined) => {
+    if (!file) return
+    if (!mCurso || !periodActive || cursoMaterias.length === 0) {
+      toaster.dispatchToast('Selecciona un curso con asignaturas y un período activo.', { intent: 'error' })
+      return
+    }
+    setImportingExcel(true)
+    try {
+      const buf = await file.arrayBuffer()
+      const wb = XLSX.read(buf, { type: 'array' })
+      const sheet = wb.Sheets[wb.SheetNames[0]]
+      const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, { defval: '' })
+      const norm = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase()
+
+      // Extrae nombre y correo de cada fila (cualquier columna).
+      const ids: Array<{ name: string; email: string }> = []
+      for (const row of rows) {
+        let name = ''
+        let email = ''
+        for (const v of Object.values(row)) {
+          const val = String(v ?? '').trim()
+          if (!val) continue
+          if (!email && val.includes('@')) email = val
+          else if (!name && !/^\d+([.,]\d+)?$/.test(val)) name = val
+        }
+        if (name || email) ids.push({ name, email })
+      }
+
+      const byEmail = new Map(students.filter((s) => s.email).map((s) => [norm(s.email as string), s]))
+      const byName = new Map(students.map((s) => [norm(s.fullName), s]))
+      const matched: Student[] = []
+      const notFound: string[] = []
+      for (const id of ids) {
+        const st = (id.email && byEmail.get(norm(id.email))) || (id.name && byName.get(norm(id.name))) || undefined
+        if (st) matched.push(st)
+        else notFound.push(id.name || id.email)
+      }
+
+      let created = 0
+      let skipped = 0
+      const conflicts: string[] = []
+      for (const st of matched) {
+        const existing = enrollmentsCol.items.filter((e) => e.studentId === st.id && (!activePeriod || e.periodId === activePeriod))
+        const otherCourse = existing.some((e) => { const g = gradeById(e.gradeId); return g && cursoNombre(g) !== mCurso })
+        if (otherCourse) { conflicts.push(st.fullName); continue }
+        const already = existing.some((e) => { const g = gradeById(e.gradeId); return g && cursoNombre(g) === mCurso })
+        if (already) { skipped += 1; continue }
+        await enrollmentsCol.save({ id: genId('enr'), studentId: st.id, gradeId: cursoMaterias[0].id, periodId: activePeriod })
+        created += 1
+      }
+      toaster.dispatchToast(
+        `Excel: ${created} matriculado(s)${skipped ? `, ${skipped} ya estaban` : ''}${notFound.length ? `, ${notFound.length} no encontrado(s): ${notFound.slice(0, 5).join(', ')}${notFound.length > 5 ? '…' : ''}` : ''}${conflicts.length ? `, ${conflicts.length} en otro curso` : ''}.`,
+        { intent: notFound.length || conflicts.length ? 'warning' : 'success' },
+      )
+    } catch (error) {
+      toaster.dispatchToast(error instanceof Error ? error.message : 'No se pudo leer el archivo Excel.', { intent: 'error' })
+    } finally {
+      setImportingExcel(false)
+      if (excelRef.current) excelRef.current.value = ''
+    }
+  }
+
   // ---------------------------------------------------------------- Asignaciones docentes
   const asignarSeleccionadas = async () => {
     if (!dCurso || !dDocente || dAsignaturas.length === 0) {
@@ -352,11 +418,18 @@ export function AsignacionesPage() {
               placeholder="Filtrar estudiantes…"
               emptyMessage="No hay estudiantes en el catálogo."
             />
+            <input ref={excelRef} type="file" accept=".xlsx,.xls,.csv" style={{ display: 'none' }} onChange={(e) => void matricularDesdeExcel(e.target.files?.[0])} />
             <div className={styles.actions}>
               <Button appearance="primary" icon={busy ? <Spinner size="tiny" /> : <CheckmarkCircleRegular />} disabled={busy || !periodActive || cursoMaterias.length === 0 || mStudents.length === 0} onClick={() => void matricular()}>
                 {busy ? 'Procesando…' : 'Matricular seleccionados'}
               </Button>
+              <Button appearance="secondary" icon={importingExcel ? <Spinner size="tiny" /> : <ArrowUploadRegular />} disabled={importingExcel || !mCurso || !periodActive || cursoMaterias.length === 0} onClick={() => excelRef.current?.click()}>
+                {importingExcel ? 'Procesando…' : 'Matricular desde Excel'}
+              </Button>
             </div>
+            <Text size={200} block style={{ color: 'var(--texto-suave)' }}>
+              Excel/csv: incluye una columna con los <strong>nombres</strong> y/o <strong>correos</strong> de los estudiantes del curso.
+            </Text>
           </Card>
 
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginBottom: '10px', flexWrap: 'wrap' }}>
