@@ -516,6 +516,7 @@ export function AsignacionesPage() {
             </div>
           </Card>
 
+          {cursosCatalogo.some((c) => c.curso.leadTeacherId) ? (
           <Table aria-label="Docente encargado por curso">
             <TableHeader>
               <TableRow>
@@ -525,7 +526,7 @@ export function AsignacionesPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {cursosCatalogo.map((c) => {
+              {cursosCatalogo.filter((c) => c.curso.leadTeacherId).map((c) => {
                 const lead = c.curso.leadTeacherId
                 return (
                   <TableRow key={c.nombre}>
@@ -541,6 +542,9 @@ export function AsignacionesPage() {
               })}
             </TableBody>
           </Table>
+          ) : (
+            <EmptyStateView title="Sin docentes encargados" message="Asigna un docente encargado a un curso para verlo aquí." />
+          )}
         </>
       )}
     </div>
