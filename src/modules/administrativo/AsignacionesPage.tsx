@@ -150,13 +150,46 @@ export function AsignacionesPage() {
     }
   }
 
-  /** Elimina TODAS las matrículas para iniciar desde cero. */
-  const vaciarMatriculas = async () => {
-    if (!window.confirm('¿Eliminar TODAS las matrículas? Esta acción no se puede deshacer.')) return
+  /** Desmatricula a los estudiantes seleccionados del curso elegido. */
+  const desmatricularSeleccionados = async () => {
+    if (!mCurso || mStudents.length === 0) {
+      toaster.dispatchToast('Selecciona un curso y los estudiantes a desmatricular.', { intent: 'error' })
+      return
+    }
+    if (!window.confirm('¿Desmatricular a los estudiantes seleccionados de este curso?')) return
     setBusy(true)
     try {
-      for (const e of enrollmentsCol.items) await enrollmentsCol.remove(e.id)
-      toaster.dispatchToast('Se eliminaron todas las matrículas.', { intent: 'success' })
+      const targets = enrollmentsCol.items.filter((e) => {
+        if (e.periodId !== mPeriod || !mStudents.includes(e.studentId)) return false
+        const g = gradeById(e.gradeId)
+        return !!g && cursoNombre(g) === mCurso
+      })
+      for (const e of targets) await enrollmentsCol.remove(e.id)
+      toaster.dispatchToast(`${targets.length} matrícula(s) eliminada(s).`, { intent: 'success' })
+      setMStudents([])
+    } catch (error) {
+      toaster.dispatchToast(error instanceof Error ? error.message : 'No se pudieron eliminar las matrículas.', { intent: 'error' })
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  /** Desmatricula a TODOS los estudiantes del curso seleccionado. */
+  const desmatricularTodosCurso = async () => {
+    if (!mCurso) {
+      toaster.dispatchToast('Selecciona un curso.', { intent: 'error' })
+      return
+    }
+    if (!window.confirm('¿Desmatricular a TODOS los estudiantes del curso seleccionado?')) return
+    setBusy(true)
+    try {
+      const targets = enrollmentsCol.items.filter((e) => {
+        if (e.periodId !== mPeriod) return false
+        const g = gradeById(e.gradeId)
+        return !!g && cursoNombre(g) === mCurso
+      })
+      for (const e of targets) await enrollmentsCol.remove(e.id)
+      toaster.dispatchToast(`${targets.length} matrícula(s) eliminada(s).`, { intent: 'success' })
     } catch (error) {
       toaster.dispatchToast(error instanceof Error ? error.message : 'No se pudieron eliminar las matrículas.', { intent: 'error' })
     } finally {
@@ -284,9 +317,12 @@ export function AsignacionesPage() {
             </div>
           </Card>
 
-          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '10px' }}>
-            <Button appearance="secondary" icon={<DeleteRegular />} disabled={busy || enrollmentsCol.items.length === 0} onClick={() => void vaciarMatriculas()}>
-              Vaciar matrículas
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginBottom: '10px', flexWrap: 'wrap' }}>
+            <Button appearance="secondary" icon={<DeleteRegular />} disabled={busy || !mCurso || mStudents.length === 0} onClick={() => void desmatricularSeleccionados()}>
+              Vaciar matrícula por estudiantes
+            </Button>
+            <Button appearance="secondary" icon={<DeleteRegular />} disabled={busy || !mCurso} onClick={() => void desmatricularTodosCurso()}>
+              Vaciar matrícula todos los estudiantes
             </Button>
           </div>
 
