@@ -23,6 +23,7 @@ import { dataService } from '../../services/dataService'
 import { useCollection } from '../../hooks/useCollection'
 import type { ClassPlan, SchoolClassRecord, AttendanceRecord, Activity, Grade, VirtualMeeting } from '../../types'
 import { formatDate, pct } from '../../utils/helpers'
+import { cursoNombre } from '../../utils/academic'
 
 const useStyles = makeStyles({
   kpis: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 220px), 1fr))', gap: '16px', marginBottom: '20px' },
@@ -139,7 +140,7 @@ export function DireccionPage() {
         <Select value={gradeFilter} onChange={(_, d) => setGradeFilter(d.value)} style={{ minWidth: '180px' }}>
           <option value="">Todos los grados</option>
           {grades.map((g) => (
-            <option key={g.id} value={g.id}>{g.name}</option>
+                <option key={g.id} value={g.id}>{cursoNombre(g)}</option>
           ))}
         </Select>
       </div>

@@ -9,6 +9,7 @@ import { dataService } from '../../services/dataService'
 import { classifyDirectory, getTeamRoster } from '../../services/importM365'
 import { graphErrorMessage } from '../../services/graph'
 import { genId } from '../../utils/helpers'
+import { cursoNombre } from '../../utils/academic'
 import type { Role } from '../../types/roles'
 import type { Student, Teacher, User } from '../../types'
 
@@ -239,7 +240,7 @@ export function ImportPersonasWizard({ open, onOpenChange }: ImportPersonasWizar
                 <Select value={defaultGrade} onChange={(_, d) => setDefaultGrade(d.value)}>
                   <option value="">Sin curso (asignar después)</option>
                   {grades.map((g) => (
-                    <option key={g.id} value={g.id}>{g.name}</option>
+                    <option key={g.id} value={g.id}>{cursoNombre(g)}</option>
                   ))}
                 </Select>
               </FormField>

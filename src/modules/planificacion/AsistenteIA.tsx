@@ -7,6 +7,7 @@ import { useApp } from '../../context/useApp'
 import { generatePlanWithAi } from '../../services/planningPrompts'
 import { isAiConfigured, AiServiceError } from '../../services/ai'
 import { genId, todayIso } from '../../utils/helpers'
+import { cursoNombre } from '../../utils/academic'
 import type { DailyPlan } from '../../types'
 import { NIVELES } from './curriculo'
 
@@ -108,7 +109,7 @@ export function AsistenteIA({ open, onOpenChange, onGenerated }: AsistenteIAProp
         <FormField label="Grado" required>
           <Select value={gradeId} onChange={(_, d) => setGradeId(d.value)}>
             {grades.map((g) => (
-              <option key={g.id} value={g.id}>{g.name}</option>
+              <option key={g.id} value={g.id}>{cursoNombre(g)}</option>
             ))}
           </Select>
         </FormField>

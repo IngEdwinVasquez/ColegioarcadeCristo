@@ -4,6 +4,7 @@ import { FormActions, FormField, FieldRow } from '../../components/shared/form'
 import { useApp } from '../../context/useApp'
 import type { ClassPlan } from '../../types'
 import { genId, todayIso } from '../../utils/helpers'
+import { cursoNombre } from '../../utils/academic'
 
 interface PlanFormProps {
   initial?: ClassPlan | null
@@ -63,7 +64,7 @@ export function PlanForm({ initial, onSave, onCancel }: PlanFormProps) {
         <FormField label="Grado" required>
           <Select value={form.gradeId} onChange={(_, d) => set('gradeId', d.value)}>
             {grades.map((g) => (
-              <option key={g.id} value={g.id}>{g.name}</option>
+              <option key={g.id} value={g.id}>{cursoNombre(g)}</option>
             ))}
           </Select>
         </FormField>

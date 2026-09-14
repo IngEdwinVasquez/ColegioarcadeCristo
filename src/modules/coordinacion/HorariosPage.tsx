@@ -12,6 +12,7 @@ import { NivelSelector } from './NivelSelector'
 import { useCoordinationLevel } from './useCoordinationLevel'
 import type { ClassSchedule } from '../../types'
 import { genId } from '../../utils/helpers'
+import { cursoNombre } from '../../utils/academic'
 import { SECCIONES as SECCIONES_CUR } from '../planificacion/curriculo'
 
 const DIAS = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado']
@@ -180,7 +181,7 @@ function ScheduleForm({ initial, levelGrades, teachers, subjects, onSave, onCanc
         </FormField>
         <FormField label="Curso" required>
           <Select value={form.gradeId} onChange={(_, d) => set('gradeId', d.value)}>
-            {levelGrades.map((g) => (<option key={g.id} value={g.id}>{g.name}</option>))}
+            {levelGrades.map((g) => (<option key={g.id} value={g.id}>{cursoNombre(g)}</option>))}
           </Select>
         </FormField>
       </FieldRow>

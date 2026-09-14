@@ -11,6 +11,7 @@ import { useCollection } from '../../hooks/useCollection'
 import type { Persona, Student, StudentGuardian, Teacher } from '../../types'
 import type { Role } from '../../types/roles'
 import { genId } from '../../utils/helpers'
+import { cursoNombre } from '../../utils/academic'
 import { EntraUserPicker } from '../../components/shared/EntraUserPicker'
 import { MultiSelect } from '../../components/shared/MultiSelect'
 import { ImportPersonasWizard } from '../tecnologia/ImportPersonasWizard'
@@ -317,7 +318,7 @@ export function PersonasPage() {
               <FieldRow>
                 <FormField label="Grado / Curso" required>
                   <Select value={s.gradeId} onChange={(_, d) => set({ ...s, gradeId: d.value })}>
-                    {grades.map((g) => (<option key={g.id} value={g.id}>{g.name}</option>))}
+                    {grades.map((g) => (<option key={g.id} value={g.id}>{cursoNombre(g)}</option>))}
                   </Select>
                 </FormField>
                 <FormField label="Fecha de nacimiento">

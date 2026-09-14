@@ -12,6 +12,7 @@ import { useCollection } from '../../hooks/useCollection'
 import { ClaseForm } from './ClaseForm'
 import type { SchoolClassRecord } from '../../types'
 import { formatDate } from '../../utils/helpers'
+import { cursoNombre } from '../../utils/academic'
 
 const useStyles = makeStyles({
   filterRow: { display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center', marginBottom: '16px' },
@@ -67,7 +68,7 @@ export function ClasesPage() {
         <Select value={gradeFilter} onChange={(_, d) => setGradeFilter(d.value)} style={{ minWidth: '160px' }}>
           <option value="">Todos los grados</option>
           {grades.map((g) => (
-            <option key={g.id} value={g.id}>{g.name}</option>
+                <option key={g.id} value={g.id}>{cursoNombre(g)}</option>
           ))}
         </Select>
         <Input

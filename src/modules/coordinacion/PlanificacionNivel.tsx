@@ -13,6 +13,7 @@ import { useCoordinationLevel } from './useCoordinationLevel'
 import { exportPlanWord, printPlan } from '../planificacion/exportPlan'
 import type { ClassPlan, DailyPlan } from '../../types'
 import { formatDate } from '../../utils/helpers'
+import { cursoNombre } from '../../utils/academic'
 
 const useStyles = makeStyles({
   controls: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '16px', flexWrap: 'wrap', marginBottom: '20px' },
@@ -86,7 +87,7 @@ export function PlanificacionNivel() {
         </Select>
         <Select value={gradeFilter} onChange={(_, d) => setGradeFilter(d.value)} style={{ minWidth: '150px' }}>
           <option value="">Todos los cursos</option>
-          {levelGrades.map((g) => (<option key={g.id} value={g.id}>{g.name}</option>))}
+          {levelGrades.map((g) => (<option key={g.id} value={g.id}>{cursoNombre(g)}</option>))}
         </Select>
         <Select value={kindFilter} onChange={(_, d) => setKindFilter(d.value)} style={{ minWidth: '150px' }}>
           <option value="">Anual, diaria y unidad</option>

@@ -18,6 +18,7 @@ import { ProyectarUnidad } from './ProyectarUnidad'
 import { exportPlanWord, printPlan } from './exportPlan'
 import type { DailyPlan } from '../../types'
 import { formatDate, genId, todayIso } from '../../utils/helpers'
+import { cursoNombre } from '../../utils/academic'
 
 const useStyles = makeStyles({
   toolbar: { marginBottom: '16px', gap: '12px', flexWrap: 'wrap' },
@@ -143,7 +144,7 @@ export function PlanificacionPage() {
         </Select>
         <Select value={gradeFilter} onChange={(_, d) => setGradeFilter(d.value)} style={{ minWidth: '150px' }}>
           <option value="">Todos los grados</option>
-          {grades.map((g) => (<option key={g.id} value={g.id}>{g.name}</option>))}
+              {grades.map((g) => (<option key={g.id} value={g.id}>{cursoNombre(g)}</option>))}
         </Select>
         <Select value={tipoFilter} onChange={(_, d) => setTipoFilter(d.value)} style={{ minWidth: '150px' }}>
           <option value="">Diarias y unidades</option>

@@ -6,6 +6,7 @@ import { MultiSelect } from '../../components/shared/MultiSelect'
 import { useApp } from '../../context/useApp'
 import type { ActividadDidactica, Anexo, ApoyoDiferencial, DailyPlan, SecuenciaCurricular } from '../../types'
 import { genId, todayIso } from '../../utils/helpers'
+import { cursoNombre } from '../../utils/academic'
 import {
   COMPETENCIAS_FUNDAMENTALES,
   EJES_TRANSVERSALES,
@@ -105,7 +106,7 @@ export function PlanDiarioForm({ initial, onSave, onCancel, submitting = false }
         <FormField label="Grado" required>
           <Select value={form.gradeId} onChange={(_, d) => handleGrade(d.value)}>
             {grades.map((g) => (
-              <option key={g.id} value={g.id}>{g.name}</option>
+              <option key={g.id} value={g.id}>{cursoNombre(g)}</option>
             ))}
           </Select>
         </FormField>
