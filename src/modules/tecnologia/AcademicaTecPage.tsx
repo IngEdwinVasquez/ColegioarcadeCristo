@@ -40,6 +40,7 @@ export function AcademicaTecPage() {
   const [gradoFilter, setGradoFilter] = useState('')
   const [seccionFilter, setSeccionFilter] = useState('')
   const [nivelFilter, setNivelFilter] = useState('')
+  const [cursoFilter, setCursoFilter] = useState('')
   const [duplicarDe, setDuplicarDe] = useState<string | null>(null)
 
   /** Abre el asistente de importación y carga los equipos existentes de Teams. */
@@ -92,12 +93,17 @@ export function AcademicaTecPage() {
   /** Solo cursos que corresponden a una asignatura real (filtra "Equipo de implementación", etc.). */
   const cursos = gradesCol.items.filter((g) => isRealSubject(asignaturaDe(g)))
   const ignorados = gradesCol.items.length - cursos.length
-  const cursosFiltrados = (gradoFilter || seccionFilter || nivelFilter)
+  const cursosPorNivelGradoSeccion = (gradoFilter || seccionFilter || nivelFilter)
     ? cursos.filter((g) =>
         (!gradoFilter || gradoDe(g).toLowerCase() === gradoFilter.toLowerCase()) &&
         (!seccionFilter || seccionDe(g) === seccionFilter) &&
         (!nivelFilter || nivelShort(g.level) === nivelFilter))
     : cursos
+  // Opciones del filtro «Curso» (Grado + Sección + Nivel) según Nivel/Grado/Sección.
+  const cursoFilterOptions = [...new Set(cursosPorNivelGradoSeccion.map((g) => cursoNombre(g)))].sort((a, b) => a.localeCompare(b))
+  const cursosFiltrados = cursoFilter
+    ? cursosPorNivelGradoSeccion.filter((g) => cursoNombre(g) === cursoFilter)
+    : cursosPorNivelGradoSeccion
 
   /** Base64 del logo institucional (para PDF y Excel). */
   const getLogo = async (): Promise<string> => {
@@ -306,6 +312,10 @@ export function AcademicaTecPage() {
         <Select value={seccionFilter} onChange={(_, d) => setSeccionFilter(d.value)} style={{ minWidth: '130px' }}>
           <option value="">Todas las secciones</option>
           {SECCIONES.map((s) => (<option key={s} value={s}>Sección {s}</option>))}
+        </Select>
+        <Select value={cursoFilter} onChange={(_, d) => setCursoFilter(d.value)} style={{ minWidth: '200px' }}>
+          <option value="">Todos los cursos</option>
+          {cursoFilterOptions.map((c) => (<option key={c} value={c}>{c}</option>))}
         </Select>
         <Text size={200} style={{ color: 'var(--texto-suave)' }}>{cursosFiltrados.length} asignatura(s)</Text>
       </div>
