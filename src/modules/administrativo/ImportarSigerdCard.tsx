@@ -10,14 +10,14 @@ import { extractPdfText } from '../../services/pdf'
 import { parseSigerdStudentsPdf } from '../../services/sigerdAi'
 import { listEntraUsers } from '../../services/entraUsers'
 import { genId } from '../../utils/helpers'
-import { GRADOS, asignaturaDe, cursoNombre, gradoDe, isRealSubject, ordenarCursos, seccionDe } from '../../utils/academic'
-import type { Enrollment, SigerdHeader, SigerdReport, SigerdStudent, Student } from '../../types'
+import { GRADOS, asignaturaDe, cicloFromGrade, cursoNombre, esCursoValido, gradoDe, isRealSubject, nivelDeTanda, nivelShort, ordenarCursos, seccionDe } from '../../utils/academic'
+import type { Enrollment, GradeSection, SigerdHeader, SigerdReport, SigerdStudent, Student } from '../../types'
 
 const useStyles = makeStyles({
   card: { padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '16px' },
 })
 
-interface DirUser { id: string; displayName?: string; email?: string }
+interface DirUser { id: string; displayName?: string; mail?: string | null }
 interface PreviewRow { s: SigerdStudent; fullName: string; match?: DirUser; curso?: string }
 
 const GRADO_WORD: Record<string, number> = {
@@ -31,20 +31,26 @@ const isoNac = (d?: string) => {
   return m ? `${m[3]}-${m[2]}-${m[1]}` : undefined
 }
 
+interface Props {
+  cursoDefecto: string
+  onCursoDefectoChange: (v: string) => void
+}
+
 /**
- * Importa la relación de estudiantes de un PDF del SIGERD (uno por curso):
- * guarda el encabezado y todas las columnas de cada estudiante, detecta el curso
- * por Grado/Sección, previsualiza, vincula la cuenta de Microsoft 365 y matricula.
+ * Importa estudiantes desde un PDF del SIGERD. Detecta el curso por el
+ * encabezado (Nivel desde "Tanda-Servicio", Grado y Sección); si el curso no
+ * existe en Gestión académica lo crea, guarda el encabezado y todas las
+ * columnas, vincula la cuenta de Microsoft 365 y matricula.
  */
-export function ImportarSigerdCard() {
+export function ImportarSigerdCard({ cursoDefecto, onCursoDefectoChange }: Props) {
   const styles = useStyles()
   const toaster = useToastController()
   const { grades, periods } = useApp()
   const studentsCol = useCollection<Student>(dataService.getStudents, dataService.saveStudent)
   const enrollmentsCol = useCollection<Enrollment>(dataService.getEnrollments, dataService.saveEnrollment)
-  const reportsCol = useCollection<SigerdReport>(dataService.getSigerdReports, dataService.saveSigerdReport, dataService.deleteSigerdReport)
+  const reportsCol = useCollection<SigerdReport>(dataService.getSigerdReports, dataService.saveSigerdReport)
+  const gradesCol = useCollection<GradeSection>(dataService.getGrades, dataService.saveGrade, dataService.deleteGrade)
 
-  const [cursoDefecto, setCursoDefecto] = useState('')
   const [period, setPeriod] = useState(periods.find((p) => p.isActive)?.id ?? periods[0]?.id ?? '')
   const [busy, setBusy] = useState(false)
   const [preview, setPreview] = useState<PreviewRow[] | null>(null)
@@ -57,13 +63,30 @@ export function ImportarSigerdCard() {
     [grades],
   )
   const periodActive = periods.find((p) => p.id === period)?.isActive ?? false
+  const headerNivel = nivelDeTanda(header.tandaServicio)
 
-  const cursoDeGradoSeccion = (grado?: string, seccion?: string): string | undefined => {
-    const n = numGrado(grado)
-    const sec = (seccion || '').trim().toUpperCase()
+  // Asegura que exista el registro del curso en Gestión académica (lo crea si falta).
+  const ensureGrade = async (curso: string, sample: SigerdStudent, cache: Map<string, GradeSection>): Promise<GradeSection | undefined> => {
+    const cached = cache.get(curso)
+    if (cached) return cached
+    const g = grades.find((x) => cursoNombre(x) === curso && esCursoValido(x))
+    if (g) { cache.set(curso, g); return g }
+    const n = numGrado(sample.grado)
+    const sec = (sample.seccion || '').trim().toUpperCase()
     if (!n || !sec) return undefined
-    const found = grades.find((g) => isRealSubject(asignaturaDe(g)) && gradoDe(g) === GRADOS[n - 1] && seccionDe(g) === sec)
-    return found ? cursoNombre(found) : undefined
+    const nivelLargo = headerNivel ?? 'Nivel Primario'
+    const nuevo: GradeSection = {
+      id: genId('g'),
+      name: `${GRADOS[n - 1]}.${sec}`,
+      level: nivelLargo,
+      nivel: nivelShort(nivelLargo),
+      section: sec,
+      ciclo: cicloFromGrade(nivelLargo, GRADOS[n - 1]),
+      asignatura: 'Asignaturas Generales',
+    }
+    await gradesCol.save(nuevo)
+    cache.set(curso, nuevo)
+    return nuevo
   }
 
   const grupos = useMemo(() => {
@@ -87,16 +110,23 @@ export function ImportarSigerdCard() {
       const { header: hdr, estudiantes } = await parseSigerdStudentsPdf(text, (d, t) => setProgreso(`Analizando fragmentos ${d}/${t}…`))
       if (estudiantes.length === 0) throw new Error('No se encontraron estudiantes en el PDF del SIGERD.')
       setHeader(hdr)
+      const nivel = nivelDeTanda(hdr.tandaServicio)
 
       let dir: DirUser[] = []
       try { dir = await listEntraUsers() } catch { dir = [] }
       const dirByName = new Map(dir.map((u) => [norm(u.displayName ?? ''), u]))
-      const headerCurso = cursoDeGradoSeccion(hdr.grado, hdr.seccion)
 
       const rows: PreviewRow[] = estudiantes.map((s) => {
         const fullName = `${s.nombres} ${s.primerApellido} ${s.segundoApellido}`.replace(/\s+/g, ' ').trim().toUpperCase()
         const alt = `${s.primerApellido} ${s.segundoApellido} ${s.nombres}`.replace(/\s+/g, ' ').trim().toUpperCase()
-        return { s, fullName, match: dirByName.get(norm(fullName)) ?? dirByName.get(norm(alt)), curso: cursoDeGradoSeccion(s.grado, s.seccion) ?? headerCurso }
+        const n = numGrado(s.grado)
+        const sec = (s.seccion || '').trim().toUpperCase()
+        let curso: string | undefined
+        if (n && sec) {
+          const g = grades.find((x) => gradoDe(x) === GRADOS[n - 1] && seccionDe(x) === sec && (!nivel || x.level === nivel)) ?? grades.find((x) => gradoDe(x) === GRADOS[n - 1] && seccionDe(x) === sec)
+          curso = g ? cursoNombre(g) : `${GRADOS[n - 1]}.${sec} · ${nivelShort(nivel ?? 'Nivel Primario')}`
+        }
+        return { s, fullName, match: dirByName.get(norm(fullName)) ?? dirByName.get(norm(alt)), curso }
       })
       setPreview(rows)
     } catch (error) {
@@ -118,23 +148,30 @@ export function ImportarSigerdCard() {
     try {
       const reportId = genId('sig')
       const cursosUsados = new Set<string>()
+      const cursosCreados = new Map<string, GradeSection>()
       let created = 0
       let enrolled = 0
       let linked = 0
       let skipped = 0
-      let error: string | null = null
+      let errorMsg: string | null = null
+
       for (const row of preview) {
         const targetCurso = row.curso || cursoDefecto
         if (!targetCurso) { skipped += 1; continue }
-        const rep = grades.find((g) => isRealSubject(asignaturaDe(g)) && cursoNombre(g) === targetCurso)
+        let rep: GradeSection | undefined
+        try {
+          rep = await ensureGrade(targetCurso, row.s, cursosCreados)
+        } catch (e) {
+          errorMsg = e instanceof Error ? e.message : 'error al crear el curso'
+        }
         if (!rep) { skipped += 1; continue }
         cursosUsados.add(targetCurso)
         if (row.match) linked += 1
         try {
           const existing = studentsCol.items.find((st) => (row.s.idEstudiante && st.sigerdId === row.s.idEstudiante) || norm(st.fullName) === norm(row.fullName))
           const student: Student = existing
-            ? { ...existing, fullName: row.fullName, email: row.match?.email ?? existing.email, userId: row.match?.id ?? existing.userId, sigerdId: row.s.idEstudiante || existing.sigerdId, birthDate: isoNac(row.s.nacimiento) ?? existing.birthDate, gradeId: rep.id, sigerd: row.s, sigerdReportId: reportId }
-            : { id: genId('stu'), fullName: row.fullName, email: row.match?.email, userId: row.match?.id, sigerdId: row.s.idEstudiante, gradeId: rep.id, birthDate: isoNac(row.s.nacimiento), sigerd: row.s, sigerdReportId: reportId }
+            ? { ...existing, fullName: row.fullName, email: row.match?.mail ?? existing.email, userId: row.match?.id ?? existing.userId, sigerdId: row.s.idEstudiante || existing.sigerdId, birthDate: isoNac(row.s.nacimiento) ?? existing.birthDate, gradeId: rep.id, sigerd: row.s, sigerdReportId: reportId }
+            : { id: genId('stu'), fullName: row.fullName, email: row.match?.mail ?? undefined, userId: row.match?.id, sigerdId: row.s.idEstudiante, gradeId: rep.id, birthDate: isoNac(row.s.nacimiento), sigerd: row.s, sigerdReportId: reportId }
           if (!existing) created += 1
           await studentsCol.save(student)
           const already = enrollmentsCol.items.some((e) => e.studentId === student.id && (!period || e.periodId === period))
@@ -143,11 +180,10 @@ export function ImportarSigerdCard() {
             enrolled += 1
           }
         } catch (e) {
-          error = e instanceof Error ? e.message : 'error al guardar'
+          errorMsg = e instanceof Error ? e.message : 'error al guardar'
         }
       }
 
-      // Guarda el encabezado del reporte como registro (una vez).
       await reportsCol.save({
         id: reportId,
         header,
@@ -157,11 +193,12 @@ export function ImportarSigerdCard() {
         createdAt: new Date().toISOString(),
       })
 
-      if (error) {
-        toaster.dispatchToast(`SIGERD: ${created} nuevo(s), ${enrolled} matriculado(s). Aviso: ${error}`, { intent: 'warning' })
-      } else {
-        toaster.dispatchToast(`SIGERD: ${created} nuevo(s), ${enrolled} matriculado(s), ${linked} vinculado(s) a Microsoft 365${skipped ? `, ${skipped} sin curso` : ''}.`, { intent: skipped ? 'warning' : 'success' })
-      }
+      toaster.dispatchToast(
+        errorMsg
+          ? `SIGERD: ${created} nuevo(s), ${enrolled} matriculado(s). Aviso: ${errorMsg}`
+          : `SIGERD: ${created} nuevo(s), ${enrolled} matriculado(s), ${linked} vinculado(s) a Microsoft 365${skipped ? `, ${skipped} sin curso` : ''}.`,
+        { intent: errorMsg || skipped ? 'warning' : 'success' },
+      )
       setPreview(null)
     } catch (err) {
       toaster.dispatchToast(err instanceof Error ? err.message : 'No se pudieron crear los registros.', { intent: 'error' })
@@ -175,11 +212,11 @@ export function ImportarSigerdCard() {
       <Card className={styles.card}>
         <Text weight="semibold" size={400}>Importar estudiantes desde PDF del SIGERD</Text>
         <Text size={200} style={{ color: 'var(--texto-suave)' }}>
-          Sube el reporte del SIGERD. Se guarda el encabezado y todas las columnas de cada estudiante, se detecta el curso por Grado/Sección, se previsualizan, se vinculan a Microsoft 365 y se matriculan.
+          Se detecta el curso por el encabezado (Nivel desde «Tanda-Servicio», Grado y Sección); si no existe, se crea en Gestión académica. Se guarda el encabezado y todas las columnas de cada estudiante.
         </Text>
         <FieldRow>
-          <FormField label="Curso por defecto (si no se detecta)" hint="Opcional.">
-            <Select value={cursoDefecto} onChange={(_, d) => setCursoDefecto(d.value)}>
+          <FormField label="Curso por defecto (si no se detecta)" hint="Se usa cuando el encabezado no permite detectar el curso; filtra la tabla.">
+            <Select value={cursoDefecto} onChange={(_, d) => onCursoDefectoChange(d.value)}>
               <option value="">— Sin curso por defecto —</option>
               {cursos.map((c) => <option key={c} value={c}>{c}</option>)}
             </Select>
@@ -219,10 +256,9 @@ export function ImportarSigerdCard() {
             <Text size={200} block style={{ color: 'var(--texto-suave)', marginBottom: '8px' }}>
               {header.ano && <>Año: <strong>{header.ano}</strong> · </>}
               {header.centroEducativo && <>{header.centroEducativo} · </>}
+              {headerNivel && <>Nivel: <strong>{nivelShort(headerNivel)}</strong> · </>}
               {header.grado && <>Grado: <strong>{header.grado}</strong> · </>}
-              {header.seccion && <>Sec.: <strong>{header.seccion}</strong> · </>}
-              {header.cantidadEstudiantes && <>Cantidad: <strong>{header.cantidadEstudiantes}</strong> · </>}
-              {header.docentes && <>Docente: <strong>{header.docentes}</strong></>}
+              {header.seccion && <>Sec.: <strong>{header.seccion}</strong></>}
             </Text>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '10px' }}>
               {grupos.map((g) => (
@@ -257,7 +293,7 @@ export function ImportarSigerdCard() {
                       <TableCell>{row.s.libro || '—'}/{row.s.folio || '—'}/{row.s.acta || '—'}</TableCell>
                       <TableCell>{row.curso ?? (cursoDefecto ? `${cursoDefecto} (por defecto)` : <Text size={200} style={{ color: '#B42318' }}>Sin detectar</Text>)}</TableCell>
                       <TableCell>{row.s.estado || '—'}</TableCell>
-                      <TableCell>{row.match?.email ? row.match.email : <Text size={200} style={{ color: '#B42318' }}>Sin coincidencia</Text>}</TableCell>
+                      <TableCell>{row.match?.mail ? row.match.mail : <Text size={200} style={{ color: '#B42318' }}>Sin coincidencia</Text>}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>

@@ -23,6 +23,15 @@ export const SECCIONES = ['A', 'B', 'C', 'D', 'E', 'F', 'G']
 /** Ciclos (solo Primaria/Secundaria). */
 export const CICLOS = ['Primer ciclo', 'Segundo ciclo']
 
+/** Deduce el nivel educativo (largo) a partir de la "Tanda-Servicio" u otro texto. */
+export function nivelDeTanda(tanda?: string): string | null {
+  const n = ` ${(tanda ?? '').toLowerCase()} `
+  if (/(inicial|pre\s*-?\s*primar|preescolar|kinder|kínder|maternal|nido)/.test(n)) return 'Nivel Inicial'
+  if (/(secundari|bachiller|liceo|\bmedia\b)/.test(n)) return 'Nivel Secundario'
+  if (/(primari|primario|b[aá]sica)/.test(n)) return 'Nivel Primario'
+  return null
+}
+
 /** Deduce el nivel educativo a partir del nombre del curso o del equipo. */
 export function detectLevel(name: string): string | null {
   const n = ` ${name.toLowerCase()} `
@@ -142,6 +151,6 @@ export function cursoNombresOrdenados(grades: GradeSection[], soloReales = false
 /** Reconoce si un nombre es una asignatura real (por palabras clave curriculares). */
 export const isRealSubject = (name: string): boolean => {
   const n = name.toLowerCase()
-  const keys = ['matemat', 'lengua', 'ciencias de la naturaleza', 'ciencia', 'ciencias social', 'sociales', 'social', 'educación físico', 'ed. f', 'educación art', 'artística', 'formación integral', 'formación', 'religiosa', 'inglés', 'ingles', 'english', 'francés', 'frances', 'informática', 'informatica', 'artes', 'música', 'musica', 'natural', 'humanidades', 'historia', 'geografía', 'geografia', 'física', 'fisica', 'química', 'quimica', 'biología', 'biologia', 'tecnolog']
+  const keys = ['matemat', 'lengua', 'ciencias de la naturaleza', 'ciencia', 'ciencias social', 'sociales', 'social', 'educación físico', 'ed. f', 'educación art', 'artística', 'formación integral', 'formación', 'religiosa', 'inglés', 'ingles', 'english', 'francés', 'frances', 'informática', 'informatica', 'artes', 'música', 'musica', 'natural', 'humanidades', 'historia', 'geografía', 'geografia', 'física', 'fisica', 'química', 'quimica', 'biología', 'biologia', 'tecnolog', 'general']
   return keys.some((k) => n.includes(k))
 }
