@@ -74,7 +74,7 @@ export function ImportarSigerdCard({ cursoDefecto, onCursoDefectoChange }: Props
     const n = numGrado(sample.grado)
     const sec = (sample.seccion || '').trim().toUpperCase()
     if (!n || !sec) return undefined
-    const nivelLargo = headerNivel ?? 'Nivel Primario'
+    const nivelLargo = sample.nivel ?? headerNivel ?? 'Nivel Primario'
     const nuevo: GradeSection = {
       id: genId('g'),
       name: `${GRADOS[n - 1]}.${sec}`,
@@ -110,7 +110,7 @@ export function ImportarSigerdCard({ cursoDefecto, onCursoDefectoChange }: Props
       const { header: hdr, estudiantes } = await parseSigerdStudentsPdf(text, (d, t) => setProgreso(`Analizando fragmentos ${d}/${t}…`))
       if (estudiantes.length === 0) throw new Error('No se encontraron estudiantes en el PDF del SIGERD.')
       setHeader(hdr)
-      const nivel = nivelDeTanda(hdr.tandaServicio)
+      const nivelHeader = nivelDeTanda(hdr.tandaServicio)
 
       let dir: DirUser[] = []
       try { dir = await listEntraUsers() } catch { dir = [] }
@@ -119,6 +119,7 @@ export function ImportarSigerdCard({ cursoDefecto, onCursoDefectoChange }: Props
       const rows: PreviewRow[] = estudiantes.map((s) => {
         const fullName = `${s.nombres} ${s.primerApellido} ${s.segundoApellido}`.replace(/\s+/g, ' ').trim().toUpperCase()
         const alt = `${s.primerApellido} ${s.segundoApellido} ${s.nombres}`.replace(/\s+/g, ' ').trim().toUpperCase()
+        const nivel = s.nivel ?? nivelHeader
         const n = numGrado(s.grado)
         const sec = (s.seccion || '').trim().toUpperCase()
         let curso: string | undefined

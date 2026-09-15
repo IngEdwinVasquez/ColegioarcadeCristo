@@ -74,6 +74,8 @@ export interface SigerdStudent {
   seccion?: string
   condicion?: string
   estado?: string
+  /** Nivel educativo resuelto desde el encabezado del reporte (ej. "Nivel Primario"). */
+  nivel?: string
 }
 
 /** Encabezado del reporte del SIGERD (datos del centro/curso). */
