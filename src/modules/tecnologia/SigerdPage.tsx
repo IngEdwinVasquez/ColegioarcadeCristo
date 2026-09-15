@@ -27,6 +27,7 @@ export function SigerdPage() {
   const [search, setSearch] = useState('')
   const [reportId, setReportId] = useState('')
   const [busy, setBusy] = useState(false)
+  const [progreso, setProgreso] = useState('')
 
   const reports = useMemo(() => [...reportsCol.items].sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1)), [reportsCol.items])
 
@@ -47,12 +48,16 @@ export function SigerdPage() {
 
   const eliminarUno = async (s: Student) => {
     if (!window.confirm(`¿Eliminar el registro SIGERD de ${s.fullName}?`)) return
+    setBusy(true)
     try {
-      for (const e of enrollmentsCol.items.filter((x) => x.studentId === s.id)) await enrollmentsCol.remove(e.id)
-      await studentsCol.remove(s.id)
+      for (const e of enrollmentsCol.items.filter((x) => x.studentId === s.id)) await dataService.deleteEnrollment(e.id)
+      await dataService.deleteStudent(s.id)
+      await Promise.all([studentsCol.refresh(), enrollmentsCol.refresh()])
       toaster.dispatchToast('Registro eliminado.', { intent: 'success' })
     } catch (error) {
       toaster.dispatchToast(error instanceof Error ? error.message : 'No se pudo eliminar.', { intent: 'error' })
+    } finally {
+      setBusy(false)
     }
   }
 
@@ -61,17 +66,31 @@ export function SigerdPage() {
     if (sig.length === 0 && reports.length === 0) return
     if (!window.confirm(`¿Eliminar TODO el registro SIGERD (${sig.length} estudiantes, sus matrículas y ${reports.length} reportes)? Podrás volver a subir los PDF sin duplicar.`)) return
     setBusy(true)
+    setProgreso('Eliminando…')
     try {
       const ids = new Set(sig.map((s) => s.id))
-      for (const e of enrollmentsCol.items.filter((x) => ids.has(x.studentId))) await enrollmentsCol.remove(e.id)
-      for (const s of sig) await studentsCol.remove(s.id)
-      for (const r of reports) await reportsCol.remove(r.id)
+      const enrs = enrollmentsCol.items.filter((x) => ids.has(x.studentId))
+      let n = 0
+      for (const e of enrs) {
+        await dataService.deleteEnrollment(e.id)
+        n += 1
+        if (n % 20 === 0) setProgreso(`Eliminando matrículas ${n}/${enrs.length}…`)
+      }
+      n = 0
+      for (const s of sig) {
+        await dataService.deleteStudent(s.id)
+        n += 1
+        if (n % 20 === 0) setProgreso(`Eliminando estudiantes ${n}/${sig.length}…`)
+      }
+      for (const r of reports) await dataService.deleteSigerdReport(r.id)
+      await Promise.all([studentsCol.refresh(), enrollmentsCol.refresh(), reportsCol.refresh()])
       setReportId('')
       toaster.dispatchToast('Se eliminó todo el registro SIGERD.', { intent: 'success' })
     } catch (error) {
       toaster.dispatchToast(error instanceof Error ? error.message : 'No se pudo eliminar el registro.', { intent: 'error' })
     } finally {
       setBusy(false)
+      setProgreso('')
     }
   }
 
@@ -86,6 +105,8 @@ export function SigerdPage() {
           </Button>
         }
       />
+
+      {busy && progreso && <Text size={200} block style={{ color: 'var(--texto-suave)', marginBottom: '8px' }}>{progreso}</Text>}
 
       <ImportarSigerdCard />
 
