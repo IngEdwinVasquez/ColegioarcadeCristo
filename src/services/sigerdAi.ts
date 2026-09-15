@@ -106,7 +106,9 @@ export function parseSigerdText(text: string): SigerdParseResult {
     previo = eff
   }
 
-  // Todo estudiante usa el Grado/Sección/Nivel del encabezado inmediato superior.
+  // Se respeta el Grado/Sección de la propia fila cuando ya trae dato; si falta,
+  // se completa con el encabezado inmediato superior (o el anterior, si aquel no lo trae).
+  const hasVal = (v?: string) => !!v && v.trim() !== '' && v.trim() !== '-' && v.trim() !== '—'
   for (let idx = 0; idx < estudiantes.length; idx++) {
     const st = starts[idx]
     let hdr: SigerdHeader | undefined
@@ -115,8 +117,8 @@ export function parseSigerdText(text: string): SigerdParseResult {
       else break
     }
     if (!hdr) continue
-    if (hdr.grado) estudiantes[idx].grado = hdr.grado
-    if (hdr.seccion) estudiantes[idx].seccion = hdr.seccion
+    if (!hasVal(estudiantes[idx].grado) && hdr.grado) estudiantes[idx].grado = hdr.grado
+    if (!hasVal(estudiantes[idx].seccion) && hdr.seccion) estudiantes[idx].seccion = hdr.seccion
     const nivel = nivelDeTanda(hdr.tandaServicio)
     if (nivel) estudiantes[idx].nivel = nivel
   }
