@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState } from 'react'
 import { Button, Card, Select, Spinner, Table, TableBody, TableCell, TableHeader, TableHeaderCell, TableRow, Text, useToastController, makeStyles } from '@fluentui/react-components'
-import { DocumentPdfRegular, CheckmarkCircleRegular, DeleteRegular } from '@fluentui/react-icons'
+import { DocumentPdfRegular, CheckmarkCircleRegular } from '@fluentui/react-icons'
 import { ModalForm } from '../../components/shared/ModalForm'
 import { FormField, FieldRow } from '../../components/shared/form'
 import { useApp } from '../../context/useApp'
@@ -9,7 +9,7 @@ import { useCollection } from '../../hooks/useCollection'
 import { extractPdfText } from '../../services/pdf'
 import { parseSigerdStudentsPdf } from '../../services/sigerdAi'
 import { listEntraUsers } from '../../services/entraUsers'
-import { formatDate, genId } from '../../utils/helpers'
+import { genId } from '../../utils/helpers'
 import { GRADOS, asignaturaDe, cursoNombre, gradoDe, isRealSubject, ordenarCursos, seccionDe } from '../../utils/academic'
 import type { Enrollment, SigerdHeader, SigerdReport, SigerdStudent, Student } from '../../types'
 
@@ -116,6 +116,7 @@ export function ImportarSigerdCard() {
     }
     setBusy(true)
     try {
+      const reportId = genId('sig')
       const cursosUsados = new Set<string>()
       let created = 0
       let enrolled = 0
@@ -132,8 +133,8 @@ export function ImportarSigerdCard() {
         try {
           const existing = studentsCol.items.find((st) => (row.s.idEstudiante && st.sigerdId === row.s.idEstudiante) || norm(st.fullName) === norm(row.fullName))
           const student: Student = existing
-            ? { ...existing, fullName: row.fullName, email: row.match?.email ?? existing.email, userId: row.match?.id ?? existing.userId, sigerdId: row.s.idEstudiante || existing.sigerdId, birthDate: isoNac(row.s.nacimiento) ?? existing.birthDate, gradeId: rep.id, sigerd: row.s }
-            : { id: genId('stu'), fullName: row.fullName, email: row.match?.email, userId: row.match?.id, sigerdId: row.s.idEstudiante, gradeId: rep.id, birthDate: isoNac(row.s.nacimiento), sigerd: row.s }
+            ? { ...existing, fullName: row.fullName, email: row.match?.email ?? existing.email, userId: row.match?.id ?? existing.userId, sigerdId: row.s.idEstudiante || existing.sigerdId, birthDate: isoNac(row.s.nacimiento) ?? existing.birthDate, gradeId: rep.id, sigerd: row.s, sigerdReportId: reportId }
+            : { id: genId('stu'), fullName: row.fullName, email: row.match?.email, userId: row.match?.id, sigerdId: row.s.idEstudiante, gradeId: rep.id, birthDate: isoNac(row.s.nacimiento), sigerd: row.s, sigerdReportId: reportId }
           if (!existing) created += 1
           await studentsCol.save(student)
           const already = enrollmentsCol.items.some((e) => e.studentId === student.id && (!period || e.periodId === period))
@@ -148,8 +149,8 @@ export function ImportarSigerdCard() {
 
       // Guarda el encabezado del reporte como registro (una vez).
       await reportsCol.save({
-        id: genId('sig'),
-        header: { ...header, curso: undefined } as SigerdHeader,
+        id: reportId,
+        header,
         curso: [...cursosUsados].join(', ') || cursoDefecto || undefined,
         periodId: period,
         studentsCount: preview.length,
@@ -197,45 +198,6 @@ export function ImportarSigerdCard() {
           {busy && progreso && <Text size={200} style={{ color: 'var(--texto-suave)' }}>{progreso}</Text>}
         </div>
       </Card>
-
-      {/* Registros (encabezados) importados */}
-      {reportsCol.items.length > 0 && (
-        <>
-          <Text weight="semibold" size={400} block style={{ margin: '8px 0' }}>Reportes SIGERD importados ({reportsCol.items.length})</Text>
-          <Table aria-label="Reportes SIGERD">
-            <TableHeader>
-              <TableRow>
-                <TableHeaderCell>Año</TableHeaderCell>
-                <TableHeaderCell>Centro</TableHeaderCell>
-                <TableHeaderCell>Regional / Distrito</TableHeaderCell>
-                <TableHeaderCell>Grado / Sec.</TableHeaderCell>
-                <TableHeaderCell>Tanda / Sector</TableHeaderCell>
-                <TableHeaderCell>Docentes</TableHeaderCell>
-                <TableHeaderCell>Est.</TableHeaderCell>
-                <TableHeaderCell>Importado</TableHeaderCell>
-                <TableHeaderCell>Acciones</TableHeaderCell>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {[...reportsCol.items].sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1)).map((r) => (
-                <TableRow key={r.id}>
-                  <TableCell>{r.header.ano || '—'}</TableCell>
-                  <TableCell>{r.header.centroEducativo || '—'}</TableCell>
-                  <TableCell>{r.header.direccionRegional || '—'} / {r.header.distritoEducativo || '—'}</TableCell>
-                  <TableCell>{r.header.grado || '—'} · {r.header.seccion || '—'}</TableCell>
-                  <TableCell>{r.header.tandaServicio || '—'} · {r.header.sector || '—'}</TableCell>
-                  <TableCell>{r.header.docentes || '—'}</TableCell>
-                  <TableCell>{r.studentsCount}</TableCell>
-                  <TableCell>{formatDate(r.createdAt.slice(0, 10))}</TableCell>
-                  <TableCell>
-                    <Button size="small" appearance="subtle" icon={<DeleteRegular />} onClick={() => void reportsCol.remove(r.id)}>Eliminar</Button>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </>
-      )}
 
       <ModalForm
         open={!!preview}

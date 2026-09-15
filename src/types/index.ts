@@ -117,6 +117,8 @@ export interface Student {
   sigerdId?: string
   /** Datos completos del reporte SIGERD para este estudiante. */
   sigerd?: SigerdStudent
+  /** Id. del reporte SIGERD (ARC_SigerdReports) del que proviene. */
+  sigerdReportId?: string
 }
 
 export type ClassPlanStatus = 'planificada' | 'pendiente' | 'impartida' | 'cancelada'
