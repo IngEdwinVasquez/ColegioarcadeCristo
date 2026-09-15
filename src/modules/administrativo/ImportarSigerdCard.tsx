@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState } from 'react'
-import { Button, Card, Select, Spinner, Table, TableBody, TableCell, TableHeader, TableHeaderCell, TableRow, Text, useToastController, makeStyles } from '@fluentui/react-components'
-import { DocumentPdfRegular, CheckmarkCircleRegular } from '@fluentui/react-icons'
+import { Button, Card, Input, Select, Spinner, Table, TableBody, TableCell, TableHeader, TableHeaderCell, TableRow, Text, useToastController, makeStyles } from '@fluentui/react-components'
+import { DocumentPdfRegular, CheckmarkCircleRegular, PersonAddRegular } from '@fluentui/react-icons'
 import { ModalForm } from '../../components/shared/ModalForm'
 import { FormField, FieldRow } from '../../components/shared/form'
 import { useApp } from '../../context/useApp'
@@ -8,7 +8,8 @@ import { dataService } from '../../services/dataService'
 import { useCollection } from '../../hooks/useCollection'
 import { extractPdfText } from '../../services/pdf'
 import { parseSigerdStudentsPdf } from '../../services/sigerdAi'
-import { listEntraUsers } from '../../services/entraUsers'
+import { listEntraUsers, createEntraUser } from '../../services/entraUsers'
+import { graphErrorMessage } from '../../services/graph'
 import { genId } from '../../utils/helpers'
 import { GRADOS, asignaturaDe, cicloFromGrade, cursoNombre, esCursoValido, gradoDe, isRealSubject, nivelDeTanda, nivelShort, ordenarCursos, seccionDe } from '../../utils/academic'
 import type { Enrollment, GradeSection, SigerdHeader, SigerdStudent, Student } from '../../types'
@@ -17,8 +18,18 @@ const useStyles = makeStyles({
   card: { padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '16px' },
 })
 
-interface DirUser { id: string; displayName?: string; mail?: string | null }
+interface DirUser { id: string; displayName?: string; mail?: string | null; userPrincipalName?: string }
 interface PreviewRow { s: SigerdStudent; fullName: string; match?: DirUser; curso?: string }
+
+/** Dominio de correo institucional de los estudiantes. */
+const M365_DOMAIN = 'arcadecristo.edu.do'
+const mailOf = (u?: DirUser) => (u?.mail ?? u?.userPrincipalName ?? '').trim()
+/** Compone "primernombre.primerapellido" para el correo institucional. */
+const upnBase = (s: SigerdStudent) => {
+  const primerNombre = norm(s.nombres ?? '').split(' ')[0] || 'estudiante'
+  const primerApellido = norm(s.primerApellido ?? '').split(' ')[0]
+  return primerApellido ? `${primerNombre}.${primerApellido}` : primerNombre
+}
 
 const GRADO_WORD: Record<string, number> = {
   primero: 1, segundo: 2, tercero: 3, cuarto: 4, quinto: 5, sexto: 6,
@@ -54,6 +65,7 @@ export function ImportarSigerdCard({ cursoDefecto, onCursoDefectoChange }: Props
   const [preview, setPreview] = useState<PreviewRow[] | null>(null)
   const [header, setHeader] = useState<SigerdHeader>({})
   const [progreso, setProgreso] = useState('')
+  const [tempPassword, setTempPassword] = useState('Arca2026*')
   const fileRef = useRef<HTMLInputElement>(null)
 
   const cursos = useMemo(
@@ -97,6 +109,73 @@ export function ImportarSigerdCard({ cursoDefecto, onCursoDefectoChange }: Props
     }
     return [...map.entries()].map(([curso, count]) => ({ curso, count })).concat(sinCurso ? [{ curso: 'Sin detectar (usa el curso por defecto)', count: sinCurso }] : [])
   }, [preview])
+
+  const sinCuenta = useMemo(() => (preview ?? []).filter((r) => !mailOf(r.match)).length, [preview])
+
+  /** Crea en Microsoft 365 las cuentas faltantes y devuelve las filas actualizadas. */
+  const crearCuentasM365 = async (rows: PreviewRow[], usados: Set<string>) => {
+    const updated = [...rows]
+    let creadas = 0
+    let fallidas = 0
+    let errorMsg: string | null = null
+    for (let i = 0; i < updated.length; i++) {
+      const row = updated[i]
+      if (mailOf(row.match)) continue
+      const base = upnBase(row.s)
+      let upn = `${base}@${M365_DOMAIN}`
+      let intentos = 0
+      while (usados.has(upn.toLowerCase()) && intentos < 50) {
+        intentos += 1
+        upn = `${base}${intentos + 1}@${M365_DOMAIN}`
+      }
+      try {
+        const displayName = `${row.s.nombres} ${row.s.primerApellido} ${row.s.segundoApellido}`.replace(/\s+/g, ' ').trim()
+        const creado = await createEntraUser({
+          displayName,
+          mailNickname: upn.split('@')[0],
+          userPrincipalName: upn,
+          givenName: row.s.nombres,
+          surname: row.s.primerApellido,
+          password: tempPassword,
+          usageLocation: 'DO',
+        })
+        usados.add(upn.toLowerCase())
+        updated[i] = { ...row, match: { id: creado.id, displayName, mail: creado.mail ?? upn, userPrincipalName: creado.userPrincipalName ?? upn } }
+        creadas += 1
+      } catch (e) {
+        fallidas += 1
+        errorMsg = graphErrorMessage(e)
+      }
+    }
+    return { updated, creadas, fallidas, errorMsg }
+  }
+
+  const crearCuentasFaltantes = async () => {
+    if (!preview) return
+    if (sinCuenta === 0) {
+      toaster.dispatchToast('Todos los estudiantes ya tienen cuenta de Microsoft 365.', { intent: 'info' })
+      return
+    }
+    setBusy(true)
+    setProgreso('Creando cuentas de Microsoft 365…')
+    try {
+      const usados = new Set<string>()
+      try {
+        ;(await listEntraUsers()).forEach((u) => { const p = (u.mail ?? u.userPrincipalName ?? '').toLowerCase(); if (p) usados.add(p) })
+      } catch { /* sin acceso al directorio */ }
+      const { updated, creadas, fallidas, errorMsg } = await crearCuentasM365(preview, usados)
+      setPreview(updated)
+      toaster.dispatchToast(
+        fallidas
+          ? `Cuentas creadas: ${creadas}. Con error: ${fallidas}. ${errorMsg ?? ''}`
+          : `Se crearon ${creadas} cuenta(s) de Microsoft 365 (${M365_DOMAIN}).`,
+        { intent: fallidas ? 'warning' : 'success' },
+      )
+    } finally {
+      setBusy(false)
+      setProgreso('')
+    }
+  }
 
   const analizar = async (file: File | undefined) => {
     if (!file) return
@@ -162,14 +241,31 @@ export function ImportarSigerdCard({ cursoDefecto, onCursoDefectoChange }: Props
       let enrolled = 0
       let linked = 0
       let skipped = 0
+      let createdAccounts = 0
       let errorMsg: string | null = null
+
+      // Crea en Microsoft 365 las cuentas que falten (correo institucional) y las
+      // agrega a la previsualización antes de matricular.
+      let rows = preview
+      if (rows.some((r) => !mailOf(r.match))) {
+        setProgreso('Creando cuentas de Microsoft 365…')
+        const usados = new Set<string>()
+        for (const st of studentsCol.items) { const p = (st.email ?? '').toLowerCase(); if (p) usados.add(p) }
+        try {
+          ;(await listEntraUsers()).forEach((u) => { const p = (u.mail ?? u.userPrincipalName ?? '').toLowerCase(); if (p) usados.add(p) })
+        } catch { /* sin acceso al directorio */ }
+        const res = await crearCuentasM365(rows, usados)
+        rows = res.updated
+        createdAccounts = res.creadas
+        if (res.errorMsg) errorMsg = res.errorMsg
+      }
 
       // Se guarda directo (sin refrescar la lista en cada ítem) y se actualizan los
       // listados una sola vez al final: con cientos de estudiantes es mucho más rápido.
       let n = 0
-      for (const row of preview) {
+      for (const row of rows) {
         n += 1
-        if (n === 1 || n % 10 === 0) setProgreso(`Guardando ${n}/${preview.length}…`)
+        if (n === 1 || n % 10 === 0) setProgreso(`Guardando ${n}/${rows.length}…`)
         const targetCurso = row.curso || cursoDefecto
         if (!targetCurso) { skipped += 1; continue }
         let rep: GradeSection | undefined
@@ -184,8 +280,8 @@ export function ImportarSigerdCard({ cursoDefecto, onCursoDefectoChange }: Props
         try {
           const existing = (row.s.idEstudiante && bySigerdId.get(row.s.idEstudiante)) || byName.get(norm(row.fullName))
           const student: Student = existing
-            ? { ...existing, fullName: row.fullName, email: row.match?.mail ?? existing.email, userId: row.match?.id ?? existing.userId, sigerdId: row.s.idEstudiante || existing.sigerdId, birthDate: isoNac(row.s.nacimiento) ?? existing.birthDate, gradeId: rep.id, sigerd: row.s, sigerdReportId: reportId }
-            : { id: genId('stu'), fullName: row.fullName, email: row.match?.mail ?? undefined, userId: row.match?.id, sigerdId: row.s.idEstudiante, gradeId: rep.id, birthDate: isoNac(row.s.nacimiento), sigerd: row.s, sigerdReportId: reportId }
+            ? { ...existing, fullName: row.fullName, email: mailOf(row.match) || existing.email, userId: row.match?.id ?? existing.userId, sigerdId: row.s.idEstudiante || existing.sigerdId, birthDate: isoNac(row.s.nacimiento) ?? existing.birthDate, gradeId: rep.id, sigerd: row.s, sigerdReportId: reportId }
+            : { id: genId('stu'), fullName: row.fullName, email: mailOf(row.match) || undefined, userId: row.match?.id, sigerdId: row.s.idEstudiante, gradeId: rep.id, birthDate: isoNac(row.s.nacimiento), sigerd: row.s, sigerdReportId: reportId }
           if (!existing) {
             created += 1
             if (student.sigerdId) bySigerdId.set(student.sigerdId, student)
@@ -208,17 +304,22 @@ export function ImportarSigerdCard({ cursoDefecto, onCursoDefectoChange }: Props
         header,
         curso: [...cursosUsados].join(', ') || cursoDefecto || undefined,
         periodId: period,
-        studentsCount: preview.length,
+        studentsCount: rows.length,
         createdAt: new Date().toISOString(),
       })
 
       setProgreso('Actualizando listados…')
       await Promise.all([studentsCol.refresh(), enrollmentsCol.refresh(), refreshCatalogs()])
 
+      const extra = [
+        createdAccounts ? `${createdAccounts} cuenta(s) M365 creada(s)` : '',
+        `${linked} vinculado(s) a Microsoft 365`,
+        skipped ? `${skipped} sin curso` : '',
+      ].filter(Boolean).join(', ')
       toaster.dispatchToast(
         errorMsg
           ? `SIGERD: ${created} nuevo(s), ${enrolled} matriculado(s). Aviso: ${errorMsg}`
-          : `SIGERD: ${created} nuevo(s), ${enrolled} matriculado(s), ${linked} vinculado(s) a Microsoft 365${skipped ? `, ${skipped} sin curso` : ''}.`,
+          : `SIGERD: ${created} nuevo(s), ${enrolled} matriculado(s), ${extra}.`,
         { intent: errorMsg || skipped ? 'warning' : 'success' },
       )
       setPreview(null)
@@ -248,6 +349,9 @@ export function ImportarSigerdCard({ cursoDefecto, onCursoDefectoChange }: Props
             <Select value={period} onChange={(_, d) => setPeriod(d.value)}>
               {periods.map((p) => <option key={p.id} value={p.id}>{p.name}{p.isActive ? ' (activo)' : ''}</option>)}
             </Select>
+          </FormField>
+          <FormField label="Contraseña temporal (cuentas nuevas)" hint="Se exige cambiarla al primer inicio de sesión.">
+            <Input value={tempPassword} onChange={(_, d) => setTempPassword(d.value)} />
           </FormField>
         </FieldRow>
         <input ref={fileRef} type="file" accept="application/pdf" style={{ display: 'none' }} onChange={(e) => void analizar(e.target.files?.[0])} />
@@ -296,6 +400,21 @@ export function ImportarSigerdCard({ cursoDefecto, onCursoDefectoChange }: Props
                 </span>
               ))}
             </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap', marginBottom: '10px' }}>
+              <Text size={200}>
+                Cuentas Microsoft 365: <strong>{(preview?.length ?? 0) - sinCuenta}</strong> con coincidencia ·{' '}
+                <strong style={{ color: sinCuenta ? '#B42318' : undefined }}>{sinCuenta}</strong> sin cuenta
+              </Text>
+              <Button
+                size="small"
+                appearance="secondary"
+                icon={busy ? <Spinner size="tiny" /> : <PersonAddRegular />}
+                disabled={busy || sinCuenta === 0}
+                onClick={() => void crearCuentasFaltantes()}
+              >
+                {`Crear cuentas M365 faltantes (${sinCuenta})`}
+              </Button>
+            </div>
             <div style={{ maxHeight: '52vh', overflow: 'auto' }}>
               <Table aria-label="Estudiantes detectados" size="small">
                 <TableHeader>
@@ -322,7 +441,7 @@ export function ImportarSigerdCard({ cursoDefecto, onCursoDefectoChange }: Props
                       <TableCell>{row.s.libro || '—'}/{row.s.folio || '—'}/{row.s.acta || '—'}</TableCell>
                       <TableCell>{row.curso ?? (cursoDefecto ? `${cursoDefecto} (por defecto)` : <Text size={200} style={{ color: '#B42318' }}>Sin detectar</Text>)}</TableCell>
                       <TableCell>{row.s.estado || '—'}</TableCell>
-                      <TableCell>{row.match?.mail ? row.match.mail : <Text size={200} style={{ color: '#B42318' }}>Sin coincidencia</Text>}</TableCell>
+                      <TableCell>{mailOf(row.match) || <Text size={200} style={{ color: '#B42318' }}>Sin coincidencia</Text>}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>

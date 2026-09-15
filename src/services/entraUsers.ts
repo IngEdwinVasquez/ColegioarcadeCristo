@@ -1,4 +1,4 @@
-import { graphGetAll, graphRequest } from './graph'
+import { graphGetAll, graphRequest, graphRequestWithScopes } from './graph'
 
 export interface EntraUser {
   id: string
@@ -47,4 +47,37 @@ export async function getMyPhoto(): Promise<string | null> {
   } catch {
     return null
   }
+}
+
+export interface NewEntraUser {
+  displayName: string
+  mailNickname: string
+  userPrincipalName: string
+  givenName?: string
+  surname?: string
+  /** Contraseña temporal; el usuario deberá cambiarla al iniciar sesión. */
+  password: string
+  usageLocation?: string
+}
+
+/**
+ * Crea una cuenta de usuario en Entra ID (aparece en "Usuarios activos" del centro
+ * de administración de Microsoft 365). Requiere el permiso delegado
+ * `User.ReadWrite.All` con consentimiento de administrador y que quien ejecuta la
+ * acción tenga un rol con permiso para crear usuarios.
+ */
+export async function createEntraUser(input: NewEntraUser): Promise<EntraUser> {
+  return graphRequestWithScopes<EntraUser>('/users', 'POST', {
+    accountEnabled: true,
+    displayName: input.displayName,
+    mailNickname: input.mailNickname,
+    userPrincipalName: input.userPrincipalName,
+    givenName: input.givenName,
+    surname: input.surname,
+    usageLocation: input.usageLocation ?? 'DO',
+    passwordProfile: {
+      forceChangePasswordNextSignIn: true,
+      password: input.password,
+    },
+  }, ['User.ReadWrite.All'])
 }
