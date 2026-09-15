@@ -11,7 +11,7 @@ import { parseSigerdStudentsPdf } from '../../services/sigerdAi'
 import { listEntraUsers } from '../../services/entraUsers'
 import { genId } from '../../utils/helpers'
 import { GRADOS, asignaturaDe, cicloFromGrade, cursoNombre, esCursoValido, gradoDe, isRealSubject, nivelDeTanda, nivelShort, ordenarCursos, seccionDe } from '../../utils/academic'
-import type { Enrollment, GradeSection, SigerdHeader, SigerdReport, SigerdStudent, Student } from '../../types'
+import type { Enrollment, GradeSection, SigerdHeader, SigerdStudent, Student } from '../../types'
 
 const useStyles = makeStyles({
   card: { padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '16px' },
@@ -45,11 +45,9 @@ interface Props {
 export function ImportarSigerdCard({ cursoDefecto, onCursoDefectoChange }: Props) {
   const styles = useStyles()
   const toaster = useToastController()
-  const { grades, periods } = useApp()
+  const { grades, periods, refreshCatalogs } = useApp()
   const studentsCol = useCollection<Student>(dataService.getStudents, dataService.saveStudent)
   const enrollmentsCol = useCollection<Enrollment>(dataService.getEnrollments, dataService.saveEnrollment)
-  const reportsCol = useCollection<SigerdReport>(dataService.getSigerdReports, dataService.saveSigerdReport)
-  const gradesCol = useCollection<GradeSection>(dataService.getGrades, dataService.saveGrade, dataService.deleteGrade)
 
   const [period, setPeriod] = useState(periods.find((p) => p.isActive)?.id ?? periods[0]?.id ?? '')
   const [busy, setBusy] = useState(false)
@@ -84,7 +82,7 @@ export function ImportarSigerdCard({ cursoDefecto, onCursoDefectoChange }: Props
       ciclo: cicloFromGrade(nivelLargo, GRADOS[n - 1]),
       asignatura: 'Asignaturas Generales',
     }
-    await gradesCol.save(nuevo)
+    await dataService.saveGrade(nuevo)
     cache.set(curso, nuevo)
     return nuevo
   }
@@ -146,17 +144,32 @@ export function ImportarSigerdCard({ cursoDefecto, onCursoDefectoChange }: Props
       return
     }
     setBusy(true)
+    setProgreso('Preparando…')
     try {
       const reportId = genId('sig')
       const cursosUsados = new Set<string>()
       const cursosCreados = new Map<string, GradeSection>()
+      const bySigerdId = new Map<string, Student>()
+      const byName = new Map<string, Student>()
+      for (const st of studentsCol.items) {
+        if (st.sigerdId) bySigerdId.set(st.sigerdId, st)
+        byName.set(norm(st.fullName), st)
+      }
+      const yaMatriculados = new Set(
+        enrollmentsCol.items.filter((e) => !period || e.periodId === period).map((e) => e.studentId),
+      )
       let created = 0
       let enrolled = 0
       let linked = 0
       let skipped = 0
       let errorMsg: string | null = null
 
+      // Se guarda directo (sin refrescar la lista en cada ítem) y se actualizan los
+      // listados una sola vez al final: con cientos de estudiantes es mucho más rápido.
+      let n = 0
       for (const row of preview) {
+        n += 1
+        if (n === 1 || n % 10 === 0) setProgreso(`Guardando ${n}/${preview.length}…`)
         const targetCurso = row.curso || cursoDefecto
         if (!targetCurso) { skipped += 1; continue }
         let rep: GradeSection | undefined
@@ -169,15 +182,19 @@ export function ImportarSigerdCard({ cursoDefecto, onCursoDefectoChange }: Props
         cursosUsados.add(targetCurso)
         if (row.match) linked += 1
         try {
-          const existing = studentsCol.items.find((st) => (row.s.idEstudiante && st.sigerdId === row.s.idEstudiante) || norm(st.fullName) === norm(row.fullName))
+          const existing = (row.s.idEstudiante && bySigerdId.get(row.s.idEstudiante)) || byName.get(norm(row.fullName))
           const student: Student = existing
             ? { ...existing, fullName: row.fullName, email: row.match?.mail ?? existing.email, userId: row.match?.id ?? existing.userId, sigerdId: row.s.idEstudiante || existing.sigerdId, birthDate: isoNac(row.s.nacimiento) ?? existing.birthDate, gradeId: rep.id, sigerd: row.s, sigerdReportId: reportId }
             : { id: genId('stu'), fullName: row.fullName, email: row.match?.mail ?? undefined, userId: row.match?.id, sigerdId: row.s.idEstudiante, gradeId: rep.id, birthDate: isoNac(row.s.nacimiento), sigerd: row.s, sigerdReportId: reportId }
-          if (!existing) created += 1
-          await studentsCol.save(student)
-          const already = enrollmentsCol.items.some((e) => e.studentId === student.id && (!period || e.periodId === period))
-          if (!already) {
-            await enrollmentsCol.save({ id: genId('enr'), studentId: student.id, gradeId: rep.id, periodId: period })
+          if (!existing) {
+            created += 1
+            if (student.sigerdId) bySigerdId.set(student.sigerdId, student)
+            byName.set(norm(student.fullName), student)
+          }
+          await dataService.saveStudent(student)
+          if (!yaMatriculados.has(student.id)) {
+            await dataService.saveEnrollment({ id: genId('enr'), studentId: student.id, gradeId: rep.id, periodId: period })
+            yaMatriculados.add(student.id)
             enrolled += 1
           }
         } catch (e) {
@@ -185,7 +202,8 @@ export function ImportarSigerdCard({ cursoDefecto, onCursoDefectoChange }: Props
         }
       }
 
-      await reportsCol.save({
+      setProgreso('Guardando reporte…')
+      await dataService.saveSigerdReport({
         id: reportId,
         header,
         curso: [...cursosUsados].join(', ') || cursoDefecto || undefined,
@@ -193,6 +211,9 @@ export function ImportarSigerdCard({ cursoDefecto, onCursoDefectoChange }: Props
         studentsCount: preview.length,
         createdAt: new Date().toISOString(),
       })
+
+      setProgreso('Actualizando listados…')
+      await Promise.all([studentsCol.refresh(), enrollmentsCol.refresh(), refreshCatalogs()])
 
       toaster.dispatchToast(
         errorMsg
@@ -205,6 +226,7 @@ export function ImportarSigerdCard({ cursoDefecto, onCursoDefectoChange }: Props
       toaster.dispatchToast(err instanceof Error ? err.message : 'No se pudieron crear los registros.', { intent: 'error' })
     } finally {
       setBusy(false)
+      setProgreso('')
     }
   }
 
@@ -254,6 +276,12 @@ export function ImportarSigerdCard({ cursoDefecto, onCursoDefectoChange }: Props
       >
         {preview && (
           <div>
+            {busy && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', background: 'var(--fondo-suave, #F3F2F1)', borderRadius: '10px', padding: '10px 14px', marginBottom: '10px' }}>
+                <Spinner size="tiny" />
+                <Text size={200} weight="semibold">{progreso || 'Procesando…'}</Text>
+              </div>
+            )}
             <Text size={200} block style={{ color: 'var(--texto-suave)', marginBottom: '8px' }}>
               {header.ano && <>Año: <strong>{header.ano}</strong> · </>}
               {header.centroEducativo && <>{header.centroEducativo} · </>}
