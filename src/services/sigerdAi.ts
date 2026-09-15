@@ -1,4 +1,5 @@
 import type { SigerdHeader, SigerdStudent } from '../types'
+import { nivelDeTanda } from '../utils/academic'
 
 export interface SigerdParseResult {
   header: SigerdHeader
@@ -16,6 +17,9 @@ const strip = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').
 const isNum = (s: string) => /^\d{1,3}$/.test(s)
 const isId = (s: string) => /^\d{7,9}$/.test(s)
 const isDate = (s: string) => /^\d{2}\/\d{2}\/\d{4}$/.test(s)
+
+// Detecta el inicio de un encabezado del SIGERD (no aparece en las filas de la tabla).
+const HEADER_MARK = /(direcci[oó]n\s+regional|centro\s+educativo|distrito\s+educativo|tanda[\s-]*servicio|a[nñ]o\s+\d{4}\s*-\s*\d{4})/i
 
 function parseHeader(lines: string[]): SigerdHeader {
   const after = (label: string): string => {
@@ -53,8 +57,9 @@ export function parseSigerdText(text: string): SigerdParseResult {
     .split('\n')
     .map((l) => l.replace(/\s+/g, ' ').trim())
     .filter(Boolean)
-  const header = parseHeader(lines)
   const estudiantes: SigerdStudent[] = []
+  const starts: number[] = []
+  const studentLine = new Set<number>()
   for (let i = 0; i + 16 < lines.length; i++) {
     if (!(isNum(lines[i]) && isId(lines[i + 1]) && isDate(lines[i + 5]))) continue
     const b = i
@@ -77,8 +82,48 @@ export function parseSigerdText(text: string): SigerdParseResult {
       condicion: lines[b + 15],
       estado: lines[b + 16],
     })
+    starts.push(b)
+    for (let k = b; k <= b + 16; k++) studentLine.add(k)
     i = b + 16
   }
+
+  // Encabezados repetidos: cada bloque aplica a los estudiantes que le siguen. Si un
+  // encabezado no trae Grado/Sección/Tanda, se hereda del encabezado anterior.
+  const headerStarts: number[] = []
+  for (let i = 0; i < lines.length; i++) {
+    if (studentLine.has(i)) continue
+    if (HEADER_MARK.test(lines[i])) headerStarts.push(i)
+  }
+  const firstStudentAfter = (from: number) => starts.find((s) => s > from) ?? lines.length
+  const bloques: Array<{ start: number; header: SigerdHeader }> = []
+  let previo: SigerdHeader = {}
+  for (let h = 0; h < headerStarts.length; h++) {
+    const start = headerStarts[h]
+    const end = Math.min(headerStarts[h + 1] ?? lines.length, firstStudentAfter(start))
+    const eff: SigerdHeader = { ...parseHeader(lines.slice(start, end)) }
+    for (const k of Object.keys(eff) as Array<keyof SigerdHeader>) if (!eff[k] && previo[k]) eff[k] = previo[k]
+    bloques.push({ start, header: eff })
+    previo = eff
+  }
+
+  // Todo estudiante usa el Grado/Sección/Nivel del encabezado inmediato superior.
+  for (let idx = 0; idx < estudiantes.length; idx++) {
+    const st = starts[idx]
+    let hdr: SigerdHeader | undefined
+    for (const b of bloques) {
+      if (b.start < st) hdr = b.header
+      else break
+    }
+    if (!hdr) continue
+    if (hdr.grado) estudiantes[idx].grado = hdr.grado
+    if (hdr.seccion) estudiantes[idx].seccion = hdr.seccion
+    const nivel = nivelDeTanda(hdr.tandaServicio)
+    if (nivel) estudiantes[idx].nivel = nivel
+  }
+
+  let header: SigerdHeader = {}
+  for (const b of bloques) header = mergeHeader(header, b.header)
+  if (headerStarts.length === 0) header = parseHeader(lines)
   return { header, estudiantes }
 }
 
@@ -131,7 +176,7 @@ const headerOf = (v: unknown): SigerdHeader => {
 }
 const mergeHeader = (base: SigerdHeader, next: SigerdHeader): SigerdHeader => {
   const out = { ...base }
-  for (const k of Object.keys(base) as Array<keyof SigerdHeader>) if (!out[k] && next[k]) out[k] = next[k]
+  for (const k of Object.keys(next) as Array<keyof SigerdHeader>) if (!out[k] && next[k]) out[k] = next[k]
   return out
 }
 
@@ -172,6 +217,14 @@ async function parseWithAi(text: string, onProgress?: (d: number, t: number) => 
       if (seen.has(key)) continue
       seen.add(key)
       estudiantes.push(stu)
+    }
+  }
+  const nivelHeader = nivelDeTanda(header.tandaServicio)
+  if (header.grado || header.seccion || nivelHeader) {
+    for (const stu of estudiantes) {
+      if (!stu.grado && header.grado) stu.grado = header.grado
+      if (!stu.seccion && header.seccion) stu.seccion = header.seccion
+      if (!stu.nivel && nivelHeader) stu.nivel = nivelHeader
     }
   }
   return { header, estudiantes }
