@@ -6,7 +6,9 @@ import { EmptyStateView } from '../../components/shared/EmptyStateView'
 import { ImportarSigerdCard } from '../administrativo/ImportarSigerdCard'
 import { dataService } from '../../services/dataService'
 import { useCollection } from '../../hooks/useCollection'
+import { useApp } from '../../context/useApp'
 import { formatDate } from '../../utils/helpers'
+import { cursoNombre } from '../../utils/academic'
 import type { Enrollment, SigerdReport, SigerdStudent, Student } from '../../types'
 
 const useStyles = makeStyles({
@@ -20,12 +22,14 @@ const useStyles = makeStyles({
 export function SigerdPage() {
   const styles = useStyles()
   const toaster = useToastController()
+  const { gradeById } = useApp()
   const studentsCol = useCollection<Student>(dataService.getStudents, dataService.saveStudent, dataService.deleteStudent)
   const enrollmentsCol = useCollection<Enrollment>(dataService.getEnrollments)
   const reportsCol = useCollection<SigerdReport>(dataService.getSigerdReports, dataService.saveSigerdReport, dataService.deleteSigerdReport)
 
   const [search, setSearch] = useState('')
   const [reportId, setReportId] = useState('')
+  const [cursoDefecto, setCursoDefecto] = useState('')
   const [busy, setBusy] = useState(false)
   const [progreso, setProgreso] = useState('')
 
@@ -40,9 +44,14 @@ export function SigerdPage() {
     return studentsCol.items
       .filter((s) => !!s.sigerd || !!s.sigerdId)
       .filter((s) => !reportId || s.sigerdReportId === reportId)
+      .filter((s) => {
+        if (!cursoDefecto) return true
+        const g = s.gradeId ? gradeById(s.gradeId) : undefined
+        return !!g && cursoNombre(g) === cursoDefecto
+      })
       .filter((s) => !q || s.fullName.toLowerCase().includes(q) || (s.sigerdId ?? '').toLowerCase().includes(q) || (s.email ?? '').toLowerCase().includes(q))
       .sort((a, b) => a.fullName.localeCompare(b.fullName))
-  }, [studentsCol.items, search, reportId])
+  }, [studentsCol.items, search, reportId, cursoDefecto, gradeById])
 
   const selected = reports.find((r) => r.id === reportId)
 
@@ -108,7 +117,7 @@ export function SigerdPage() {
 
       {busy && progreso && <Text size={200} block style={{ color: 'var(--texto-suave)', marginBottom: '8px' }}>{progreso}</Text>}
 
-      <ImportarSigerdCard />
+      <ImportarSigerdCard cursoDefecto={cursoDefecto} onCursoDefectoChange={setCursoDefecto} />
 
       {reports.length === 0 ? (
         <EmptyStateView title="Sin registros SIGERD" message="Carga un PDF del SIGERD para crear los registros de estudiantes." />
