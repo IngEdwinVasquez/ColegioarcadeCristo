@@ -8,6 +8,7 @@ import { PromocionPage } from '../modules/administrativo/PromocionPage'
 import { PersonasPage } from '../modules/administrativo/PersonasPage'
 import { DirectoresPage } from '../modules/administrativo/DirectoresPage'
 import { StaffPage } from '../modules/administrativo/StaffPage'
+import { ImportarSigerdCard } from '../modules/administrativo/ImportarSigerdCard'
 import { UsuariosPage } from '../modules/administrativo/UsuariosPage'
 import { RolesPage } from '../modules/administrativo/RolesPage'
 import { ChatPage } from '../modules/chat/ChatPage'
@@ -43,7 +44,7 @@ export function TecnologiaPortal() {
         <Route path="personas" element={<PersonasPage />} />
         <Route path="directores" element={<DirectoresPage />} />
         <Route path="administradores" element={<StaffPage kind="administradores" />} />
-        <Route path="siger" element={<StaffPage kind="siger" />} />
+        <Route path="siger" element={<StaffPage kind="siger" extra={<ImportarSigerdCard />} />} />
         <Route path="apoyo" element={<StaffPage kind="apoyo" />} />
         <Route path="usuarios" element={<UsuariosPage />} />
         <Route path="roles" element={<RolesPage />} />

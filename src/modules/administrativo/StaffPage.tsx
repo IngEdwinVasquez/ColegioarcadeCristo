@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, type ReactNode } from 'react'
 import { Input, Select, Text, makeStyles, useToastController } from '@fluentui/react-components'
 import { PageHeader } from '../../components/shared/PageHeader'
 import { EntityCrud, type CrudColumn } from '../../components/shared/EntityCrud'
@@ -24,7 +24,7 @@ export const STAFF_TIPOS: Record<string, { label: string; tipo: PersonaTipo; rol
 }
 
 /** Página genérica de personal institucional, parametrizada por tipo. */
-export function StaffPage({ kind }: { kind: keyof typeof STAFF_TIPOS }) {
+export function StaffPage({ kind, extra }: { kind: keyof typeof STAFF_TIPOS; extra?: ReactNode }) {
   const styles = useStyles()
   const toaster = useToastController()
   const cfg = STAFF_TIPOS[kind]
@@ -85,6 +85,7 @@ export function StaffPage({ kind }: { kind: keyof typeof STAFF_TIPOS }) {
     <div>
       <PageHeader title={cfg.plural} subtitle={cfg.desc} />
       <Text size={200} className={styles.hint} block>Añada aquí al personal {cfg.plural.toLowerCase()}. Cada uno se vincula a una cuenta de Microsoft 365 y recibe el rol correspondiente.</Text>
+      {extra}
       <EntityCrud<Persona>
         title={cfg.plural}
         items={items}
