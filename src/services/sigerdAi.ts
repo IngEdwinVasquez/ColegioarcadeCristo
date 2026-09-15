@@ -8,46 +8,103 @@ export interface SigerdStudent {
   seccion?: string
 }
 
-const SIGERD_PROMPT = `Eres un asistente que extrae la lista de estudiantes de un reporte del SIGERD (Sistema de Información para la Gestión Escolar, MINERD - República Dominicana).
-El texto contiene una tabla con columnas como: No. de Orden, Id Estudiante, Primer apellido, Segundo apellido, Nombre(s), Nacimiento, Declarado, Municipio, Oficialía, Libro, Folio, Acta, Año, Grado, Sec., Condición, Estado.
-Devuelve un JSON válido con EXACTAMENTE esta estructura:
+const SIGERD_PROMPT = `Eres un asistente que extrae estudiantes de un reporte del SIGERD (MINERD - República Dominicana).
+El texto contiene una tabla con columnas: No. de Orden, Id Estudiante, Primer apellido, Segundo apellido, Nombre(s), Nacimiento, Declarado, Municipio, Oficialía, Libro, Folio, Acta, Año, Grado, Sec., Condición, Estado.
+Devuelve un JSON válido con EXACTAMENTE:
 
-{
-  "estudiantes": [
-    { "idEstudiante": "36460269", "nombres": "AADAM OSMAR", "primerApellido": "PIMENTEL", "segundoApellido": "GREEN", "nacimiento": "04/02/2020", "grado": "Primero", "seccion": "A" }
-  ]
-}
+{ "estudiantes": [ { "idEstudiante": "36460269", "nombres": "AADAM OSMAR", "primerApellido": "PIMENTEL", "segundoApellido": "GREEN", "nacimiento": "04/02/2020", "grado": "Primero", "seccion": "A" } ] }
 
 Reglas:
-- Una entrada por cada estudiante de la tabla.
-- "nombres" es el campo Nombre(s); los apellidos van en sus campos. No los mezcles.
-- Conserva los nombres tal cual (en mayúsculas si así vienen).
-- Si un dato no está, usa "" (cadena vacía).
-- Ignora encabezados, pies de página y totales.
-- Responde ÚNICAMENTE el JSON, sin texto adicional.`
+- Una entrada por estudiante del fragmento.
+- "nombres" = campo Nombre(s); los apellidos en sus campos. No los mezcles.
+- Ignora encabezados, pies y totales. Si un dato falta, "".
+- Responde ÚNICAMENTE el JSON.`
 
-/** Extrae y estructura los estudiantes de un PDF del SIGERD usando IA. */
-export async function parseSigerdStudentsPdf(text: string): Promise<SigerdStudent[]> {
+const CHUNK_SIZE = 6000
+
+function splitChunks(text: string): string[] {
+  const chunks: string[] = []
+  let cur = ''
+  for (const line of text.split('\n')) {
+    if (cur && cur.length + line.length + 1 > CHUNK_SIZE) {
+      chunks.push(cur)
+      cur = ''
+    }
+    cur += line + '\n'
+  }
+  if (cur.trim()) chunks.push(cur)
+  return chunks.length ? chunks : [text]
+}
+
+const toStr = (v: unknown) => (typeof v === 'string' ? v.trim() : '')
+
+async function mapLimit<T, R>(items: T[], limit: number, fn: (item: T, i: number) => Promise<R>): Promise<R[]> {
+  const results: R[] = new Array(items.length)
+  let idx = 0
+  const workers = Array.from({ length: Math.max(1, Math.min(limit, items.length)) }, async () => {
+    while (idx < items.length) {
+      const i = idx
+      idx += 1
+      results[i] = await fn(items[i], i)
+    }
+  })
+  await Promise.all(workers)
+  return results
+}
+
+/**
+ * Extrae y estructura los estudiantes de un PDF del SIGERD usando IA.
+ * Procesa el texto por fragmentos en paralelo (varias llamadas cortas) para
+ * evitar tiempos de espera largos, y deduplica los resultados.
+ */
+export async function parseSigerdStudentsPdf(
+  text: string,
+  onProgress?: (done: number, total: number) => void,
+): Promise<SigerdStudent[]> {
   const { aiChat, parseAiJson } = await import('./ai')
-  const out = await aiChat(
-    [
-      { role: 'system', content: SIGERD_PROMPT },
-      { role: 'user', content: `Texto del reporte SIGERD:\n\n${text.slice(0, 24000)}` },
-    ],
-    { temperature: 0.1, jsonMode: true, maxTokens: 8000 },
-  )
-  const parsed = parseAiJson<Record<string, unknown>>(out)
-  const arr = Array.isArray(parsed?.estudiantes) ? (parsed!.estudiantes as Array<Record<string, unknown>>) : []
-  const s = (v: unknown) => (typeof v === 'string' ? v.trim() : '')
-  return arr
-    .map((e) => ({
-      idEstudiante: s(e.idEstudiante),
-      nombres: s(e.nombres),
-      primerApellido: s(e.primerApellido),
-      segundoApellido: s(e.segundoApellido),
-      nacimiento: s(e.nacimiento),
-      grado: s(e.grado),
-      seccion: s(e.seccion),
-    }))
-    .filter((e) => e.nombres || e.primerApellido)
+  const chunks = splitChunks(text)
+  const seen = new Set<string>()
+  let done = 0
+
+  const parts = await mapLimit(chunks, 3, async (chunk) => {
+    try {
+      const res = await aiChat(
+        [
+          { role: 'system', content: SIGERD_PROMPT },
+          { role: 'user', content: `Fragmento del reporte SIGERD:\n\n${chunk}` },
+        ],
+        { temperature: 0.1, jsonMode: true, maxTokens: 3000 },
+      )
+      const parsed = parseAiJson<Record<string, unknown>>(res)
+      return Array.isArray(parsed?.estudiantes) ? (parsed!.estudiantes as Array<Record<string, unknown>>) : []
+    } catch {
+      return [] as Array<Record<string, unknown>>
+    } finally {
+      done += 1
+      onProgress?.(done, chunks.length)
+    }
+  })
+
+  const out: SigerdStudent[] = []
+  for (const arr of parts) {
+    for (const e of arr) {
+      const stu: SigerdStudent = {
+        idEstudiante: toStr(e.idEstudiante),
+        nombres: toStr(e.nombres),
+        primerApellido: toStr(e.primerApellido),
+        segundoApellido: toStr(e.segundoApellido),
+        nacimiento: toStr(e.nacimiento),
+        grado: toStr(e.grado),
+        seccion: toStr(e.seccion),
+      }
+      if (!stu.nombres && !stu.primerApellido) continue
+      const key = stu.idEstudiante
+        ? `id:${stu.idEstudiante}`
+        : `${stu.nombres}|${stu.primerApellido}|${stu.segundoApellido}`.toLowerCase()
+      if (seen.has(key)) continue
+      seen.add(key)
+      out.push(stu)
+    }
+  }
+  return out
 }
