@@ -47,6 +47,7 @@ export function ImportarSigerdCard() {
   const [period, setPeriod] = useState(periods.find((p) => p.isActive)?.id ?? periods[0]?.id ?? '')
   const [busy, setBusy] = useState(false)
   const [preview, setPreview] = useState<PreviewRow[] | null>(null)
+  const [progreso, setProgreso] = useState('')
   const fileRef = useRef<HTMLInputElement>(null)
 
   const cursos = useMemo(
@@ -78,9 +79,11 @@ export function ImportarSigerdCard() {
   const analizar = async (file: File | undefined) => {
     if (!file) return
     setBusy(true)
+    setProgreso('Extrayendo texto del PDF…')
     try {
       const text = await extractPdfText(file)
-      const parsed = await parseSigerdStudentsPdf(text)
+      setProgreso('Analizando estudiantes…')
+      const parsed = await parseSigerdStudentsPdf(text, (d, t) => setProgreso(`Analizando fragmentos ${d}/${t}…`))
       if (parsed.length === 0) throw new Error('No se encontraron estudiantes en el PDF del SIGERD.')
 
       let dir: DirUser[] = []
@@ -97,6 +100,7 @@ export function ImportarSigerdCard() {
       toaster.dispatchToast(error instanceof Error ? error.message : 'No se pudo procesar el PDF del SIGERD.', { intent: 'error' })
     } finally {
       setBusy(false)
+      setProgreso('')
       if (fileRef.current) fileRef.current.value = ''
     }
   }
@@ -161,10 +165,11 @@ export function ImportarSigerdCard() {
           </FormField>
         </FieldRow>
         <input ref={fileRef} type="file" accept="application/pdf" style={{ display: 'none' }} onChange={(e) => void analizar(e.target.files?.[0])} />
-        <div>
+        <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
           <Button appearance="primary" icon={busy ? <Spinner size="tiny" /> : <DocumentPdfRegular />} disabled={busy} onClick={() => fileRef.current?.click()}>
             {busy ? 'Procesando…' : 'Cargar PDF SIGERD y previsualizar'}
           </Button>
+          {busy && progreso && <Text size={200} style={{ color: 'var(--texto-suave)' }}>{progreso}</Text>}
         </div>
       </Card>
 
