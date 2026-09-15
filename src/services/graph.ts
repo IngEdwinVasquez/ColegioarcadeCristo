@@ -33,6 +33,30 @@ export function graphRequest<T>(path: string, method: GraphMethod = 'GET', body?
   }
 }
 
+/**
+ * Igual que `graphRequest`, pero adquiere un token con permisos adicionales
+ * (p. ej. `User.ReadWrite.All`) para no exigir esos permisos en el inicio de
+ * sesión de todos los usuarios. Si falta el consentimiento, MSAL mostrará la
+ * pantalla de consentimiento (requiere ser administrador).
+ */
+export async function graphRequestWithScopes<T>(path: string, method: GraphMethod, body: unknown, scopes: string[]): Promise<T> {
+  const accessToken = await acquireToken(scopes)
+  const client = Client.initWithMiddleware({ authProvider: { getAccessToken: async () => accessToken } })
+  const request = client.api(path)
+  switch (method) {
+    case 'GET':
+      return request.get() as Promise<T>
+    case 'POST':
+      return request.post(body) as Promise<T>
+    case 'PATCH':
+      return request.patch(body) as Promise<T>
+    case 'PUT':
+      return request.put(body) as Promise<T>
+    default:
+      return request.delete() as Promise<T>
+  }
+}
+
 /** Recorre todas las páginas de una colección de Graph (@odata.nextLink). */
 export async function graphGetAll<T>(path: string, options?: GraphRequestOptions): Promise<T[]> {
   const items: T[] = []

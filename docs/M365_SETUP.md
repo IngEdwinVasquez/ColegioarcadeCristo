@@ -40,6 +40,7 @@ Acceda a [entra.microsoft.com](https://entra.microsoft.com) → **Aplicaciones**
 | --- | --- |
 | `User.Read` | Perfil y foto del usuario conectado |
 | `User.ReadBasic.All` | Leer el directorio en "Usuarios y roles" |
+| `User.ReadWrite.All` | Crear cuentas de estudiantes desde el SIGERD (se solicita solo al crear; requiere consentimiento de administrador) |
 | `Directory.Read.All` | (Opcional) detalles ampliados del directorio |
 | `Sites.ReadWrite.All` | Leer/escribir los elementos de las listas de SharePoint |
 | `Sites.Manage.All` | Crear las listas y columnas `ARC_*` automáticamente (aprovisionamiento) |

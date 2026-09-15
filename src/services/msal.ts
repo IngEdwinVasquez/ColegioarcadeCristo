@@ -45,13 +45,14 @@ export function getActiveAccount(): AccountInfo | null {
   return msalInstance.getActiveAccount() ?? msalInstance.getAllAccounts()[0] ?? null
 }
 
-export async function acquireToken(): Promise<string> {
+export async function acquireToken(scopes?: string[]): Promise<string> {
   const account = getActiveAccount()
   if (!account) {
     throw new Error('No hay una sesión activa en Microsoft Entra ID')
   }
+  const request = { ...loginRequest, scopes: scopes && scopes.length ? scopes : loginRequest.scopes }
   try {
-    const response = await msalInstance.acquireTokenSilent({ ...loginRequest, account })
+    const response = await msalInstance.acquireTokenSilent({ ...request, account })
     return response.accessToken
   } catch (error) {
     const code = (error as { errorCode?: string })?.errorCode
@@ -60,7 +61,7 @@ export async function acquireToken(): Promise<string> {
     // a autenticar con un redirect completo, que funciona con SSO sin cookies
     // de terceros.
     if (error instanceof InteractionRequiredAuthError || code === 'timed_out' || code === 'login_required' || code === 'consent_required') {
-      await msalInstance.acquireTokenRedirect({ ...loginRequest, account })
+      await msalInstance.acquireTokenRedirect({ ...request, account })
       // acquireTokenRedirect navega fuera de la página; esta promesa no se resuelve.
       return new Promise<string>(() => {})
     }
