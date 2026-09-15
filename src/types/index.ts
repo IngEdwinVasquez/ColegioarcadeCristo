@@ -53,6 +53,53 @@ export interface Teacher {
   grades: string[]
 }
 
+// ------------------------------ SIGERD (MINERD) ------------------------------
+
+/** Fila de estudiante según el reporte del SIGERD. */
+export interface SigerdStudent {
+  noOrden?: string
+  idEstudiante?: string
+  primerApellido: string
+  segundoApellido: string
+  nombres: string
+  nacimiento?: string
+  declarado?: string
+  municipio?: string
+  oficialia?: string
+  libro?: string
+  folio?: string
+  acta?: string
+  anio?: string
+  grado?: string
+  seccion?: string
+  condicion?: string
+  estado?: string
+}
+
+/** Encabezado del reporte del SIGERD (datos del centro/curso). */
+export interface SigerdHeader {
+  ano?: string
+  direccionRegional?: string
+  centroEducativo?: string
+  distritoEducativo?: string
+  tandaServicio?: string
+  sector?: string
+  grado?: string
+  seccion?: string
+  cantidadEstudiantes?: string
+  docentes?: string
+}
+
+/** Registro de una importación de reporte SIGERD. */
+export interface SigerdReport {
+  id: string
+  header: SigerdHeader
+  curso?: string
+  periodId?: string
+  studentsCount: number
+  createdAt: string
+}
+
 export interface Student {
   id: string
   fullName: string
@@ -68,6 +115,8 @@ export interface Student {
   birthDate?: string
   /** Id. de estudiante del SIGERD (MINERD) para referencia y evitar duplicados. */
   sigerdId?: string
+  /** Datos completos del reporte SIGERD para este estudiante. */
+  sigerd?: SigerdStudent
 }
 
 export type ClassPlanStatus = 'planificada' | 'pendiente' | 'impartida' | 'cancelada'
