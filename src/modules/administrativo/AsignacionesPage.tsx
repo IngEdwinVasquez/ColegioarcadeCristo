@@ -317,7 +317,7 @@ export function AsignacionesPage() {
     setImportingExcel(true)
     try {
       const text = await extractPdfText(file)
-      const parsed = await parseSigerdStudentsPdf(text)
+      const { estudiantes: parsed } = await parseSigerdStudentsPdf(text)
       if (parsed.length === 0) throw new Error('No se encontraron estudiantes en el PDF del SIGERD.')
 
       // Usuarios de Microsoft 365 (para vincular la cuenta del estudiante).
@@ -341,8 +341,8 @@ export function AsignacionesPage() {
         if (match) linked += 1
         const existing = studentsCol.items.find((st) => (s.idEstudiante && st.sigerdId === s.idEstudiante) || norm(st.fullName) === norm(fullName))
         const student: Student = existing
-          ? { ...existing, fullName, email: match?.email ?? existing.email, userId: match?.id ?? existing.userId, sigerdId: s.idEstudiante || existing.sigerdId, birthDate: isoNac(s.nacimiento) ?? existing.birthDate }
-          : { id: genId('stu'), fullName, email: match?.email, userId: match?.id, sigerdId: s.idEstudiante, gradeId: cursoMaterias[0].id, birthDate: isoNac(s.nacimiento) }
+          ? { ...existing, fullName, email: match?.email ?? existing.email, userId: match?.id ?? existing.userId, sigerdId: s.idEstudiante || existing.sigerdId, birthDate: isoNac(s.nacimiento) ?? existing.birthDate, sigerd: s }
+          : { id: genId('stu'), fullName, email: match?.email, userId: match?.id, sigerdId: s.idEstudiante, gradeId: cursoMaterias[0].id, birthDate: isoNac(s.nacimiento), sigerd: s }
         if (!existing) created += 1
         await studentsCol.save(student)
         const already = enrollmentsCol.items.some((e) => e.studentId === student.id && (!activePeriod || e.periodId === activePeriod))

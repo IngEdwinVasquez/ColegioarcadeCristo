@@ -26,6 +26,7 @@ import type {
   WorkCronograma,
   PlanificacionDinamica,
   PromotionRecord,
+  SigerdReport,
   SchoolClassRecord,
   Student,
   StudentGuardian,
@@ -97,6 +98,7 @@ export const collections = {
     planificador: collection<PlanificacionDinamica>(SPO_LISTS.planificador),
     courseSubjects: collection<CourseSubject>(SPO_LISTS.courseSubjects),
     promotions: collection<PromotionRecord>(SPO_LISTS.promotions),
+    sigerdReports: collection<SigerdReport>(SPO_LISTS.sigerdReports),
 }
 
 export const dataService = {
@@ -233,6 +235,10 @@ export const dataService = {
   getPromotions: collections.promotions.getAll,
   savePromotion: collections.promotions.save,
   deletePromotion: collections.promotions.remove,
+  // Reportes SIGERD importados
+  getSigerdReports: collections.sigerdReports.getAll,
+  saveSigerdReport: collections.sigerdReports.save,
+  deleteSigerdReport: collections.sigerdReports.remove,
 }
 
 export type DataService = typeof dataService
