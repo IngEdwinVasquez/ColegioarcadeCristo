@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Button, Input, Select, Tab, TabList, Text, makeStyles, useToastController } from '@fluentui/react-components'
-import { CloudArrowDownRegular } from '@fluentui/react-icons'
+import { CloudArrowDownRegular, DeleteRegular } from '@fluentui/react-icons'
 import { PageHeader } from '../../components/shared/PageHeader'
 import { EntityCrud, type CrudColumn } from '../../components/shared/EntityCrud'
 import { FormField, FieldRow } from '../../components/shared/form'
@@ -78,6 +78,7 @@ export function PersonasPage() {
 
   const [tab, setTab] = useState('estudiantes')
   const [importOpen, setImportOpen] = useState(false)
+  const [deduping, setDeduping] = useState(false)
   const [nivelFilter, setNivelFilter] = useState('')
   const [cicloFilter, setCicloFilter] = useState('')
 
@@ -169,12 +170,61 @@ export function PersonasPage() {
     throw error
   }
 
+  /** Clave de identidad de una persona (correo → cuenta → nombre). */
+  const identityOf = (x: { email?: string; userId?: string; fullName: string }) => {
+    const email = (x.email ?? '').trim().toLowerCase()
+    if (email) return `e:${email}`
+    if (x.userId) return `u:${x.userId}`
+    return `n:${x.fullName.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim().toLowerCase()}`
+  }
+
+  /** Busca un duplicado dentro de la MISMA lista por cuenta o correo (evita duplicidad). */
+  const duplicateIn = <T extends { id: string; email?: string; userId?: string; fullName: string }>(items: T[], item: T, accountId: string, email: string) => {
+    const e = email.trim().toLowerCase()
+    return items.find((x) => x.id !== item.id && ((!!x.userId && x.userId === accountId) || (!!x.email && x.email.trim().toLowerCase() === e)))
+  }
+
+  /** Elimina duplicados (mismo correo/cuenta/nombre) dentro de cada lista de personas. */
+  const dedupeAll = async () => {
+    if (!window.confirm('¿Revisar y eliminar personas duplicadas (mismo correo/cuenta) en estudiantes, docentes, familias y personal?')) return
+    setDeduping(true)
+    try {
+      let removed = 0
+      // Se elimina el registro duplicado directamente (sin desvincular roles, para no quitar
+      // el acceso de la persona que sí se conserva).
+      const lists: Array<{ items: Array<{ id: string; email?: string; userId?: string; fullName: string }>; remove: (id: string) => Promise<void> }> = [
+        { items: studentsCol.items, remove: dataService.deleteStudent },
+        { items: teachersCol.items, remove: dataService.deleteTeacher },
+        { items: guardiansCol.items, remove: dataService.deleteGuardian },
+        { items: personasCol.items, remove: dataService.deletePersona },
+      ]
+      for (const list of lists) {
+        const seen = new Set<string>()
+        const extras: string[] = []
+        for (const item of list.items) {
+          const key = identityOf(item)
+          if (seen.has(key)) extras.push(item.id)
+          else seen.add(key)
+        }
+        for (const id of extras) { await list.remove(id); removed += 1 }
+      }
+      await Promise.all([studentsCol.refresh(), teachersCol.refresh(), guardiansCol.refresh(), personasCol.refresh()])
+      toaster.dispatchToast(removed ? `Se eliminaron ${removed} duplicado(s).` : 'No se encontraron duplicados.', { intent: removed ? 'success' : 'info' })
+    } catch (error) {
+      toaster.dispatchToast(graphErrorMessage(error), { intent: 'error' })
+    } finally {
+      setDeduping(false)
+    }
+  }
+
   const saveStudent = async (s: Student) => {
     if (!s.fullName.trim() || !s.gradeId) {
       toaster.dispatchToast('Complete el nombre y el grado.', { intent: 'error' })
       throw new Error('Datos incompletos')
     }
     const account = await requireAccount(s.userId, 'estudiante')
+    const dupStudent = duplicateIn(studentsCol.items, s, account.id, entraEmail(account))
+    if (dupStudent) { toaster.dispatchToast(`Ya existe un estudiante con esa cuenta/correo (${dupStudent.fullName}). No se permiten duplicados.`, { intent: 'error' }); throw new Error('Duplicado') }
     try {
       const previous = studentsCol.items.find((x) => x.id === s.id)
       if (previous?.userId && previous.userId !== account.id) await unlinkUserRole(previous.userId, 'estudiante', { studentId: s.id })
@@ -192,6 +242,8 @@ export function PersonasPage() {
       throw new Error('Datos incompletos')
     }
     const account = await requireAccount(t.userId, 'docente')
+    const dupTeacher = duplicateIn(teachersCol.items, t, account.id, entraEmail(account))
+    if (dupTeacher) { toaster.dispatchToast(`Ya existe un docente con esa cuenta/correo (${dupTeacher.fullName}). No se permiten duplicados.`, { intent: 'error' }); throw new Error('Duplicado') }
     try {
       const previous = teachersCol.items.find((x) => x.id === t.id)
       if (previous?.userId && previous.userId !== account.id) await unlinkUserRole(previous.userId, 'docente', { teacherId: t.id })
@@ -213,6 +265,8 @@ export function PersonasPage() {
       throw new Error('Datos incompletos')
     }
     const account = await requireAccount(g.userId, 'padre o tutor')
+    const dupGuardian = duplicateIn(guardiansCol.items, g, account.id, entraEmail(account))
+    if (dupGuardian) { toaster.dispatchToast(`Ya existe un familiar/tutor con esa cuenta/correo (${dupGuardian.fullName}). No se permiten duplicados.`, { intent: 'error' }); throw new Error('Duplicado') }
     try {
       const previous = guardiansCol.items.find((x) => x.id === g.id)
       if (previous?.userId && previous.userId !== account.id) await unlinkUserRole(previous.userId, 'padre')
@@ -230,6 +284,8 @@ export function PersonasPage() {
       throw new Error('Datos incompletos')
     }
     const account = await requireAccount(p.userId, labelOf(p.tipo).toLowerCase())
+    const dupPersona = duplicateIn(personasCol.items, p, account.id, entraEmail(account))
+    if (dupPersona) { toaster.dispatchToast(`Ya existe personal con esa cuenta/correo (${dupPersona.fullName}). No se permiten duplicados.`, { intent: 'error' }); throw new Error('Duplicado') }
     try {
       const previous = personasCol.items.find((x) => x.id === p.id)
       if (previous?.userId && previous.userId !== account.id) await unlinkUserRole(previous.userId, ROLE_OF[previous.tipo])
@@ -343,9 +399,12 @@ export function PersonasPage() {
         title="Datos institucionales"
         subtitle="Mantenimiento de estudiantes, docentes, familias y personal institucional. Use la columna 'Tipo' para cambiar la categoría del personal."
         actions={
-          <Button appearance="primary" icon={<CloudArrowDownRegular />} onClick={() => setImportOpen(true)}>
-            Importar desde Microsoft 365
-          </Button>
+          <>
+            <Button appearance="secondary" icon={<DeleteRegular />} disabled={deduping} onClick={() => void dedupeAll()}>Revisar duplicados</Button>
+            <Button appearance="primary" icon={<CloudArrowDownRegular />} onClick={() => setImportOpen(true)}>
+              Importar desde Microsoft 365
+            </Button>
+          </>
         }
       />
       <ImportPersonasWizard open={importOpen} onOpenChange={setImportOpen} />
