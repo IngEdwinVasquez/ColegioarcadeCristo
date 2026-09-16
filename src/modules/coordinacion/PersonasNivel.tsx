@@ -3,7 +3,7 @@ import { Badge, Select, Table, TableBody, TableCell, TableHeader, TableHeaderCel
 import { PageHeader } from '../../components/shared/PageHeader'
 import { EmptyStateView } from '../../components/shared/EmptyStateView'
 import { useApp } from '../../context/useApp'
-import { cursoNombre } from '../../utils/academic'
+import { cursoNombre, nivelShort } from '../../utils/academic'
 import { NivelSelector } from './NivelSelector'
 import { useCoordinationLevel } from './useCoordinationLevel'
 import { PersonSupportRegular, PeopleRegular } from '@fluentui/react-icons'
@@ -22,7 +22,7 @@ export function PersonasNivel() {
   const [tab, setTab] = useState<'docentes' | 'estudiantes'>('docentes')
   const [gradeFilter, setGradeFilter] = useState('')
 
-  const levelGradeIds = useMemo(() => grades.filter((g) => g.level === level).map((g) => g.id), [grades, level])
+  const levelGradeIds = useMemo(() => grades.filter((g) => nivelShort(g.level) === level).map((g) => g.id), [grades, level])
 
   const docentes = useMemo(() => {
     const gradesOfLevel = new Set(levelGradeIds)

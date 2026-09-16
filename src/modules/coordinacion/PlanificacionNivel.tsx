@@ -13,7 +13,7 @@ import { useCoordinationLevel } from './useCoordinationLevel'
 import { exportPlanWord, printPlan } from '../planificacion/exportPlan'
 import type { ClassPlan, DailyPlan } from '../../types'
 import { formatDate } from '../../utils/helpers'
-import { cursoNombre } from '../../utils/academic'
+import { cursoNombre, nivelShort } from '../../utils/academic'
 
 const useStyles = makeStyles({
   controls: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '16px', flexWrap: 'wrap', marginBottom: '20px' },
@@ -51,7 +51,7 @@ export function PlanificacionNivel() {
   const [kindFilter, setKindFilter] = useState('')
   const [viewing, setViewing] = useState<Row | null>(null)
 
-  const levelGradeIds = useMemo(() => grades.filter((g) => g.level === level).map((g) => g.id), [grades, level])
+  const levelGradeIds = useMemo(() => grades.filter((g) => nivelShort(g.level) === level).map((g) => g.id), [grades, level])
   const levelGrades = useMemo(() => grades.filter((g) => levelGradeIds.includes(g.id)), [grades, levelGradeIds])
   const levelTeachers = useMemo(() => teachers.filter((t) => t.grades.some((g) => levelGradeIds.includes(g))), [teachers, levelGradeIds])
 
