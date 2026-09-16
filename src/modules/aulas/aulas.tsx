@@ -1,10 +1,10 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import {
   Button, Card, Dialog, DialogActions, DialogBody, DialogContent, DialogSurface, DialogTitle,
   Select, Spinner, Text, useToastController, makeStyles, tokens,
 } from '@fluentui/react-components'
 import {
-  VideoRegular, ArrowRightRegular, ImageRegular, AddRegular, DeleteRegular, BookOpenRegular,
+  VideoRegular, ArrowRightRegular, ImageRegular, AddRegular, DeleteRegular, BookOpenRegular, ArrowUploadRegular,
 } from '@fluentui/react-icons'
 import { PageHeader } from '../../components/shared/PageHeader'
 import { EmptyStateView } from '../../components/shared/EmptyStateView'
@@ -15,6 +15,7 @@ import { useCollection } from '../../hooks/useCollection'
 import { cursoNombre, nivelShort, ordenarCursos, asignaturaDe, isRealSubject, gradoDe, seccionDe } from '../../utils/academic'
 import { createClassTeam, listTenantTeams, resolveTeamUrl } from '../../services/teamsEdu'
 import { graphErrorMessage } from '../../services/graph'
+import { uploadFile, downloadFileAsDataUrl } from '../../services/onedrive'
 import type { Enrollment, GradeSection, TeacherAssignment } from '../../types'
 
 export const AULA_IMAGENES = [
@@ -29,11 +30,31 @@ export interface Aula {
   grado: string
   section: string
   imageUrl?: string
+  imageRef?: string
   records: GradeSection[]
 }
 
 const hash = (s: string) => [...s].reduce((acc, c) => (acc * 31 + c.charCodeAt(0)) >>> 0, 7)
 export const aulaImage = (aula: Aula) => aula.imageUrl || AULA_IMAGENES[hash(aula.curso) % AULA_IMAGENES.length]
+
+// Caché en memoria: id de imagen en OneDrive → data URL (para renderizar en <img>).
+const imgCache = new Map<string, string>()
+
+/** Componente que resuelve y muestra la imagen del aula (subida o preset). */
+export function AulaImg({ aula, className, style, alt }: { aula: Aula; className?: string; style?: CSSProperties; alt?: string }) {
+  const [src, setSrc] = useState<string>(() => aula.imageUrl || (aula.imageRef ? imgCache.get(aula.imageRef) : '') || aulaImage(aula))
+  useEffect(() => {
+    if (aula.imageUrl) { setSrc(aula.imageUrl); return }
+    const ref = aula.imageRef
+    if (!ref) { setSrc(aulaImage(aula)); return }
+    const cached = imgCache.get(ref)
+    if (cached) { setSrc(cached); return }
+    let alive = true
+    downloadFileAsDataUrl(ref).then((data) => { imgCache.set(ref, data); if (alive) setSrc(data) }).catch(() => { if (alive) setSrc(aulaImage(aula)) })
+    return () => { alive = false }
+  }, [aula])
+  return <img className={className} style={style} src={src} alt={alt ?? aula.curso} />
+}
 
 /** Agrupa los registros de Gestión académica en aulas (un aula por curso). */
 export function aulasFromGrades(grades: GradeSection[]): Aula[] {
@@ -49,6 +70,7 @@ export function aulasFromGrades(grades: GradeSection[]): Aula[] {
     }
     a.records.push(g)
     if (!a.imageUrl && g.imageUrl) a.imageUrl = g.imageUrl
+    if (!a.imageRef && g.imageRef) a.imageRef = g.imageRef
   }
   return ordenarCursos([...map.values()].map((a) => a.records[0])).map((g) => map.get(cursoNombre(g))!).filter(Boolean)
 }
@@ -59,9 +81,14 @@ export const subjectIdOf = (record: GradeSection, subjects: { id: string; name: 
   return subjects.find((s) => s.name.trim().toLowerCase() === name)?.id ?? asignaturaDe(record)
 }
 
-/** Guarda la imagen en todos los registros del curso. */
-async function guardarImagenCurso(records: GradeSection[], imageUrl: string) {
-  for (const r of records) await dataService.saveGrade({ ...r, imageUrl })
+/** Guarda la imagen en todos los registros del curso (url o referencia de OneDrive). */
+async function guardarImagenCurso(records: GradeSection[], patch: { imageUrl?: string; imageRef?: string }) {
+  for (const r of records) {
+    const next: GradeSection = { ...r, ...patch }
+    if (patch.imageUrl) next.imageRef = undefined
+    if (patch.imageRef) next.imageUrl = undefined
+    await dataService.saveGrade(next)
+  }
 }
 
 const useStyles = makeStyles({
@@ -86,18 +113,36 @@ function AulaImagenModal({ aula, open, onClose, onSaved }: { aula: Aula | null; 
   const toaster = useToastController()
   const [url, setUrl] = useState('')
   const [busy, setBusy] = useState(false)
+  const fileRef = useRef<HTMLInputElement>(null)
   if (!aula) return null
-  const elegir = async (imageUrl: string) => {
+  const aplicar = async (patch: { imageUrl?: string; imageRef?: string }, mensaje: string) => {
     setBusy(true)
     try {
-      await guardarImagenCurso(aula.records, imageUrl)
+      await guardarImagenCurso(aula.records, patch)
       onSaved()
-      toaster.dispatchToast('Imagen del aula actualizada.', { intent: 'success' })
+      toaster.dispatchToast(mensaje, { intent: 'success' })
       onClose()
     } catch (e) {
       toaster.dispatchToast(graphErrorMessage(e), { intent: 'error' })
     } finally {
       setBusy(false)
+    }
+  }
+  const subir = async (file: File | undefined) => {
+    if (!file) return
+    setBusy(true)
+    try {
+      const ref = await uploadFile('Aulas', file.name, file)
+      try { imgCache.set(ref.id, await downloadFileAsDataUrl(ref.id)) } catch { /* se resolverá al mostrar */ }
+      await guardarImagenCurso(aula.records, { imageRef: ref.id })
+      onSaved()
+      toaster.dispatchToast('Imagen subida y asignada al aula.', { intent: 'success' })
+      onClose()
+    } catch (e) {
+      toaster.dispatchToast(graphErrorMessage(e), { intent: 'error' })
+    } finally {
+      setBusy(false)
+      if (fileRef.current) fileRef.current.value = ''
     }
   }
   return (
@@ -106,9 +151,20 @@ function AulaImagenModal({ aula, open, onClose, onSaved }: { aula: Aula | null; 
         <DialogBody>
           <DialogTitle>Imagen del aula · {aula.curso}</DialogTitle>
           <DialogContent>
+            <div style={{ marginBottom: '14px', display: 'flex', gap: '14px', alignItems: 'center', flexWrap: 'wrap' }}>
+              <AulaImg aula={aula} style={{ width: '150px', height: '84px', objectFit: 'cover', borderRadius: '10px' }} />
+              <div>
+                <input ref={fileRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => void subir(e.target.files?.[0])} />
+                <Button appearance="primary" icon={busy ? <Spinner size="tiny" /> : <ArrowUploadRegular />} disabled={busy} onClick={() => fileRef.current?.click()}>
+                  {busy ? 'Subiendo…' : 'Subir imagen desde mi equipo'}
+                </Button>
+                <Text size={200} block style={{ color: 'var(--texto-suave)', marginTop: '6px' }}>Se guarda en OneDrive (carpeta «Aulas»).</Text>
+              </div>
+            </div>
+            <Text size={200} block style={{ color: 'var(--texto-suave)', marginBottom: '8px' }}>O elige una imagen predeterminada:</Text>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px', marginBottom: '16px' }}>
               {AULA_IMAGENES.map((src) => (
-                <button key={src} className={styles.preset} onClick={() => void elegir(src)} disabled={busy} title="Usar esta imagen">
+                <button key={src} className={styles.preset} onClick={() => void aplicar({ imageUrl: src }, 'Imagen del aula actualizada.')} disabled={busy} title="Usar esta imagen">
                   <img src={src} alt="Imagen de aula" style={{ width: '100%', height: '92px', objectFit: 'cover', display: 'block' }} />
                 </button>
               ))}
@@ -116,7 +172,7 @@ function AulaImagenModal({ aula, open, onClose, onSaved }: { aula: Aula | null; 
             <FormField label="O pega la URL de una imagen">
               <div style={{ display: 'flex', gap: '8px' }}>
                 <input className="dx-input" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://…/imagen.jpg" style={{ flex: 1, padding: '8px 10px', borderRadius: '6px', border: '1px solid var(--borde)' }} />
-                <Button appearance="primary" disabled={!url.trim() || busy} onClick={() => void elegir(url.trim())}>Usar</Button>
+                <Button appearance="primary" disabled={!url.trim() || busy} onClick={() => void aplicar({ imageUrl: url.trim() }, 'Imagen del aula actualizada.')}>Usar</Button>
               </div>
             </FormField>
           </DialogContent>
@@ -323,7 +379,7 @@ export function AulasView({ scope, subtitle, pageTitle = 'Aulas', onOpenSubject 
           {aulas.map((a) => (
             <Card key={a.curso} className={styles.card} onClick={() => setSelected(a.curso)}>
               <div className={styles.imgWrap}>
-                <img className={styles.img} src={aulaImage(a)} alt={a.curso} />
+                <AulaImg aula={a} className={styles.img} />
                 {canManage && (
                   <Button className={styles.imgBtn} size="small" appearance="secondary" icon={<ImageRegular />} onClick={(e) => { e.stopPropagation(); setImgAula(a) }} aria-label="Cambiar imagen" />
                 )}
@@ -349,7 +405,7 @@ export function AulasView({ scope, subtitle, pageTitle = 'Aulas', onOpenSubject 
               {seleccion && (
                 <>
                   <div style={{ display: 'flex', gap: '16px', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap' }}>
-                    <img src={aulaImage(seleccion)} alt={seleccion.curso} style={{ width: '180px', height: '100px', objectFit: 'cover', borderRadius: '12px' }} />
+                    <AulaImg aula={seleccion} style={{ width: '180px', height: '100px', objectFit: 'cover', borderRadius: '12px' }} />
                     <div>
                       <Text weight="semibold" size={500} block>{seleccion.curso}</Text>
                       <Text size={200} style={{ color: 'var(--texto-suave)' }}>{seleccion.nivel} · {seleccion.records.length} asignatura(s)</Text>
