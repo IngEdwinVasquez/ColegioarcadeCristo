@@ -873,3 +873,103 @@ export interface Persona {
   tipo: PersonaTipo
   createdAt: string
 }
+
+// ------------------------------ Registro de Grado (MINERD) ------------------------------
+
+/** Calificaciones de un estudiante en una asignatura (columnas del registro MINERD). */
+export interface RegistroCalificacion {
+  /** C.F. (calificación final de la asignatura, arrastrada) */
+  cf?: string
+  /** Calificación completiva: 50% C.F. */
+  comp50?: string
+  /** Calificación completiva: C.E.C. */
+  compCec?: string
+  /** Calificación completiva: 30% C.E.C. */
+  comp30?: string
+  /** Calificación completiva: C.C.F. */
+  compCcf?: string
+  /** Calificación extraordinaria: 30% C.F. */
+  ext30?: string
+  /** Calificación extraordinaria: C.EX. */
+  extCex?: string
+  /** Calificación extraordinaria: 70% C.EX. */
+  ext70?: string
+  /** Calificación extraordinaria: C.EX.F. */
+  extCexf?: string
+  /** Calificaciones especiales: C.F. */
+  espCf?: string
+  /** Calificaciones especiales: C.E. */
+  espCe?: string
+  /** Situación final en la asignatura: A (aprobado) / R (reprobado) */
+  situacion?: string
+}
+
+export interface RegistroFamiliar {
+  nombre?: string
+  parentesco?: string
+  telefono?: string
+  ocupacion?: string
+  direccion?: string
+}
+
+/** Estudiante dentro del registro de grado. Su número de orden = fila en Datos generales. */
+export interface RegistroStudent {
+  studentId?: string
+  number: number
+  apellidos: string
+  nombres: string
+  sexo?: string
+  nacimiento?: string
+  emergenciaNombre?: string
+  emergenciaParentesco?: string
+  emergenciaTelefono?: string
+  emergenciaDireccion?: string
+  familiares?: RegistroFamiliar[]
+}
+
+export interface RegistroCentro {
+  nombre?: string
+  codigo?: string
+  direccion?: string
+  correo?: string
+  telefono?: string
+  codigoGestion?: string
+  sigerd?: string
+  director?: string
+  directorCorreo?: string
+  directorTelefono?: string
+  docenteEncargado?: string
+  regional?: string
+  distrito?: string
+  sector?: string
+  zona?: string
+  jornada?: string
+}
+
+/** Periodos del registro (I, II, III, IV) con texto por periodo. */
+export type RegistroPeriodos = { p1?: string; p2?: string; p3?: string; p4?: string }
+
+/** Registro de grado de un curso en un año escolar. */
+export interface GradeRegister {
+  id: string
+  level: string
+  nivel: string
+  ciclo: string
+  curso: string
+  gradeId: string
+  periodId: string
+  plantillaNombre?: string
+  plantillaUrl?: string
+  centro?: RegistroCentro
+  estudiantes: RegistroStudent[]
+  /** Asistencia y puntualidad por número de estudiante (días asistidos/ausencias/tardanzas por periodo). */
+  asistencia?: Record<string, RegistroPeriodos>
+  /** Especificaciones curriculares por asignatura y periodo. */
+  especificaciones?: Record<string, RegistroPeriodos>
+  /** Calificaciones por asignatura → número de estudiante → calificaciones. */
+  calificaciones?: Record<string, Record<string, RegistroCalificacion>>
+  /** Promoción de grado por número de estudiante (A/R). */
+  promocion?: Record<string, string>
+  createdAt: string
+  updatedAt: string
+}
