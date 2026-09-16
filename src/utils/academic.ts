@@ -62,8 +62,9 @@ export const seccionDe = (curso: GradeSection): string => {
   return m ? m[1].toUpperCase() : 'A'
 }
 
-/** Extrae el grado (normalizado a 1ro…6to) desde cualquier parte del nombre. */
+/** Extrae el grado (normalizado a 1ro…6to) desde el campo `grado` o del nombre. */
 export const gradoDe = (curso: GradeSection): string => {
+  if (curso.grado) return curso.grado.trim()
   const m = curso.name.match(GRADO_RE)
   if (!m) return ''
   const num = ORD[m[1].toLowerCase()]
