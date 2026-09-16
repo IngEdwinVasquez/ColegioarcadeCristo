@@ -15,6 +15,7 @@ import type {
   Enrollment,
   Grade,
   GradeSection,
+  GradeRegister,
   Period,
   Persona,
   CourseSubject,
@@ -99,6 +100,7 @@ export const collections = {
     courseSubjects: collection<CourseSubject>(SPO_LISTS.courseSubjects),
     promotions: collection<PromotionRecord>(SPO_LISTS.promotions),
     sigerdReports: collection<SigerdReport>(SPO_LISTS.sigerdReports),
+    gradeRegisters: collection<GradeRegister>(SPO_LISTS.gradeRegisters),
 }
 
 export const dataService = {
@@ -239,6 +241,10 @@ export const dataService = {
   getSigerdReports: collections.sigerdReports.getAll,
   saveSigerdReport: collections.sigerdReports.save,
   deleteSigerdReport: collections.sigerdReports.remove,
+  // Registro de grado (MINERD)
+  getGradeRegisters: collections.gradeRegisters.getAll,
+  saveGradeRegister: collections.gradeRegisters.save,
+  deleteGradeRegister: collections.gradeRegisters.remove,
 }
 
 export type DataService = typeof dataService
