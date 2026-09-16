@@ -7,6 +7,7 @@ import { AcompanamientosPage } from '../modules/coordinacion/AcompanamientosPage
 import { CumplimientoPage } from '../modules/coordinacion/CumplimientoPage'
 import { PlanificacionNivel } from '../modules/coordinacion/PlanificacionNivel'
 import { AulasNivelPage } from '../modules/coordinacion/AulasNivelPage'
+import { RegistroGradoPage } from '../modules/registro/RegistroGradoPage'
 import { GestionTicPage } from '../modules/tecnologia/GestionTicPage'
 import { AcademicaTecPage } from '../modules/tecnologia/AcademicaTecPage'
 import { AsignacionesPage } from '../modules/administrativo/AsignacionesPage'
@@ -38,6 +39,7 @@ const NAV: NavItem[] = [
   { to: '/coordinacion/asignaciones', label: 'Asignaciones', icon: <LinkSquareRegular />, group: 'Académico' },
   { to: '/coordinacion/gestion-academica', label: 'Gestión académica', icon: <BookRegular />, group: 'Académico' },
   { to: '/coordinacion/aulas', label: 'Aulas del nivel', icon: <VideoRegular />, group: 'Académico' },
+  { to: '/coordinacion/registro-grado', label: 'Registro de Grado', icon: <BookRegular />, group: 'Académico' },
   { to: '/coordinacion/gestion-tic', label: 'Gestión de Coordinación Pedagógica', icon: <ClipboardTaskRegular />, group: 'Gestión' },
   { to: '/coordinacion/copilot', label: 'Copilot', icon: <SparkleRegular />, group: 'Herramientas' },
 ]
@@ -56,6 +58,7 @@ export function CoordPortal() {
         <Route path="asignaciones" element={<AsignacionesPage />} />
         <Route path="gestion-academica" element={<AcademicaTecPage />} />
         <Route path="aulas" element={<AulasNivelPage />} />
+        <Route path="registro-grado" element={<RegistroGradoPage scope={{ kind: 'coordinacion' }} />} />
         <Route path="gestion-tic" element={<GestionTicPage title="Gestión de Coordinación Pedagógica" />} />
         <Route path="copilot" element={<CopilotPage />} />
       </Route>

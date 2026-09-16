@@ -8,6 +8,7 @@ import { PlanificadorPage } from '../modules/planificador/PlanificadorPage'
 import { MisAulasPage } from '../modules/docente/MisAulasPage'
 import { AulaPage } from '../modules/docente/AulaPage'
 import { MisClasesPage } from '../modules/docente/MisClasesPage'
+import { MiRegistroGradoPage } from '../modules/registro/RegistroGradoPage'
 import { ClaseDocenteDetail } from '../modules/docente/ClaseDocenteDetail'
 import { RecursosPage } from '../modules/docente/RecursosPage'
 import { PortafolioPage } from '../modules/docente/PortafolioPage'
@@ -24,11 +25,13 @@ import {
   ChatRegular,
   SparkleRegular,
   VideoRegular,
+  BookRegular,
 } from '@fluentui/react-icons'
 
 const NAV: NavItem[] = [
   { to: '/docentes', label: 'Inicio', icon: <HomeRegular />, end: true, group: 'General' },
   { to: '/docentes/aulas', label: 'Mis Aulas', icon: <VideoRegular />, group: 'Académico' },
+  { to: '/docentes/registro-grado', label: 'Registro de Grado', icon: <BookRegular />, group: 'Académico' },
   { to: '/docentes/planificador-ia', label: 'Planificador IA', icon: <SparkleRegular />, group: 'Académico' },
   { to: '/docentes/encuentros', label: 'Encuentros Virtuales', icon: <VideoPersonRegular />, group: 'Comunidad' },
   { to: '/docentes/comunicados', label: 'Comunicados', icon: <MegaphoneRegular />, group: 'Comunidad' },
@@ -42,6 +45,7 @@ export function DocentesPortal() {
       <Route element={<AppShell nav={NAV} />}>
         <Route index element={<DocenteDashboard />} />
         <Route path="aulas" element={<MisAulasPage />} />
+        <Route path="registro-grado" element={<MiRegistroGradoPage />} />
         <Route path="aulas/:gradeId/:section" element={<AulaPage />} />
         <Route path="aulas/:gradeId/:section/:subjectId" element={<MisClasesPage />} />
         <Route path="aulas/:gradeId/:section/:subjectId/clase/:classId" element={<ClaseDocenteDetail />} />
