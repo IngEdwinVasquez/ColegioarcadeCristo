@@ -33,11 +33,13 @@ const PERSON_TYPES = [
   { value: 'siger', label: 'SIGERD' },
   { value: 'apoyo', label: 'Personal de apoyo' },
   { value: 'psicologia', label: 'Orientación y Psicología' },
+  { value: 'prometacom', label: 'Prometacom' },
+  { value: 'pasante', label: 'Pasante' },
 ] as const
 
 type TipoOp = (typeof PERSON_TYPES)[number]['value']
 
-const ROLE_OF: Record<TipoOp, Role> = { estudiante: 'estudiante', docente: 'docente', padre: 'padre', coordinador: 'coordinacion', tic: 'tecnologia', director: 'admin', administrador: 'admin', siger: 'admin', apoyo: 'admin', psicologia: 'psicologia' }
+const ROLE_OF: Record<TipoOp, Role> = { estudiante: 'estudiante', docente: 'docente', padre: 'padre', coordinador: 'coordinacion', tic: 'tecnologia', director: 'admin', administrador: 'admin', siger: 'admin', apoyo: 'admin', psicologia: 'psicologia', prometacom: 'psicologia', pasante: 'docente' }
 const LINK_OF: Record<TipoOp, (id: string) => LinkTarget> = {
   estudiante: (id) => ({ studentId: id }),
   docente: (id) => ({ teacherId: id }),
@@ -49,6 +51,8 @@ const LINK_OF: Record<TipoOp, (id: string) => LinkTarget> = {
   siger: () => ({}),
   apoyo: () => ({}),
   psicologia: () => ({}),
+  prometacom: () => ({}),
+  pasante: () => ({}),
 }
 const labelOf = (t: TipoOp) => PERSON_TYPES.find((p) => p.value === t)?.label ?? t
 
@@ -56,7 +60,7 @@ const labelOf = (t: TipoOp) => PERSON_TYPES.find((p) => p.value === t)?.label ??
 const TIPO_GROUPS: Array<{ label: string; values: TipoOp[] }> = [
   { label: 'Estudiantes', values: ['estudiante'] },
   { label: 'Docentes', values: ['docente'] },
-  { label: 'Personal', values: ['coordinador', 'tic', 'director', 'administrador', 'siger', 'apoyo', 'psicologia'] },
+  { label: 'Personal', values: ['coordinador', 'tic', 'director', 'administrador', 'siger', 'apoyo', 'psicologia', 'prometacom', 'pasante'] },
   { label: 'Familias', values: ['padre'] },
 ]
 
@@ -289,6 +293,50 @@ export function PersonasPage() {
     { header: 'Cambiar a', render: (p) => tipoCell(p.tipo, p) },
   ]
 
+  /** Mantenimiento de personal (Personas) filtrado por categoría. */
+  const personaCrud = (title: string, tipos: TipoOp[], defaultTipo: TipoOp, conNivel = false) => (
+    <EntityCrud<Persona>
+      title={title}
+      items={personasCol.items.filter((p) => tipos.includes(p.tipo as TipoOp))}
+      loading={personasCol.loading}
+      columns={personaColumns}
+      searchText={(p) => `${p.fullName} ${p.email}`}
+      newLabel={`Registrar ${title.toLowerCase()}`}
+      createDefault={() => ({ id: genId('p'), fullName: '', email: '', userId: undefined, tipo: defaultTipo as Persona['tipo'], createdAt: new Date().toISOString() })}
+      renderForm={(p, set) => (
+        <div>
+          <FormField label="Nombre completo" required>
+            <Input value={p.fullName} onChange={(_, d) => set({ ...p, fullName: d.value })} />
+          </FormField>
+          <EntraUserPicker
+            value={p.userId}
+            takenIds={takenPersonaUsers}
+            onChange={(u) => set({ ...p, userId: u?.id, email: u ? entraEmail(u) : '', fullName: u?.displayName ?? p.fullName })}
+            hint="Obligatorio. La cuenta recibirá el rol correspondiente."
+          />
+          <FormField label="Posición / Tipo">
+            <Select value={p.tipo} onChange={(_, d) => set({ ...p, tipo: d.value as Persona['tipo'] })}>
+              {tipos.map((t) => (<option key={t} value={t}>{labelOf(t)}</option>))}
+            </Select>
+          </FormField>
+          {conNivel && p.tipo === 'coordinador' && (
+            <FormField label="Nivel de coordinación" hint="Determina qué nivel verá en el portal de Coordinación Pedagógica.">
+              <Select value={p.nivel ?? ''} onChange={(_, d) => set({ ...p, nivel: (d.value || undefined) as Persona['nivel'] })}>
+                <option value="">— Sin definir —</option>
+                <option value="Inicial">Inicial</option>
+                <option value="Primaria">Primaria</option>
+                <option value="Secundaria">Secundaria</option>
+              </Select>
+            </FormField>
+          )}
+        </div>
+      )}
+      onSave={savePersona}
+      onDelete={deletePersona}
+      emptyMessage={`Registre ${title.toLowerCase()}.`}
+    />
+  )
+
   return (
     <div>
       <PageHeader
@@ -306,6 +354,14 @@ export function PersonasPage() {
         <Tab value="docentes">Docentes ({teachers.length})</Tab>
         <Tab value="padres">Familias ({guardiansCol.items.length})</Tab>
         <Tab value="personas">Personal ({personasCol.items.length})</Tab>
+        <Tab value="coordinacion">Coordinación Pedagógica ({personasCol.items.filter((p) => p.tipo === 'coordinador').length})</Tab>
+        <Tab value="tecnologia">Tecnología ({personasCol.items.filter((p) => p.tipo === 'tic').length})</Tab>
+        <Tab value="psicologia">Psicología y Prometacom ({personasCol.items.filter((p) => p.tipo === 'psicologia' || p.tipo === 'prometacom').length})</Tab>
+        <Tab value="padres-tab">Padres ({guardiansCol.items.length})</Tab>
+        <Tab value="pasantes">Pasantes ({personasCol.items.filter((p) => p.tipo === 'pasante').length})</Tab>
+        <Tab value="apoyo">Personal de apoyo ({personasCol.items.filter((p) => p.tipo === 'apoyo').length})</Tab>
+        <Tab value="directores">Directores ({personasCol.items.filter((p) => p.tipo === 'director').length})</Tab>
+        <Tab value="administradores">Administradores ({personasCol.items.filter((p) => p.tipo === 'administrador').length})</Tab>
       </TabList>
 
       {tab === 'estudiantes' && (
@@ -415,7 +471,7 @@ export function PersonasPage() {
         />
       )}
 
-      {tab === 'padres' && (
+      {(tab === 'padres' || tab === 'padres-tab') && (
         <EntityCrud<StudentGuardian>
           title="Padres y tutores"
           items={guardiansCol.items}
@@ -506,6 +562,14 @@ export function PersonasPage() {
             emptyMessage="Registre al personal institucional: coordinadores, TIC, dirección, administración, SIGERD, apoyo y orientación/psicología."
         />
       )}
+
+      {tab === 'coordinacion' && personaCrud('Coordinación Pedagógica', ['coordinador'], 'coordinador', true)}
+      {tab === 'tecnologia' && personaCrud('Tecnología', ['tic'], 'tic')}
+      {tab === 'psicologia' && personaCrud('Psicología y Prometacom', ['psicologia', 'prometacom'], 'psicologia')}
+      {tab === 'pasantes' && personaCrud('Pasantes', ['pasante'], 'pasante')}
+      {tab === 'apoyo' && personaCrud('Personal de apoyo', ['apoyo'], 'apoyo')}
+      {tab === 'directores' && personaCrud('Directores', ['director'], 'director')}
+      {tab === 'administradores' && personaCrud('Administradores', ['administrador'], 'administrador')}
     </div>
   )
 }
