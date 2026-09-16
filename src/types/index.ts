@@ -96,6 +96,8 @@ export interface SigerdHeader {
 export interface SigerdReport {
   id: string
   header: SigerdHeader
+  /** Nivel educativo del PDF importado (Inicial, Primaria o Secundaria). */
+  nivel?: string
   curso?: string
   periodId?: string
   studentsCount: number
