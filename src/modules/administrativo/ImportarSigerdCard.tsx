@@ -31,11 +31,20 @@ const upnBase = (s: SigerdStudent) => {
   return primerApellido ? `${primerNombre}.${primerApellido}` : primerNombre
 }
 
-const GRADO_WORD: Record<string, number> = {
-  primero: 1, segundo: 2, tercero: 3, cuarto: 4, quinto: 5, sexto: 6,
-  '1ro': 1, '2do': 2, '3ro': 3, '4to': 4, '5to': 5, '6to': 6,
+const GRADO_MAP: Array<[RegExp, number]> = [
+  [/\b(1ro|1er|primero|primer)\b/, 1],
+  [/\b(2do|segundo)\b/, 2],
+  [/\b(3ro|3er|tercero|tercer)\b/, 3],
+  [/\b(4to|cuarto)\b/, 4],
+  [/\b(5to|quinto)\b/, 5],
+  [/\b(6to|sexto)\b/, 6],
+]
+/** Detecta el grado (1…6) aunque venga como texto, p. ej. "Cuarto grado" o "4to. Grado". */
+const numGrado = (g?: string) => {
+  const t = (g ?? '').trim().toLowerCase()
+  for (const [re, n] of GRADO_MAP) if (re.test(t)) return n
+  return null
 }
-const numGrado = (g?: string) => GRADO_WORD[(g ?? '').trim().toLowerCase()] ?? null
 const norm = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z ]/g, ' ').replace(/\s+/g, ' ').trim().toLowerCase()
 const isoNac = (d?: string) => {
   const m = (d ?? '').match(/(\d{2})\/(\d{2})\/(\d{4})/)
