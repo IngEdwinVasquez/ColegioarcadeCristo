@@ -15,9 +15,13 @@ import { dataService } from '../../services/dataService'
 import { useCollection } from '../../hooks/useCollection'
 import { uploadAndShare } from '../../services/onedrive'
 import { graphErrorMessage } from '../../services/graph'
+import { appConfig } from '../../config/appConfig'
 import { genId } from '../../utils/helpers'
 import { cursoNombre, nivelShort, asignaturaDe, isRealSubject, ordenarCursos } from '../../utils/academic'
-import type { Enrollment, GradeRegister, RegistroCalificacion, RegistroPeriodos, RegistroStudent, TeacherAssignment } from '../../types'
+import type {
+  Activity, AttendanceRecord, Enrollment, Grade, GradeRegister, Persona, RegistroCalificacion,
+  RegistroCentro, RegistroPeriodos, RegistroStudent, SigerdReport, StudentGuardian, TeacherAssignment,
+} from '../../types'
 
 const PERIODOS: Array<{ key: keyof RegistroPeriodos; label: string }> = [
   { key: 'p1', label: 'I' }, { key: 'p2', label: 'II' }, { key: 'p3', label: 'III' }, { key: 'p4', label: 'IV' },
@@ -98,10 +102,16 @@ interface Props {
 export function RegistroGradoPage({ scope, title = 'Registro de Grado', subtitle }: Props) {
   const styles = useStyles()
   const toaster = useToastController()
-  const { grades, periods, students, studentById } = useApp()
+  const { grades, periods, students, studentById, subjects, teacherById } = useApp()
   const registrosCol = useCollection<GradeRegister>(dataService.getGradeRegisters, dataService.saveGradeRegister, dataService.deleteGradeRegister)
   const enrollmentsCol = useCollection<Enrollment>(dataService.getEnrollments)
   const assignmentsCol = useCollection<TeacherAssignment>(dataService.getTeacherAssignments)
+  const reportsCol = useCollection<SigerdReport>(dataService.getSigerdReports)
+  const personasCol = useCollection<Persona>(dataService.getPersonas)
+  const guardiansCol = useCollection<StudentGuardian>(dataService.getGuardians)
+  const attendanceCol = useCollection<AttendanceRecord>(dataService.getAttendance)
+  const activitiesCol = useCollection<Activity>(dataService.getActivities)
+  const scoresCol = useCollection<Grade>(dataService.getScores)
   const coord = useCoordinationLevel()
 
   const esCoord = scope.kind === 'coordinacion'
@@ -171,6 +181,128 @@ export function RegistroGradoPage({ scope, title = 'Registro de Grado', subtitle
     return [...new Set([...byEnr, ...direct])].map((id) => studentById(id)).filter((s): s is NonNullable<typeof s> => !!s)
   }
 
+  /** Prellena el registro con la información existente en la plataforma. */
+  const preencher = async (reg: GradeRegister): Promise<GradeRegister> => {
+    const centro: RegistroCentro = { ...(reg.centro ?? {}) }
+    centro.nombre ||= appConfig.institution
+    centro.direccion ||= appConfig.contact.address
+    centro.correo ||= appConfig.contact.email
+    centro.telefono ||= appConfig.contact.phone
+    try {
+      const reports = reportsCol.items.length ? reportsCol.items : await dataService.getSigerdReports()
+      const h = [...reports].sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))[0]?.header
+      if (!centro.nombre && h?.centroEducativo) centro.nombre = h.centroEducativo
+      if (!centro.regional && h?.direccionRegional) centro.regional = h.direccionRegional
+      if (!centro.distrito && h?.distritoEducativo) centro.distrito = h.distritoEducativo
+      if (!centro.sector && h?.sector) centro.sector = h.sector
+      if (!centro.jornada && h?.tandaServicio) centro.jornada = h.tandaServicio
+    } catch { /* sin reportes SIGERD */ }
+    try {
+      const personas = personasCol.items.length ? personasCol.items : await dataService.getPersonas()
+      const dir = personas.find((p) => p.tipo === 'director')
+      if (!centro.director && dir) centro.director = dir.fullName
+    } catch { /* sin personas */ }
+    const lead = grades.find((g) => cursoNombre(g) === reg.curso)?.leadTeacherId
+    if (!centro.docenteEncargado && lead) centro.docenteEncargado = teacherById(lead)?.fullName
+
+    let guardians: StudentGuardian[] = guardiansCol.items
+    if (!guardians.length) { try { guardians = await dataService.getGuardians() } catch { guardians = [] } }
+
+    const lista = estudiantesCurso(reg.curso)
+    const estudiantes: RegistroStudent[] = lista.map((s, i) => {
+      const prev = reg.estudiantes.find((e) => e.studentId === s.id)
+      const sg = s.sigerd
+      const apellidos = sg ? `${sg.primerApellido ?? ''} ${sg.segundoApellido ?? ''}`.trim() : (s.fullName.split(' ').slice(1).join(' ') || s.fullName)
+      const nombres = (sg?.nombres || s.fullName.split(' ')[0] || '').trim()
+      const fam = guardians.filter((g) => g.studentId === s.id)
+      return {
+        studentId: s.id,
+        number: i + 1,
+        apellidos: prev?.apellidos || apellidos,
+        nombres: prev?.nombres || nombres,
+        nacimiento: prev?.nacimiento || s.birthDate || sg?.nacimiento,
+        emergenciaNombre: prev?.emergenciaNombre || fam[0]?.fullName || s.parentName,
+        emergenciaParentesco: prev?.emergenciaParentesco || fam[0]?.parentesco,
+        emergenciaTelefono: prev?.emergenciaTelefono || fam[0]?.phone,
+        familiares: prev?.familiares?.length ? prev.familiares : fam.map((f) => ({ nombre: f.fullName, parentesco: f.parentesco, telefono: f.phone })),
+      }
+    })
+
+    // Calificaciones: C.F. = promedio de las calificaciones existentes por asignatura.
+    const calificaciones: Record<string, Record<string, RegistroCalificacion>> = { ...(reg.calificaciones ?? {}) }
+    try {
+      const activities = activitiesCol.items.length ? activitiesCol.items : await dataService.getActivities()
+      const scores = scoresCol.items.length ? scoresCol.items : await dataService.getScores()
+      const gradeIds = new Set(grades.filter((g) => cursoNombre(g) === reg.curso).map((g) => g.id))
+      const asignaturas = reg.nivel === 'Inicial'
+        ? DOMINIOS
+        : [...new Set(grades.filter((g) => cursoNombre(g) === reg.curso && isRealSubject(asignaturaDe(g))).map((g) => asignaturaDe(g)))].sort((a, b) => a.localeCompare(b))
+      const subjName = new Map(subjects.map((s) => [s.id, s.name.trim().toLowerCase()]))
+      const porAsig = new Map<string, Activity[]>()
+      for (const a of activities) {
+        if (!gradeIds.has(a.gradeId)) continue
+        const asig = asignaturas.find((x) => x.trim().toLowerCase() === subjName.get(a.subjectId))
+        if (!asig) continue
+        porAsig.set(asig, [...(porAsig.get(asig) ?? []), a])
+      }
+      for (const [asig, acts] of porAsig) {
+        const actIds = new Set(acts.map((a) => a.id))
+        const points = new Map(acts.map((a) => [a.id, a.points || 0]))
+        calificaciones[asig] = { ...(calificaciones[asig] ?? {}) }
+        for (const e of estudiantes) {
+          if (!e.studentId) continue
+          const key = String(e.number)
+          if (calificaciones[asig][key]?.cf) continue
+          let got = 0
+          let total = 0
+          for (const sc of scores) {
+            if (sc.studentId !== e.studentId || !actIds.has(sc.activityId)) continue
+            got += sc.score
+            total += points.get(sc.activityId) ?? 0
+          }
+          if (total > 0) calificaciones[asig][key] = { ...(calificaciones[asig][key] ?? {}), cf: String(Math.round((got / total) * 100)) }
+        }
+      }
+    } catch { /* sin calificaciones */ }
+
+    // Asistencia: conteo por periodo a partir de los registros de asistencia.
+    const asistencia: Record<string, RegistroPeriodos> = { ...(reg.asistencia ?? {}) }
+    try {
+      const att = attendanceCol.items.length ? attendanceCol.items : await dataService.getAttendance()
+      const gradeIds = new Set(grades.filter((g) => cursoNombre(g) === reg.curso).map((g) => g.id))
+      const periodoDe = (fecha: string) => { const m = Number((fecha ?? '').slice(5, 7)); return m <= 3 ? 'p1' : m <= 6 ? 'p2' : m <= 9 ? 'p3' : 'p4' }
+      const counts = new Map<string, Record<string, { p: number; a: number; t: number; j: number }>>()
+      for (const rec of att) {
+        if (!gradeIds.has(rec.gradeId)) continue
+        const pk = periodoDe(rec.date)
+        for (const en of rec.entries) {
+          const byP = counts.get(en.studentId) ?? {}
+          const c = byP[pk] ?? { p: 0, a: 0, t: 0, j: 0 }
+          if (en.status === 'presente') c.p += 1
+          else if (en.status === 'ausente') c.a += 1
+          else if (en.status === 'tarde') c.t += 1
+          else c.j += 1
+          byP[pk] = c
+          counts.set(en.studentId, byP)
+        }
+      }
+      for (const e of estudiantes) {
+        if (!e.studentId) continue
+        const byP = counts.get(e.studentId)
+        if (!byP) continue
+        const key = String(e.number)
+        const val = { ...(asistencia[key] ?? {}) }
+        for (const p of PERIODOS) {
+          const c = byP[p.key]
+          if (c && !val[p.key]) val[p.key] = `P:${c.p} A:${c.a} T:${c.t} J:${c.j}`
+        }
+        asistencia[key] = val
+      }
+    } catch { /* sin asistencia */ }
+
+    return { ...reg, centro, estudiantes, calificaciones, asistencia }
+  }
+
   const abrirNuevo = () => {
     setNuevoCurso(cursosPermitidos[0]?.nombre ?? '')
     setPlantilla({})
@@ -221,10 +353,11 @@ export function RegistroGradoPage({ scope, title = 'Registro de Grado', subtitle
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       }
-      await registrosCol.save(reg)
-      toaster.dispatchToast('Registro de grado creado.', { intent: 'success' })
+      const full = await preencher(reg)
+      await registrosCol.save(full)
+      toaster.dispatchToast('Registro de grado creado y prellenado.', { intent: 'success' })
       setOpenNew(false)
-      setDetalle(reg)
+      setDetalle(full)
     } catch (e) {
       toaster.dispatchToast(graphErrorMessage(e), { intent: 'error' })
     } finally {
@@ -372,7 +505,7 @@ export function RegistroGradoPage({ scope, title = 'Registro de Grado', subtitle
 
                   {tab === 'centro' && (
                     <FieldRow>
-                      {([['nombre', 'Nombre del centro'], ['codigo', 'Código de gestión'], ['sigerd', 'SIGERD'], ['direccionRegional', 'Dirección regional'], ['distrito', 'Distrito'], ['director', 'Director del centro'], ['docenteEncargado', 'Docente encargado'], ['telefono', 'Teléfono'], ['correo', 'Correo'], ['jornada', 'Jornada'], ['sector', 'Sector'], ['zona', 'Zona']] as Array<[keyof NonNullable<GradeRegister['centro']>, string]>).map(([k, label]) => (
+                      {([['nombre', 'Nombre del centro'], ['codigo', 'Código de gestión'], ['sigerd', 'SIGERD'], ['regional', 'Dirección regional'], ['distrito', 'Distrito'], ['director', 'Director del centro'], ['docenteEncargado', 'Docente encargado'], ['telefono', 'Teléfono'], ['correo', 'Correo'], ['jornada', 'Jornada'], ['sector', 'Sector'], ['zona', 'Zona']] as Array<[keyof NonNullable<GradeRegister['centro']>, string]>).map(([k, label]) => (
                         <FormField key={k} label={label}>
                           <Input value={(draft.centro?.[k] as string) ?? ''} onChange={(_, d) => setDraft({ ...draft, centro: { ...(draft.centro ?? {}), [k]: d.value } })} />
                         </FormField>
@@ -637,6 +770,7 @@ export function RegistroGradoPage({ scope, title = 'Registro de Grado', subtitle
             </DialogContent>
             <DialogActions>
               {draft?.plantillaUrl && <Button appearance="secondary" as="a" href={draft.plantillaUrl} target="_blank" rel="noopener noreferrer" icon={<DocumentPdfRegular />}>Ver plantilla</Button>}
+              <Button appearance="secondary" icon={<PeopleRegular />} disabled={busy} onClick={() => { if (draft) void preencher(draft).then(setDraft) }}>Prellenar con la plataforma</Button>
               <Button appearance="secondary" onClick={() => setDraft(null)}>Cerrar</Button>
               <Button appearance="primary" icon={busy ? <Spinner size="tiny" /> : <SaveRegular />} disabled={busy} onClick={() => void guardar()}>Guardar</Button>
             </DialogActions>
