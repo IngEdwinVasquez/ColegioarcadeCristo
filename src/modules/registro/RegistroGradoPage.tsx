@@ -425,8 +425,9 @@ export function RegistroGradoPage({ scope, title = 'Registro de Grado', subtitle
       }
       const next = { ...draft, calificaciones: calDerivada, updatedAt: new Date().toISOString() }
       await registrosCol.save(next)
-      setDetalle(next)
       toaster.dispatchToast('Registro guardado.', { intent: 'success' })
+      setDraft(null)
+      setDetalle(null)
     } catch (e) {
       toaster.dispatchToast(graphErrorMessage(e), { intent: 'error' })
     } finally {
