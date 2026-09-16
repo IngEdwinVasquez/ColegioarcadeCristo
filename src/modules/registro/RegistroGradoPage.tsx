@@ -23,20 +23,44 @@ const PERIODOS: Array<{ key: keyof RegistroPeriodos; label: string }> = [
   { key: 'p1', label: 'I' }, { key: 'p2', label: 'II' }, { key: 'p3', label: 'III' }, { key: 'p4', label: 'IV' },
 ]
 
-const CAL_COLS: Array<{ key: keyof RegistroCalificacion; label: string; grupo: string }> = [
-  { key: 'cf', label: 'C.F.', grupo: 'C.F.' },
-  { key: 'comp50', label: '50% C.F.', grupo: 'COMPLETIVA' },
-  { key: 'compCec', label: 'C.E.C.', grupo: 'COMPLETIVA' },
-  { key: 'comp30', label: '30% C.E.C.', grupo: 'COMPLETIVA' },
-  { key: 'compCcf', label: 'C.C.F.', grupo: 'COMPLETIVA' },
-  { key: 'ext30', label: '30% C.F.', grupo: 'EXTRAORDINARIA' },
-  { key: 'extCex', label: 'C.EX.', grupo: 'EXTRAORDINARIA' },
-  { key: 'ext70', label: '70% C.EX.', grupo: 'EXTRAORDINARIA' },
-  { key: 'extCexf', label: 'C.EX.F.', grupo: 'EXTRAORDINARIA' },
-  { key: 'espCf', label: 'C.F.', grupo: 'ESPECIALES' },
-  { key: 'espCe', label: 'C.E.', grupo: 'ESPECIALES' },
-  { key: 'situacion', label: 'A/R', grupo: 'SITUACIÓN FINAL' },
+const CAL_COLS: Array<{ key: keyof RegistroCalificacion; label: string; grupo: string; editable: boolean }> = [
+  { key: 'cf', label: 'C.F.', grupo: 'C.F.', editable: true },
+  { key: 'comp50', label: '50% C.F.', grupo: 'COMPLETIVA', editable: false },
+  { key: 'compCec', label: 'C.E.C.', grupo: 'COMPLETIVA', editable: true },
+  { key: 'comp30', label: '30% C.E.C.', grupo: 'COMPLETIVA', editable: false },
+  { key: 'compCcf', label: 'C.C.F.', grupo: 'COMPLETIVA', editable: false },
+  { key: 'ext30', label: '30% C.F.', grupo: 'EXTRAORDINARIA', editable: false },
+  { key: 'extCex', label: 'C.EX.', grupo: 'EXTRAORDINARIA', editable: true },
+  { key: 'ext70', label: '70% C.EX.', grupo: 'EXTRAORDINARIA', editable: false },
+  { key: 'extCexf', label: 'C.EX.F.', grupo: 'EXTRAORDINARIA', editable: false },
+  { key: 'espCf', label: 'C.F.', grupo: 'ESPECIALES', editable: true },
+  { key: 'espCe', label: 'C.E.', grupo: 'ESPECIALES', editable: true },
+  { key: 'situacion', label: 'A/R', grupo: 'SITUACIÓN FINAL', editable: false },
 ]
+
+/** Dominios de desarrollo del Nivel Inicial. */
+const DOMINIOS = ['Socioemocional', 'Cognitivo', 'Lenguaje', 'Físico y motor', 'Artístico']
+const ESCALA_INICIAL = ['', 'I', 'EP', 'L', 'N/E']
+
+const num = (v?: string): number | null => {
+  const n = parseFloat(String(v ?? '').replace(',', '.'))
+  return Number.isFinite(n) ? n : null
+}
+
+/** Calcula las ponderaciones y la situación final a partir de C.F., C.E.C. y C.EX. */
+function deriveCal(c: RegistroCalificacion): RegistroCalificacion {
+  const cf = num(c.cf), cec = num(c.compCec), cex = num(c.extCex)
+  const comp50 = cf != null ? Math.round(cf * 0.5) : undefined
+  const comp30 = cec != null ? Math.round(cec * 0.3) : undefined
+  const compCcf = comp50 != null && comp30 != null ? comp50 + comp30 : (comp50 ?? comp30)
+  const ext30 = cf != null ? Math.round(cf * 0.3) : undefined
+  const ext70 = cex != null ? Math.round(cex * 0.7) : undefined
+  const extCexf = ext30 != null && ext70 != null ? ext30 + ext70 : (ext30 ?? ext70)
+  const ref = extCexf ?? compCcf
+  const situacion = ref == null ? (c.situacion ?? '') : ref >= 65 ? 'A' : 'R'
+  const s = (v?: number) => (v == null ? undefined : String(v))
+  return { ...c, comp50: s(comp50), comp30: s(comp30), compCcf: s(compCcf), ext30: s(ext30), ext70: s(ext70), extCexf: s(extCexf), situacion }
+}
 
 const useStyles = makeStyles({
   card: { padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '16px' },
@@ -88,6 +112,7 @@ export function RegistroGradoPage({ scope, title = 'Registro de Grado', subtitle
   const [detalle, setDetalle] = useState<GradeRegister | null>(null)
   const [draft, setDraft] = useState<GradeRegister | null>(null)
   const [tab, setTab] = useState('centro')
+  const [periodoInicial, setPeriodoInicial] = useState('p1')
   const [busy, setBusy] = useState(false)
   const [nuevoCurso, setNuevoCurso] = useState('')
   const [nuevoPeriodo, setNuevoPeriodo] = useState(periods.find((p) => p.isActive)?.id ?? periods[0]?.id ?? '')
@@ -135,6 +160,9 @@ export function RegistroGradoPage({ scope, title = 'Registro de Grado', subtitle
     if (!curso) return []
     return [...new Set(grades.filter((g) => cursoNombre(g) === curso && isRealSubject(asignaturaDe(g))).map((g) => asignaturaDe(g)))].sort((a, b) => a.localeCompare(b))
   }, [grades, draft])
+
+  const esInicial = draft?.nivel === 'Inicial'
+  const areasCurso = esInicial ? DOMINIOS : asignaturasCurso
 
   const estudiantesCurso = (curso: string) => {
     const ids = new Set(grades.filter((g) => cursoNombre(g) === curso).map((g) => g.id))
@@ -208,7 +236,12 @@ export function RegistroGradoPage({ scope, title = 'Registro de Grado', subtitle
     if (!draft) return
     setBusy(true)
     try {
-      const next = { ...draft, updatedAt: new Date().toISOString() }
+      const calDerivada: Record<string, Record<string, RegistroCalificacion>> = {}
+      for (const [a, porEst] of Object.entries(draft.calificaciones ?? {})) {
+        calDerivada[a] = {}
+        for (const [k, c] of Object.entries(porEst)) calDerivada[a][k] = deriveCal(c)
+      }
+      const next = { ...draft, calificaciones: calDerivada, updatedAt: new Date().toISOString() }
       await registrosCol.save(next)
       setDetalle(next)
       toaster.dispatchToast('Registro guardado.', { intent: 'success' })
@@ -240,7 +273,7 @@ export function RegistroGradoPage({ scope, title = 'Registro de Grado', subtitle
     setDraft({ ...draft, calificaciones: cal })
   }
 
-  const puedeEditarAsignatura = (asignatura: string) => !esDocente || !asignaturasDocente || asignaturasDocente.has(asignatura)
+  const puedeEditarAsignatura = (asignatura: string) => esInicial || !esDocente || !asignaturasDocente || asignaturasDocente.has(asignatura)
 
   return (
     <div>
@@ -327,8 +360,14 @@ export function RegistroGradoPage({ scope, title = 'Registro de Grado', subtitle
                     <Tab value="estudiantes">Datos generales del estudiante</Tab>
                     <Tab value="asistencia">Asistencia y puntualidad</Tab>
                     <Tab value="especificaciones">Especificaciones curriculares</Tab>
-                    <Tab value="calificaciones">Calificaciones y rendimientos</Tab>
-                    <Tab value="promocion">Promoción de grado</Tab>
+                    {esInicial ? (
+                      <Tab value="aprendizajes">¿Qué están aprendiendo?</Tab>
+                    ) : (
+                      <>
+                        <Tab value="calificaciones">Calificaciones y rendimientos</Tab>
+                        <Tab value="promocion">Promoción de grado</Tab>
+                      </>
+                    )}
                   </TabList>
 
                   {tab === 'centro' && (
@@ -429,7 +468,7 @@ export function RegistroGradoPage({ scope, title = 'Registro de Grado', subtitle
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {asignaturasCurso.map((a) => {
+                          {areasCurso.map((a) => {
                             const val = draft.especificaciones?.[a] ?? {}
                             const editable = puedeEditarAsignatura(a)
                             return (
@@ -450,6 +489,9 @@ export function RegistroGradoPage({ scope, title = 'Registro de Grado', subtitle
 
                   {tab === 'calificaciones' && (
                     <>
+                      <Text size={200} block style={{ color: 'var(--texto-suave)', marginBottom: '10px' }}>
+                        Ingrese <strong>C.F.</strong>, <strong>C.E.C.</strong> y <strong>C.EX.</strong>: las ponderaciones (50%, 30%, 70%) y la situación final (A/R) se calculan automáticamente.
+                      </Text>
                       {asignaturasCurso.length === 0 && <Text size={200} style={{ color: 'var(--texto-suave)' }}>El curso no tiene asignaturas registradas.</Text>}
                       {asignaturasCurso.map((a) => {
                         const editable = puedeEditarAsignatura(a)
@@ -468,14 +510,18 @@ export function RegistroGradoPage({ scope, title = 'Registro de Grado', subtitle
                                 </TableHeader>
                                 <TableBody>
                                   {draft.estudiantes.map((e) => {
-                                    const cal = porEst[String(e.number)] ?? {}
+                                    const cal = deriveCal(porEst[String(e.number)] ?? {})
                                     return (
                                       <TableRow key={e.number}>
                                         <TableCell>{e.number}</TableCell>
                                         <TableCell>{e.apellidos}, {e.nombres}</TableCell>
                                         {CAL_COLS.map((c, i) => (
                                           <TableCell key={`${c.key}-${i}`}>
-                                            <Input className={styles.mini} disabled={!editable} value={(cal[c.key] as string) ?? ''} onChange={(_, d) => setCal(a, e.number, c.key, d.value)} />
+                                            {c.editable ? (
+                                              <Input className={styles.mini} disabled={!editable} value={(porEst[String(e.number)]?.[c.key] as string) ?? ''} onChange={(_, d) => setCal(a, e.number, c.key, d.value)} />
+                                            ) : (
+                                              <Text size={200} weight={c.key === 'situacion' ? 'semibold' : 'regular'}>{(cal[c.key] as string) || '—'}</Text>
+                                            )}
                                           </TableCell>
                                         ))}
                                       </TableRow>
@@ -491,32 +537,100 @@ export function RegistroGradoPage({ scope, title = 'Registro de Grado', subtitle
                   )}
 
                   {tab === 'promocion' && (
-                    <div className={styles.scroll}>
-                      <Table size="small">
-                        <TableHeader>
-                          <TableRow>
-                            <TableHeaderCell className={styles.th}>No.</TableHeaderCell>
-                            <TableHeaderCell className={styles.th}>Estudiante</TableHeaderCell>
-                            <TableHeaderCell className={styles.th}>Situación final (A / R)</TableHeaderCell>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {draft.estudiantes.map((e) => (
-                            <TableRow key={e.number}>
-                              <TableCell>{e.number}</TableCell>
-                              <TableCell>{e.apellidos}, {e.nombres}</TableCell>
-                              <TableCell>
-                                <Select value={draft.promocion?.[String(e.number)] ?? ''} onChange={(_, d) => setDraft({ ...draft, promocion: { ...(draft.promocion ?? {}), [String(e.number)]: d.value } })}>
-                                  <option value="">—</option>
-                                  <option value="A">A (Aprobado)</option>
-                                  <option value="R">R (Reprobado)</option>
-                                </Select>
-                              </TableCell>
+                    <>
+                      <div className={styles.actions} style={{ marginBottom: '10px' }}>
+                        <Button appearance="secondary" onClick={() => {
+                          const promo: Record<string, Record<string, string>> = { ...(draft.promocion ?? {}) }
+                          for (const a of asignaturasCurso) {
+                            promo[a] = { ...(promo[a] ?? {}) }
+                            for (const e of draft.estudiantes) {
+                              const cal = deriveCal(draft.calificaciones?.[a]?.[String(e.number)] ?? {})
+                              if (cal.situacion) promo[a][String(e.number)] = cal.situacion
+                            }
+                          }
+                          setDraft({ ...draft, promocion: promo })
+                        }}>Tomar situación de calificaciones</Button>
+                        <Text size={200} style={{ color: 'var(--texto-suave)' }}>La situación final en grado es A si aprueba todas las asignaturas.</Text>
+                      </div>
+                      <div className={styles.scroll}>
+                        <Table size="small">
+                          <TableHeader>
+                            <TableRow>
+                              <TableHeaderCell className={styles.th}>No.</TableHeaderCell>
+                              <TableHeaderCell className={styles.th}>Estudiante</TableHeaderCell>
+                              {asignaturasCurso.map((a) => <TableHeaderCell key={a} className={styles.th}>{a}</TableHeaderCell>)}
+                              <TableHeaderCell className={styles.th}>Situación final en grado</TableHeaderCell>
                             </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
-                    </div>
+                          </TableHeader>
+                          <TableBody>
+                            {draft.estudiantes.map((e) => {
+                              const key = String(e.number)
+                              const valores = asignaturasCurso.map((a) => draft.promocion?.[a]?.[key] ?? '')
+                              const llenos = valores.filter(Boolean)
+                              const final = llenos.length === 0 ? '' : llenos.every((v) => v === 'A') ? 'A' : 'R'
+                              return (
+                                <TableRow key={key}>
+                                  <TableCell>{e.number}</TableCell>
+                                  <TableCell>{e.apellidos}, {e.nombres}</TableCell>
+                                  {asignaturasCurso.map((a) => (
+                                    <TableCell key={a}>
+                                      <Select value={draft.promocion?.[a]?.[key] ?? ''} onChange={(_, d) => setDraft({ ...draft, promocion: { ...(draft.promocion ?? {}), [a]: { ...(draft.promocion?.[a] ?? {}), [key]: d.value } } })}>
+                                        <option value="">—</option>
+                                        <option value="A">A</option>
+                                        <option value="R">R</option>
+                                      </Select>
+                                    </TableCell>
+                                  ))}
+                                  <TableCell><Text weight="semibold">{final || '—'}</Text></TableCell>
+                                </TableRow>
+                              )
+                            })}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    </>
+                  )}
+
+                  {tab === 'aprendizajes' && (
+                    <>
+                      <div className={styles.actions} style={{ marginBottom: '10px' }}>
+                        <Text weight="semibold">Periodo:</Text>
+                        <Select value={periodoInicial} onChange={(_, d) => setPeriodoInicial(d.value)} style={{ maxWidth: '130px' }}>
+                          {PERIODOS.map((p) => <option key={p.key} value={p.key}>Periodo {p.label}</option>)}
+                        </Select>
+                        <Text size={200} style={{ color: 'var(--texto-suave)' }}>Escala: I (Iniciando), EP (en proceso), L (logrado), N/E (no evaluado).</Text>
+                      </div>
+                      <div className={styles.scroll}>
+                        <Table size="small">
+                          <TableHeader>
+                            <TableRow>
+                              <TableHeaderCell className={styles.th}>No.</TableHeaderCell>
+                              <TableHeaderCell className={styles.th}>Estudiante</TableHeaderCell>
+                              {DOMINIOS.map((d) => <TableHeaderCell key={d} className={styles.th}>Dominio {d}</TableHeaderCell>)}
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {draft.estudiantes.map((e) => {
+                              const key = String(e.number)
+                              const val = draft.inicial?.[periodoInicial]?.[key] ?? {}
+                              return (
+                                <TableRow key={key}>
+                                  <TableCell>{e.number}</TableCell>
+                                  <TableCell>{e.apellidos}, {e.nombres}</TableCell>
+                                  {DOMINIOS.map((dom) => (
+                                    <TableCell key={dom}>
+                                      <Select value={val[dom] ?? ''} onChange={(_, d) => setDraft({ ...draft, inicial: { ...(draft.inicial ?? {}), [periodoInicial]: { ...(draft.inicial?.[periodoInicial] ?? {}), [key]: { ...val, [dom]: d.value } } } })}>
+                                        {ESCALA_INICIAL.map((op) => <option key={op} value={op}>{op || '—'}</option>)}
+                                      </Select>
+                                    </TableCell>
+                                  ))}
+                                </TableRow>
+                              )
+                            })}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    </>
                   )}
                 </>
               )}
