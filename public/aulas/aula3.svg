@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 360" role="img" aria-label="Aula">
+  <defs>
+    <linearGradient id="g3" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#2AA9D8"/><stop offset="1" stop-color="#0095C8"/>
+    </linearGradient>
+  </defs>
+  <rect width="640" height="360" fill="url(#g3)"/>
+  <g fill="#ffffff" opacity="0.15">
+    <circle cx="520" cy="80" r="120"/><circle cx="120" cy="300" r="150"/>
+  </g>
+  <g fill="none" stroke="#ffffff" stroke-width="12" stroke-linecap="round" opacity="0.95">
+    <path d="M180 280 L180 210 Q180 180 215 180 L425 180 Q460 180 460 210 L460 280"/>
+    <path d="M320 180 L320 130"/>
+    <path d="M260 130 L380 130"/>
+  </g>
+  <g fill="#ffffff" opacity="0.9">
+    <circle cx="240" cy="300" r="18"/><circle cx="400" cy="300" r="18"/>
+  </g>
+</svg>

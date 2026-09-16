@@ -6,6 +6,7 @@ import { HorariosPage } from '../modules/coordinacion/HorariosPage'
 import { AcompanamientosPage } from '../modules/coordinacion/AcompanamientosPage'
 import { CumplimientoPage } from '../modules/coordinacion/CumplimientoPage'
 import { PlanificacionNivel } from '../modules/coordinacion/PlanificacionNivel'
+import { AulasNivelPage } from '../modules/coordinacion/AulasNivelPage'
 import { GestionTicPage } from '../modules/tecnologia/GestionTicPage'
 import { AcademicaTecPage } from '../modules/tecnologia/AcademicaTecPage'
 import { AsignacionesPage } from '../modules/administrativo/AsignacionesPage'
@@ -23,6 +24,7 @@ import {
   ArrowUpRegular,
   LinkSquareRegular,
   BookRegular,
+  VideoRegular,
 } from '@fluentui/react-icons'
 
 const NAV: NavItem[] = [
@@ -35,6 +37,7 @@ const NAV: NavItem[] = [
   { to: '/coordinacion/promocion', label: 'Promoción', icon: <ArrowUpRegular />, group: 'Académico' },
   { to: '/coordinacion/asignaciones', label: 'Asignaciones', icon: <LinkSquareRegular />, group: 'Académico' },
   { to: '/coordinacion/gestion-academica', label: 'Gestión académica', icon: <BookRegular />, group: 'Académico' },
+  { to: '/coordinacion/aulas', label: 'Aulas del nivel', icon: <VideoRegular />, group: 'Académico' },
   { to: '/coordinacion/gestion-tic', label: 'Gestión de Coordinación Pedagógica', icon: <ClipboardTaskRegular />, group: 'Gestión' },
   { to: '/coordinacion/copilot', label: 'Copilot', icon: <SparkleRegular />, group: 'Herramientas' },
 ]
@@ -52,6 +55,7 @@ export function CoordPortal() {
         <Route path="promocion" element={<PromocionPage />} />
         <Route path="asignaciones" element={<AsignacionesPage />} />
         <Route path="gestion-academica" element={<AcademicaTecPage />} />
+        <Route path="aulas" element={<AulasNivelPage />} />
         <Route path="gestion-tic" element={<GestionTicPage title="Gestión de Coordinación Pedagógica" />} />
         <Route path="copilot" element={<CopilotPage />} />
       </Route>

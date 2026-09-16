@@ -11,6 +11,7 @@ import { ClasesPage } from '../modules/clases/ClasesPage'
 import { ClaseDetail } from '../modules/clases/ClaseDetail'
 import { AsistenciaPage } from '../modules/asistencia/AsistenciaPage'
 import { AulasPage } from '../modules/aulas/AulasPage'
+import { AulasView } from '../modules/aulas/aulas'
 import { EncuentrosPage } from '../modules/encuentros/EncuentrosPage'
 import { EncuentroDetail } from '../modules/encuentros/EncuentroDetail'
 import { Comunicados } from '../modules/dashboard/Comunicados'
@@ -44,6 +45,7 @@ const NAV: NavItem[] = [
   { to: '/administrativo/clases', label: 'Clases Impartidas', icon: <NotebookRegular />, group: 'Académico' },
   { to: '/administrativo/asistencia', label: 'Asistencia', icon: <CalendarCheckmarkRegular />, group: 'Académico' },
   { to: '/administrativo/aulas', label: 'Aulas Virtuales', icon: <VideoRegular />, group: 'Académico' },
+  { to: '/administrativo/aulas-curso', label: 'Aulas por curso', icon: <VideoRegular />, group: 'Académico' },
   { to: '/administrativo/encuentros', label: 'Encuentros', icon: <VideoPersonRegular />, group: 'Académico' },
   { to: '/administrativo/comunicados', label: 'Comunicados', icon: <MegaphoneRegular />, group: 'Comunidad' },
   { to: '/administrativo/chat', label: 'Mensajería', icon: <ChatRegular />, group: 'Comunidad' },
@@ -65,6 +67,7 @@ export function AdminPortal() {
         <Route path="clases/:id" element={<ClaseDetail />} />
         <Route path="asistencia" element={<AsistenciaPage />} />
         <Route path="aulas" element={<AulasPage />} />
+        <Route path="aulas-curso" element={<AulasView scope={{ kind: 'todos' }} pageTitle="Aulas por curso" subtitle="Todas las aulas del colegio con sus asignaturas y aulas de Teams." />} />
         <Route path="encuentros" element={<EncuentrosPage />} />
         <Route path="encuentros/:id" element={<EncuentroDetail />} />
         <Route path="comunicados" element={<Comunicados />} />

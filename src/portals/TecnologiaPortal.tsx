@@ -9,17 +9,19 @@ import { PersonasPage } from '../modules/administrativo/PersonasPage'
 import { DirectoresPage } from '../modules/administrativo/DirectoresPage'
 import { StaffPage } from '../modules/administrativo/StaffPage'
 import { SigerdPage } from '../modules/tecnologia/SigerdPage'
+import { AulasView } from '../modules/aulas/aulas'
 import { UsuariosPage } from '../modules/administrativo/UsuariosPage'
 import { RolesPage } from '../modules/administrativo/RolesPage'
 import { ChatPage } from '../modules/chat/ChatPage'
 import { CopilotPage } from '../modules/copilot/CopilotPage'
-import { DeveloperBoardRegular, PeopleTeamRegular, ShieldPersonRegular, ShieldCheckmarkRegular, ChatRegular, SparkleRegular, ClipboardTaskRegular, BookRegular, PersonShieldRegular, PremiumPersonRegular, BookOpenRegular, HandOpenHeartRegular, LinkSquareRegular, ArrowUpRegular } from '@fluentui/react-icons'
+import { DeveloperBoardRegular, PeopleTeamRegular, ShieldPersonRegular, ShieldCheckmarkRegular, ChatRegular, SparkleRegular, ClipboardTaskRegular, BookRegular, PersonShieldRegular, PremiumPersonRegular, BookOpenRegular, HandOpenHeartRegular, LinkSquareRegular, ArrowUpRegular, VideoRegular } from '@fluentui/react-icons'
 
 const NAV: NavItem[] = [
   { to: '/tecnologia', label: 'Panel de Tecnología', icon: <DeveloperBoardRegular />, end: true, group: 'General' },
   { to: '/tecnologia/gestion-tic', label: 'Gestión TIC', icon: <ClipboardTaskRegular />, group: 'Coordinación TIC' },
   { to: '/tecnologia/academica', label: 'Gestión académica', icon: <BookRegular />, group: 'Coordinación TIC' },
   { to: '/tecnologia/asignaciones', label: 'Asignaciones', icon: <LinkSquareRegular />, group: 'Académico' },
+  { to: '/tecnologia/aulas', label: 'Aulas por curso', icon: <VideoRegular />, group: 'Académico' },
   { to: '/tecnologia/promocion', label: 'Promoción', icon: <ArrowUpRegular />, group: 'Académico' },
   { to: '/tecnologia/personas', label: 'Personal', icon: <PeopleTeamRegular />, group: 'Personas' },
   { to: '/tecnologia/directores', label: 'Directores', icon: <PersonShieldRegular />, group: 'Personas' },
@@ -40,6 +42,7 @@ export function TecnologiaPortal() {
         <Route path="gestion-tic" element={<GestionTicPage />} />
         <Route path="academica" element={<AcademicaTecPage />} />
         <Route path="asignaciones" element={<AsignacionesPage />} />
+        <Route path="aulas" element={<AulasView scope={{ kind: 'todos' }} pageTitle="Aulas por curso" subtitle="Todas las aulas del colegio con sus asignaturas y aulas de Teams." />} />
         <Route path="promocion" element={<PromocionPage />} />
         <Route path="personas" element={<PersonasPage />} />
         <Route path="directores" element={<DirectoresPage />} />
