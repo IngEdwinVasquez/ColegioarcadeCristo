@@ -1,10 +1,7 @@
 import { useMemo, useRef, useState } from 'react'
 import { Button, Card, Select, Spinner, Tab, TabList, Table, TableBody, TableCell, TableHeader, TableHeaderCell, TableRow, Text, Toolbar, ToolbarButton, useToastController, makeStyles, tokens } from '@fluentui/react-components'
-import { DeleteRegular, CheckmarkCircleRegular, ArrowUploadRegular, EditRegular, DocumentPdfRegular } from '@fluentui/react-icons'
+import { DeleteRegular, CheckmarkCircleRegular, ArrowUploadRegular, ArrowDownloadRegular, EditRegular } from '@fluentui/react-icons'
 import * as XLSX from 'xlsx'
-import { extractPdfText } from '../../services/pdf'
-import { parseSigerdStudentsPdf } from '../../services/sigerdAi'
-import { listEntraUsers } from '../../services/entraUsers'
 import { PageHeader } from '../../components/shared/PageHeader'
 import { ModalForm } from '../../components/shared/ModalForm'
 import { MultiSelect } from '../../components/shared/MultiSelect'
@@ -28,7 +25,7 @@ const useStyles = makeStyles({
 export function AsignacionesPage() {
   const styles = useStyles()
   const toaster = useToastController()
-  const { students, teachers, grades, subjects, periods, gradeById, subjectById, periodById, studentById, teacherById } = useApp()
+  const { students, teachers, grades, subjects, periods, gradeById, subjectById, periodById, studentById, teacherById, refreshCatalogs } = useApp()
   const enrollmentsCol = useCollection<Enrollment>(dataService.getEnrollments, dataService.saveEnrollment, dataService.deleteEnrollment)
   const assignmentsCol = useCollection<TeacherAssignment>(dataService.getTeacherAssignments, dataService.saveTeacherAssignment, dataService.deleteTeacherAssignment)
   const gradesCol = useCollection<GradeSection>(dataService.getGrades, dataService.saveGrade, dataService.deleteGrade)
@@ -45,7 +42,8 @@ export function AsignacionesPage() {
   const [mStudents, setMStudents] = useState<string[]>([])
   const [importingExcel, setImportingExcel] = useState(false)
   const excelRef = useRef<HTMLInputElement>(null)
-  const sigerdRef = useRef<HTMLInputElement>(null)
+  const subjectExcelRef = useRef<HTMLInputElement>(null)
+  const [importingSubjects, setImportingSubjects] = useState(false)
   const [editEnr, setEditEnr] = useState<Enrollment | null>(null)
   const [editEnrCurso, setEditEnrCurso] = useState('')
 
@@ -307,56 +305,91 @@ export function AsignacionesPage() {
     }
   }
 
-  /** Matrícula masiva desde un PDF del SIGERD: crea/actualiza estudiantes y los matricula en el curso. */
-  const matricularDesdeSigerd = async (file: File | undefined) => {
-    if (!file) return
-    if (!mCurso || !periodActive || cursoMaterias.length === 0) {
-      toaster.dispatchToast('Selecciona un curso con asignaturas y un período activo.', { intent: 'error' })
+  // ---------------------------------------------------------------- Asignaturas por curso (Excel)
+  /** Descarga un Excel con todos los cursos y sus asignaturas (A: curso, B: asignatura). */
+  const exportarAsignaturasPorCurso = () => {
+    const rows: Array<{ Curso: string; Asignatura: string }> = []
+    for (const c of cursosCatalogo) {
+      const materias = [...new Set(grades.filter((g) => cursoNombre(g) === c.nombre && isRealSubject(asignaturaDe(g))).map((g) => asignaturaDe(g)))]
+        .sort((a, b) => a.localeCompare(b))
+      if (materias.length === 0) rows.push({ Curso: c.nombre, Asignatura: '' })
+      else for (const m of materias) rows.push({ Curso: c.nombre, Asignatura: m })
+    }
+    if (rows.length === 0) {
+      toaster.dispatchToast('No hay cursos registrados para exportar.', { intent: 'error' })
       return
     }
-    setImportingExcel(true)
+    const ws = XLSX.utils.json_to_sheet(rows, { header: ['Curso', 'Asignatura'] })
+    ws['!cols'] = [{ wch: 34 }, { wch: 44 }]
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, 'Asignaturas por curso')
+    XLSX.writeFile(wb, `Asignaturas_por_curso_${new Date().toISOString().slice(0, 10)}.xlsx`)
+    toaster.dispatchToast(`${cursosCatalogo.length} curso(s) exportado(s). Edita la columna B y vuelve a cargar el archivo.`, { intent: 'success' })
+  }
+
+  /** Carga el Excel y deja cada curso con única y exclusivamente las asignaturas indicadas. */
+  const importarAsignaturasPorCurso = async (file: File | undefined) => {
+    if (!file) return
+    setImportingSubjects(true)
     try {
-      const text = await extractPdfText(file)
-      const { estudiantes: parsed } = await parseSigerdStudentsPdf(text)
-      if (parsed.length === 0) throw new Error('No se encontraron estudiantes en el PDF del SIGERD.')
-
-      // Usuarios de Microsoft 365 (para vincular la cuenta del estudiante).
-      let dir: Array<{ id: string; displayName?: string; email?: string }> = []
-      try { dir = await listEntraUsers() } catch { dir = [] }
-      const norm = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z ]/g, ' ').replace(/\s+/g, ' ').trim().toLowerCase()
-      const dirByName = new Map(dir.map((u) => [norm(u.displayName ?? ''), u]))
-
-      const isoNac = (d?: string) => {
-        const m = (d ?? '').match(/(\d{2})\/(\d{2})\/(\d{4})/)
-        return m ? `${m[3]}-${m[2]}-${m[1]}` : undefined
+      const buf = await file.arrayBuffer()
+      const wb = XLSX.read(buf, { type: 'array' })
+      const sheet = wb.Sheets[wb.SheetNames[0]]
+      const rows = XLSX.utils.sheet_to_json<unknown[]>(sheet, { header: 1, defval: '' })
+      const grupos = new Map<string, Set<string>>()
+      for (const r of rows) {
+        const curso = String(r?.[0] ?? '').trim()
+        if (!curso || /^curso$/i.test(curso)) continue
+        const asig = String(r?.[1] ?? '').trim()
+        if (!grupos.has(curso)) grupos.set(curso, new Set())
+        if (asig && !/^asignatura/i.test(asig)) grupos.get(curso)!.add(asig)
       }
-
-      let created = 0
-      let enrolled = 0
-      let linked = 0
-      for (const s of parsed) {
-        const fullName = `${s.nombres} ${s.primerApellido} ${s.segundoApellido}`.replace(/\s+/g, ' ').trim().toUpperCase()
-        const alt = `${s.primerApellido} ${s.segundoApellido} ${s.nombres}`.replace(/\s+/g, ' ').trim().toUpperCase()
-        const match = dirByName.get(norm(fullName)) ?? dirByName.get(norm(alt))
-        if (match) linked += 1
-        const existing = studentsCol.items.find((st) => (s.idEstudiante && st.sigerdId === s.idEstudiante) || norm(st.fullName) === norm(fullName))
-        const student: Student = existing
-          ? { ...existing, fullName, email: match?.email ?? existing.email, userId: match?.id ?? existing.userId, sigerdId: s.idEstudiante || existing.sigerdId, birthDate: isoNac(s.nacimiento) ?? existing.birthDate, sigerd: s }
-          : { id: genId('stu'), fullName, email: match?.email, userId: match?.id, sigerdId: s.idEstudiante, gradeId: cursoMaterias[0].id, birthDate: isoNac(s.nacimiento), sigerd: s }
-        if (!existing) created += 1
-        await studentsCol.save(student)
-        const already = enrollmentsCol.items.some((e) => e.studentId === student.id && (!activePeriod || e.periodId === activePeriod))
-        if (!already) {
-          await enrollmentsCol.save({ id: genId('enr'), studentId: student.id, gradeId: cursoMaterias[0].id, periodId: activePeriod })
-          enrolled += 1
+      if (grupos.size === 0) {
+        toaster.dispatchToast('El Excel no contiene cursos (columna A) ni asignaturas (columna B).', { intent: 'error' })
+        return
+      }
+      let creadas = 0
+      let eliminadas = 0
+      const noEncontrados: string[] = []
+      for (const [curso, setAsig] of grupos) {
+        const registros = grades.filter((g) => cursoNombre(g) === curso)
+        if (registros.length === 0) { noEncontrados.push(curso); continue }
+        const template = registros.find((g) => isRealSubject(asignaturaDe(g))) ?? registros[0]
+        const setLower = new Set([...setAsig].map((a) => a.toLowerCase()))
+        // Quita las asignaturas que ya no están en el Excel (deja intactos otros registros del curso).
+        for (const g of registros) {
+          const nombre = asignaturaDe(g)
+          if (isRealSubject(nombre) && !setLower.has(nombre.toLowerCase())) {
+            await dataService.deleteGrade(g.id)
+            eliminadas += 1
+          }
+        }
+        // Agrega las asignaturas nuevas.
+        for (const asig of setAsig) {
+          if (registros.some((g) => asignaturaDe(g).toLowerCase() === asig.toLowerCase())) continue
+          await dataService.saveGrade({
+            id: genId('g'),
+            name: template.name,
+            grado: template.grado ?? gradoDe(template),
+            section: template.section ?? seccionDe(template),
+            level: template.level,
+            nivel: template.nivel ?? nivelShort(template.level),
+            ciclo: template.ciclo,
+            asignatura: asig,
+          })
+          creadas += 1
         }
       }
-      toaster.dispatchToast(`SIGERD: ${parsed.length} estudiante(s) leído(s), ${created} nuevo(s), ${enrolled} matriculado(s), ${linked} vinculado(s) a Microsoft 365.`, { intent: 'success' })
+      await Promise.all([gradesCol.refresh(), refreshCatalogs()])
+      toaster.dispatchToast(
+        `Asignaturas actualizadas: ${creadas} agregada(s), ${eliminadas} quitada(s)${noEncontrados.length ? `. Cursos no encontrados: ${noEncontrados.slice(0, 5).join(', ')}${noEncontrados.length > 5 ? '…' : ''}` : ''}.`,
+        { intent: noEncontrados.length ? 'warning' : 'success' },
+      )
     } catch (error) {
-      toaster.dispatchToast(error instanceof Error ? error.message : 'No se pudo procesar el PDF del SIGERD.', { intent: 'error' })
+      toaster.dispatchToast(error instanceof Error ? error.message : 'No se pudo procesar el Excel.', { intent: 'error' })
     } finally {
-      setImportingExcel(false)
-      if (sigerdRef.current) sigerdRef.current.value = ''
+      setImportingSubjects(false)
+      if (subjectExcelRef.current) subjectExcelRef.current.value = ''
     }
   }
 
@@ -458,7 +491,8 @@ export function AsignacionesPage() {
         <Tab value="matriculas">Matrículas de estudiantes ({enrollmentsCol.items.length})</Tab>
         <Tab value="docentes">Asignaciones docentes ({assignmentsCol.items.length})</Tab>
         <Tab value="encargado">Docente encargado por curso</Tab>
-        <Tab value="matricular">Matricular estudiantes</Tab>
+        <Tab value="matricular">Matricular estudiantes seleccionados</Tab>
+        <Tab value="asignaturas">Agregar asignaturas por curso</Tab>
       </TabList>
 
       {/* ------------------------------ Matrículas ------------------------------ */}
@@ -750,7 +784,6 @@ export function AsignacionesPage() {
             emptyMessage="No hay estudiantes en el catálogo."
           />
           <input ref={excelRef} type="file" accept=".xlsx,.xls,.csv" style={{ display: 'none' }} onChange={(e) => void matricularDesdeExcel(e.target.files?.[0])} />
-          <input ref={sigerdRef} type="file" accept="application/pdf" style={{ display: 'none' }} onChange={(e) => void matricularDesdeSigerd(e.target.files?.[0])} />
           <div className={styles.actions}>
             <Button appearance="primary" icon={busy ? <Spinner size="tiny" /> : <CheckmarkCircleRegular />} disabled={busy || !periodActive || cursoMaterias.length === 0 || mStudents.length === 0} onClick={() => void matricular()}>
               {busy ? 'Procesando…' : `Matricular seleccionados (${mStudents.length})`}
@@ -758,12 +791,32 @@ export function AsignacionesPage() {
             <Button appearance="secondary" icon={importingExcel ? <Spinner size="tiny" /> : <ArrowUploadRegular />} disabled={importingExcel || !mCurso || !periodActive || cursoMaterias.length === 0} onClick={() => excelRef.current?.click()}>
               {importingExcel ? 'Procesando…' : 'Matricular desde Excel'}
             </Button>
-            <Button appearance="secondary" icon={importingExcel ? <Spinner size="tiny" /> : <DocumentPdfRegular />} disabled={importingExcel || !mCurso || !periodActive || cursoMaterias.length === 0} onClick={() => sigerdRef.current?.click()}>
-              {importingExcel ? 'Procesando…' : 'Matricular desde PDF SIGERD'}
+          </div>
+          <Text size={200} block style={{ color: 'var(--texto-suave)' }}>
+            El Excel/csv debe incluir una columna con los <strong>nombres</strong> y/o <strong>correos</strong> de los estudiantes a matricular en el curso seleccionado.
+          </Text>
+        </Card>
+      )}
+
+      {/* ------------------------------ Agregar asignaturas por curso ------------------------------ */}
+      {tab === 'asignaturas' && (
+        <Card className={styles.card}>
+          <Text weight="semibold" size={300}>Asignaturas por curso</Text>
+          <Text size={200} style={{ color: 'var(--texto-suave)' }}>
+            Descarga el Excel con todos los cursos y sus asignaturas (columna A: nombre del curso; columna B: cada asignatura del curso).
+            Modifícalo y cárgalo de vuelta: cada curso quedará con única y exclusivamente las asignaturas indicadas en el archivo.
+          </Text>
+          <input ref={subjectExcelRef} type="file" accept=".xlsx,.xls,.csv" style={{ display: 'none' }} onChange={(e) => void importarAsignaturasPorCurso(e.target.files?.[0])} />
+          <div className={styles.actions}>
+            <Button appearance="primary" icon={<ArrowDownloadRegular />} disabled={importingSubjects || cursosCatalogo.length === 0} onClick={exportarAsignaturasPorCurso}>
+              Crear y exportar Excel
+            </Button>
+            <Button appearance="secondary" icon={importingSubjects ? <Spinner size="tiny" /> : <ArrowUploadRegular />} disabled={importingSubjects} onClick={() => subjectExcelRef.current?.click()}>
+              {importingSubjects ? 'Procesando…' : 'Cargar Excel actualizado'}
             </Button>
           </div>
           <Text size={200} block style={{ color: 'var(--texto-suave)' }}>
-            Excel/csv: incluye una columna con los <strong>nombres</strong> y/o <strong>correos</strong>. PDF: reporte del <strong>SIGERD</strong> con la relación de estudiantes del curso (crea/actualiza la ficha y vincula la cuenta de Microsoft 365 por nombre).
+            {cursosCatalogo.length} curso(s) · {cursosCatalogo.reduce((acc, c) => acc + grades.filter((g) => cursoNombre(g) === c.nombre && isRealSubject(asignaturaDe(g))).length, 0)} asignatura(s) registrada(s).
           </Text>
         </Card>
       )}
