@@ -45,6 +45,8 @@ const isoNac = (d?: string) => {
 interface Props {
   cursoDefecto: string
   onCursoDefectoChange: (v: string) => void
+  /** Se invoca al terminar una importación para que la página refresque sus listados. */
+  onImported?: () => void
 }
 
 /**
@@ -53,7 +55,7 @@ interface Props {
  * existe en Gestión académica lo crea, guarda el encabezado y todas las
  * columnas, vincula la cuenta de Microsoft 365 y matricula.
  */
-export function ImportarSigerdCard({ cursoDefecto, onCursoDefectoChange }: Props) {
+export function ImportarSigerdCard({ cursoDefecto, onCursoDefectoChange, onImported }: Props) {
   const styles = useStyles()
   const toaster = useToastController()
   const { grades, periods, refreshCatalogs } = useApp()
@@ -337,6 +339,7 @@ export function ImportarSigerdCard({ cursoDefecto, onCursoDefectoChange }: Props
 
       setProgreso('Actualizando listados…')
       await Promise.all([studentsCol.refresh(), enrollmentsCol.refresh(), refreshCatalogs()])
+      onImported?.()
 
       const extra = [
         createdAccounts ? `${createdAccounts} cuenta(s) M365 creada(s)` : '',
