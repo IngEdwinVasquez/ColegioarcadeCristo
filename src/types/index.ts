@@ -30,6 +30,8 @@ export interface GradeSection {
   section?: string
   /** Nombre de la asignatura (sin el grado) del curso */
   asignatura?: string
+  /** Imagen que representa el aula del curso (url o ruta local) */
+  imageUrl?: string
   /** Equipo de Microsoft Teams vinculado al curso */
   teamId?: string
   teamUrl?: string
