@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import type { Accompaniment, CoordinationLevel } from '../../types'
+import type { Accompaniment, CoordinationLevel, Persona } from '../../types'
 import { useApp } from '../../context/useApp'
 import { dataService } from '../../services/dataService'
 import { nivelShort } from '../../utils/academic'
@@ -7,9 +7,11 @@ import { nivelShort } from '../../utils/academic'
 const LEVELS: CoordinationLevel[] = ['Inicial', 'Primaria', 'Secundaria']
 const KEY = 'arca_coord_nivel'
 
-// Los acompañamientos se cargan una sola vez por sesión (varias pantallas usan este hook).
+// Estas listas se cargan una sola vez por sesión (varias pantallas usan este hook).
 let accCache: Promise<Accompaniment[]> | null = null
 const loadAccompaniments = () => (accCache ??= dataService.getAccompaniments())
+let personasCache: Promise<Persona[]> | null = null
+const loadPersonas = () => (personasCache ??= dataService.getPersonas())
 
 /** Deduce el nivel desde un texto (p. ej. el cargo: "Coordinador de Primaria"). */
 function nivelDesdeTexto(texto?: string): CoordinationLevel | null {
@@ -37,6 +39,23 @@ function masFrecuente(niveles: CoordinationLevel[]): CoordinationLevel | null {
 export function useCoordinationLevel(): { level: CoordinationLevel; setLevel: (l: CoordinationLevel) => void; levels: CoordinationLevel[] } {
   const { user, teachers, grades } = useApp()
   const [porAcompanamientos, setPorAcompanamientos] = useState<CoordinationLevel | null>(null)
+  const [porPersona, setPorPersona] = useState<CoordinationLevel | null>(null)
+
+  // Nivel asignado explícitamente en la ficha de personal (coordinador).
+  useEffect(() => {
+    if (!user) return
+    let alive = true
+    void loadPersonas()
+      .then((list) => {
+        if (!alive) return
+        const email = (user.email ?? '').toLowerCase()
+        const p = list.find((x) => x.userId === user.id) ?? list.find((x) => (x.email ?? '').toLowerCase() === email)
+        const nivel = p && LEVELS.includes(p.nivel as CoordinationLevel) ? (p.nivel as CoordinationLevel) : null
+        setPorPersona(nivel)
+      })
+      .catch(() => { /* sin acceso */ })
+    return () => { alive = false }
+  }, [user])
 
   useEffect(() => {
     if (!user?.id) return
@@ -51,13 +70,14 @@ export function useCoordinationLevel(): { level: CoordinationLevel; setLevel: (l
   }, [user?.id])
 
   const derivado = useMemo<CoordinationLevel | null>(() => {
+    if (porPersona) return porPersona
     const porCargo = nivelDesdeTexto(user?.jobTitle)
     if (porCargo) return porCargo
     if (porAcompanamientos) return porAcompanamientos
     const teacher = teachers.find((t) => t.userId === user?.id) ?? teachers.find((t) => t.id === user?.teacherId)
     const ids = new Set(teacher?.grades ?? [])
     return masFrecuente(grades.filter((g) => ids.has(g.id)).map((g) => nivelShort(g.level) as CoordinationLevel))
-  }, [user, teachers, grades, porAcompanamientos])
+  }, [user, teachers, grades, porAcompanamientos, porPersona])
 
   const [level, setLevelState] = useState<CoordinationLevel>(() => {
     const stored = sessionStorage.getItem(KEY) as CoordinationLevel | null
