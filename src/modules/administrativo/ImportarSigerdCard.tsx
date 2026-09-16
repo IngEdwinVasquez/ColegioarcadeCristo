@@ -11,7 +11,7 @@ import { parseSigerdStudentsPdf } from '../../services/sigerdAi'
 import { listEntraUsers, createEntraUser } from '../../services/entraUsers'
 import { graphErrorMessage } from '../../services/graph'
 import { genId } from '../../utils/helpers'
-import { GRADOS, NIVELES, asignaturaDe, cicloFromGrade, cursoNombre, esCursoValido, gradoDe, isRealSubject, nivelDeTanda, nivelShort, ordenarCursos, seccionDe } from '../../utils/academic'
+import { GRADOS, NIVELES, asignaturaDe, cicloFromGrade, cursoNombre, esCursoValido, isRealSubject, nivelDeTanda, nivelShort, ordenarCursos } from '../../utils/academic'
 import type { Enrollment, GradeSection, SigerdHeader, SigerdStudent, Student } from '../../types'
 
 const useStyles = makeStyles({
@@ -76,25 +76,37 @@ export function ImportarSigerdCard({ cursoDefecto, onCursoDefectoChange }: Props
   const periodActive = periods.find((p) => p.id === period)?.isActive ?? false
   const headerNivel = nivelDeTanda(header.tandaServicio)
 
+  /**
+   * Construye el curso (GradeSection) de un estudiante a partir de su Grado/Sección.
+   * - Primaria/Secundaria (o grado numérico 1ro…6to): "1ro.A · Primaria".
+   * - Inicial (sin grado numérico): usa el texto del grado tal cual
+   *   (p. ej. "Preprimario.A · Inicial"); admite solo sección.
+   */
+  const gradeFor = (s: SigerdStudent, nivel?: string | null): GradeSection | undefined => {
+    const nivelLargo = nivel ?? headerNivel ?? 'Nivel Primario'
+    const sec = (s.seccion || '').trim().toUpperCase()
+    const n = numGrado(s.grado)
+    if (n) {
+      const grado = GRADOS[n - 1]
+      return { id: '', name: `${grado}${sec ? `.${sec}` : ''}`, grado, level: nivelLargo, nivel: nivelShort(nivelLargo), section: sec || undefined, ciclo: cicloFromGrade(nivelLargo, grado), asignatura: 'Asignaturas Generales' }
+    }
+    if (nivelShort(nivelLargo) === 'Inicial') {
+      const gradoTxt = (s.grado || '').trim()
+      if (!gradoTxt && !sec) return undefined
+      return { id: '', name: [gradoTxt, sec].filter(Boolean).join('.') || 'Inicial', grado: gradoTxt || undefined, level: 'Nivel Inicial', nivel: 'Inicial', section: sec || undefined, asignatura: 'Asignaturas Generales' }
+    }
+    return undefined
+  }
+
   // Asegura que exista el registro del curso en Gestión académica (lo crea si falta).
   const ensureGrade = async (curso: string, sample: SigerdStudent, cache: Map<string, GradeSection>): Promise<GradeSection | undefined> => {
     const cached = cache.get(curso)
     if (cached) return cached
     const g = grades.find((x) => cursoNombre(x) === curso && esCursoValido(x))
     if (g) { cache.set(curso, g); return g }
-    const n = numGrado(sample.grado)
-    const sec = (sample.seccion || '').trim().toUpperCase()
-    if (!n || !sec) return undefined
-    const nivelLargo = sample.nivel ?? headerNivel ?? 'Nivel Primario'
-    const nuevo: GradeSection = {
-      id: genId('g'),
-      name: `${GRADOS[n - 1]}.${sec}`,
-      level: nivelLargo,
-      nivel: nivelShort(nivelLargo),
-      section: sec,
-      ciclo: cicloFromGrade(nivelLargo, GRADOS[n - 1]),
-      asignatura: 'Asignaturas Generales',
-    }
+    const gs = gradeFor(sample, sample.nivel ?? headerNivel)
+    if (!gs || cursoNombre(gs) !== curso) return undefined
+    const nuevo: GradeSection = { ...gs, id: genId('g') }
     await dataService.saveGrade(nuevo)
     cache.set(curso, nuevo)
     return nuevo
@@ -199,12 +211,12 @@ export function ImportarSigerdCard({ cursoDefecto, onCursoDefectoChange }: Props
         const alt = `${s.primerApellido} ${s.segundoApellido} ${s.nombres}`.replace(/\s+/g, ' ').trim().toUpperCase()
         const nivel = tipoPdf || s.nivel || nivelHeader
         const stu = nivel && nivel !== s.nivel ? { ...s, nivel } : s
-        const n = numGrado(s.grado)
-        const sec = (s.seccion || '').trim().toUpperCase()
+        const gs = gradeFor(stu, nivel)
         let curso: string | undefined
-        if (n && sec) {
-          const g = grades.find((x) => gradoDe(x) === GRADOS[n - 1] && seccionDe(x) === sec && (!nivel || x.level === nivel)) ?? grades.find((x) => gradoDe(x) === GRADOS[n - 1] && seccionDe(x) === sec)
-          curso = g ? cursoNombre(g) : `${GRADOS[n - 1]}.${sec} · ${nivelShort(nivel ?? 'Nivel Primario')}`
+        if (gs) {
+          const nombre = cursoNombre(gs)
+          const existente = grades.find((x) => cursoNombre(x) === nombre && esCursoValido(x))
+          curso = existente ? cursoNombre(existente) : nombre
         }
         return { s: stu, fullName, match: dirByName.get(norm(fullName)) ?? dirByName.get(norm(alt)), curso }
       })
@@ -222,6 +234,10 @@ export function ImportarSigerdCard({ cursoDefecto, onCursoDefectoChange }: Props
     if (!preview || preview.length === 0) return
     if (!periodActive) {
       toaster.dispatchToast('Selecciona un período activo.', { intent: 'error' })
+      return
+    }
+    if (!preview.some((r) => r.curso || cursoDefecto)) {
+      toaster.dispatchToast('No se detectó el curso de ningún estudiante. Elige un «Curso por defecto» o revisa el «Tipo de PDF (nivel)».', { intent: 'error' })
       return
     }
     setBusy(true)
@@ -298,6 +314,14 @@ export function ImportarSigerdCard({ cursoDefecto, onCursoDefectoChange }: Props
         } catch (e) {
           errorMsg = e instanceof Error ? e.message : 'error al guardar'
         }
+      }
+
+      if (created === 0 && enrolled === 0) {
+        toaster.dispatchToast(
+          `No se guardó ningún estudiante (${skipped} sin curso). Revisa el «Tipo de PDF (nivel)», el Grado/Sección del PDF o elige un «Curso por defecto».${errorMsg ? ` Detalle: ${errorMsg}` : ''}`,
+          { intent: 'error' },
+        )
+        return
       }
 
       setProgreso('Guardando reporte…')
@@ -434,6 +458,8 @@ export function ImportarSigerdCard({ cursoDefecto, onCursoDefectoChange }: Props
                     <TableHeaderCell>Nac.</TableHeaderCell>
                     <TableHeaderCell>Mun.</TableHeaderCell>
                     <TableHeaderCell>Libro/Folio/Acta</TableHeaderCell>
+                    <TableHeaderCell>Grado (PDF)</TableHeaderCell>
+                    <TableHeaderCell>Sec. (PDF)</TableHeaderCell>
                     <TableHeaderCell>Curso (destino)</TableHeaderCell>
                     <TableHeaderCell>Estado</TableHeaderCell>
                     <TableHeaderCell>Cuenta M365</TableHeaderCell>
@@ -448,6 +474,8 @@ export function ImportarSigerdCard({ cursoDefecto, onCursoDefectoChange }: Props
                       <TableCell>{row.s.nacimiento || '—'}</TableCell>
                       <TableCell>{row.s.municipio || '—'}</TableCell>
                       <TableCell>{row.s.libro || '—'}/{row.s.folio || '—'}/{row.s.acta || '—'}</TableCell>
+                      <TableCell>{row.s.grado || '—'}</TableCell>
+                      <TableCell>{row.s.seccion || '—'}</TableCell>
                       <TableCell>{row.curso ?? (cursoDefecto ? `${cursoDefecto} (por defecto)` : <Text size={200} style={{ color: '#B42318' }}>Sin detectar</Text>)}</TableCell>
                       <TableCell>{row.s.estado || '—'}</TableCell>
                       <TableCell>{mailOf(row.match) || <Text size={200} style={{ color: '#B42318' }}>Sin coincidencia</Text>}</TableCell>
