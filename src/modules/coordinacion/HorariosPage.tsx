@@ -12,7 +12,7 @@ import { NivelSelector } from './NivelSelector'
 import { useCoordinationLevel } from './useCoordinationLevel'
 import type { ClassSchedule } from '../../types'
 import { genId } from '../../utils/helpers'
-import { cursoNombre } from '../../utils/academic'
+import { cursoNombre, nivelShort } from '../../utils/academic'
 import { SECCIONES as SECCIONES_CUR } from '../planificacion/curriculo'
 
 const DIAS = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado']
@@ -35,7 +35,7 @@ export function HorariosPage() {
   const [formOpen, setFormOpen] = useState(false)
   const [editing, setEditing] = useState<ClassSchedule | null>(null)
 
-  const levelGradeIds = useMemo(() => grades.filter((g) => g.level === level).map((g) => g.id), [grades, level])
+  const levelGradeIds = useMemo(() => grades.filter((g) => nivelShort(g.level) === level).map((g) => g.id), [grades, level])
   const levelGrades = useMemo(() => grades.filter((g) => levelGradeIds.includes(g.id)), [grades, levelGradeIds])
   const levelTeachers = useMemo(() => teachers.filter((t) => t.grades.some((g) => levelGradeIds.includes(g))), [teachers, levelGradeIds])
 

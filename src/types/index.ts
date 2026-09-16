@@ -871,6 +871,8 @@ export interface Persona {
   email: string
   userId?: string
   tipo: PersonaTipo
+  /** Nivel de coordinación (solo para tipo 'coordinador'): Inicial, Primaria o Secundaria. */
+  nivel?: CoordinationLevel
   createdAt: string
 }
 

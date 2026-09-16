@@ -12,6 +12,7 @@ import { NivelSelector } from './NivelSelector'
 import { useCoordinationLevel } from './useCoordinationLevel'
 import type { ClassPlan, SchoolClassRecord } from '../../types'
 import { pct } from '../../utils/helpers'
+import { nivelShort } from '../../utils/academic'
 
 const useStyles = makeStyles({
   controls: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '16px', flexWrap: 'wrap', marginBottom: '20px' },
@@ -33,7 +34,7 @@ export function CumplimientoPage() {
 
   const [teacherFilter, setTeacherFilter] = useState('')
 
-  const levelGradeIds = useMemo(() => grades.filter((g) => g.level === level).map((g) => g.id), [grades, level])
+  const levelGradeIds = useMemo(() => grades.filter((g) => nivelShort(g.level) === level).map((g) => g.id), [grades, level])
   const levelTeachers = useMemo(() => teachers.filter((t) => t.grades.some((g) => levelGradeIds.includes(g))), [teachers, levelGradeIds])
 
   const rows = useMemo(() => {

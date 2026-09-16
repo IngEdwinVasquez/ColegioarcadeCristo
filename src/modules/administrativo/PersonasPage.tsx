@@ -489,6 +489,16 @@ export function PersonasPage() {
                   {['coordinador', 'tic', 'director', 'administrador', 'siger', 'apoyo', 'psicologia'].map((t) => (<option key={t} value={t}>{labelOf(t as TipoOp)}</option>))}
                 </Select>
               </FormField>
+              {p.tipo === 'coordinador' && (
+                <FormField label="Nivel de coordinación" hint="Determina qué nivel verá en el portal de Coordinación Pedagógica.">
+                  <Select value={p.nivel ?? ''} onChange={(_, d) => set({ ...p, nivel: (d.value || undefined) as Persona['nivel'] })}>
+                    <option value="">— Sin definir —</option>
+                    <option value="Inicial">Inicial</option>
+                    <option value="Primaria">Primaria</option>
+                    <option value="Secundaria">Secundaria</option>
+                  </Select>
+                </FormField>
+              )}
             </div>
           )}
           onSave={savePersona}

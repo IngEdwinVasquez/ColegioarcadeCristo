@@ -21,6 +21,7 @@ import { NivelSelector } from './NivelSelector'
 import { useCoordinationLevel } from './useCoordinationLevel'
 import type { Accompaniment, ClassSchedule, SchoolClassRecord } from '../../types'
 import { formatDate, todayIso } from '../../utils/helpers'
+import { nivelShort } from '../../utils/academic'
 
 const useStyles = makeStyles({
   controls: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '16px', flexWrap: 'wrap', marginBottom: '20px' },
@@ -41,7 +42,7 @@ export function CoordDashboard() {
   const accsCol = useCollection<Accompaniment>(dataService.getAccompaniments)
   const classesCol = useCollection<SchoolClassRecord>(dataService.getClasses)
 
-  const levelGradeIds = useMemo(() => grades.filter((g) => g.level === level).map((g) => g.id), [grades, level])
+  const levelGradeIds = useMemo(() => grades.filter((g) => nivelShort(g.level) === level).map((g) => g.id), [grades, level])
   const levelTeachers = useMemo(() => teachers.filter((t) => t.grades.some((g) => levelGradeIds.includes(g))), [teachers, levelGradeIds])
   const levelStudents = useMemo(() => students.filter((s) => levelGradeIds.includes(s.gradeId)), [students, levelGradeIds])
   const levelSchedules = useMemo(() => schedulesCol.items.filter((s) => levelGradeIds.includes(s.gradeId)), [schedulesCol.items, levelGradeIds])
