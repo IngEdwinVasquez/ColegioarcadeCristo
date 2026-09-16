@@ -32,6 +32,8 @@ export interface GradeSection {
   asignatura?: string
   /** Imagen que representa el aula del curso (url o ruta local) */
   imageUrl?: string
+  /** Id. de la imagen subida a OneDrive (para el aula del curso) */
+  imageRef?: string
   /** Equipo de Microsoft Teams vinculado al curso */
   teamId?: string
   teamUrl?: string
