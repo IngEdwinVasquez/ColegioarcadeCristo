@@ -11,7 +11,7 @@ import { parseSigerdStudentsPdf } from '../../services/sigerdAi'
 import { listEntraUsers, createEntraUser } from '../../services/entraUsers'
 import { graphErrorMessage } from '../../services/graph'
 import { genId } from '../../utils/helpers'
-import { GRADOS, asignaturaDe, cicloFromGrade, cursoNombre, esCursoValido, gradoDe, isRealSubject, nivelDeTanda, nivelShort, ordenarCursos, seccionDe } from '../../utils/academic'
+import { GRADOS, NIVELES, asignaturaDe, cicloFromGrade, cursoNombre, esCursoValido, gradoDe, isRealSubject, nivelDeTanda, nivelShort, ordenarCursos, seccionDe } from '../../utils/academic'
 import type { Enrollment, GradeSection, SigerdHeader, SigerdStudent, Student } from '../../types'
 
 const useStyles = makeStyles({
@@ -61,6 +61,7 @@ export function ImportarSigerdCard({ cursoDefecto, onCursoDefectoChange }: Props
   const enrollmentsCol = useCollection<Enrollment>(dataService.getEnrollments, dataService.saveEnrollment)
 
   const [period, setPeriod] = useState(periods.find((p) => p.isActive)?.id ?? periods[0]?.id ?? '')
+  const [tipoPdf, setTipoPdf] = useState('')
   const [busy, setBusy] = useState(false)
   const [preview, setPreview] = useState<PreviewRow[] | null>(null)
   const [header, setHeader] = useState<SigerdHeader>({})
@@ -196,7 +197,8 @@ export function ImportarSigerdCard({ cursoDefecto, onCursoDefectoChange }: Props
       const rows: PreviewRow[] = estudiantes.map((s) => {
         const fullName = `${s.nombres} ${s.primerApellido} ${s.segundoApellido}`.replace(/\s+/g, ' ').trim().toUpperCase()
         const alt = `${s.primerApellido} ${s.segundoApellido} ${s.nombres}`.replace(/\s+/g, ' ').trim().toUpperCase()
-        const nivel = s.nivel ?? nivelHeader
+        const nivel = tipoPdf || s.nivel || nivelHeader
+        const stu = nivel && nivel !== s.nivel ? { ...s, nivel } : s
         const n = numGrado(s.grado)
         const sec = (s.seccion || '').trim().toUpperCase()
         let curso: string | undefined
@@ -204,7 +206,7 @@ export function ImportarSigerdCard({ cursoDefecto, onCursoDefectoChange }: Props
           const g = grades.find((x) => gradoDe(x) === GRADOS[n - 1] && seccionDe(x) === sec && (!nivel || x.level === nivel)) ?? grades.find((x) => gradoDe(x) === GRADOS[n - 1] && seccionDe(x) === sec)
           curso = g ? cursoNombre(g) : `${GRADOS[n - 1]}.${sec} · ${nivelShort(nivel ?? 'Nivel Primario')}`
         }
-        return { s, fullName, match: dirByName.get(norm(fullName)) ?? dirByName.get(norm(alt)), curso }
+        return { s: stu, fullName, match: dirByName.get(norm(fullName)) ?? dirByName.get(norm(alt)), curso }
       })
       setPreview(rows)
     } catch (error) {
@@ -302,6 +304,7 @@ export function ImportarSigerdCard({ cursoDefecto, onCursoDefectoChange }: Props
       await dataService.saveSigerdReport({
         id: reportId,
         header,
+        nivel: tipoPdf || headerNivel || undefined,
         curso: [...cursosUsados].join(', ') || cursoDefecto || undefined,
         periodId: period,
         studentsCount: rows.length,
@@ -339,6 +342,12 @@ export function ImportarSigerdCard({ cursoDefecto, onCursoDefectoChange }: Props
           Se detecta el curso por el encabezado (Nivel desde «Tanda-Servicio», Grado y Sección); si no existe, se crea en Gestión académica. Se guarda el encabezado y todas las columnas de cada estudiante.
         </Text>
         <FieldRow>
+          <FormField label="Tipo de PDF (nivel)" hint="Cada período sube 3 PDF: uno de Inicial, uno de Primaria y otro de Secundaria.">
+            <Select value={tipoPdf} onChange={(_, d) => setTipoPdf(d.value)}>
+              <option value="">Autodetectar (por el encabezado)</option>
+              {NIVELES.map((n) => <option key={n} value={`Nivel ${n}`}>{n}</option>)}
+            </Select>
+          </FormField>
           <FormField label="Curso por defecto (si no se detecta)" hint="Se usa cuando el encabezado no permite detectar el curso; filtra la tabla.">
             <Select value={cursoDefecto} onChange={(_, d) => onCursoDefectoChange(d.value)}>
               <option value="">— Sin curso por defecto —</option>
@@ -389,7 +398,7 @@ export function ImportarSigerdCard({ cursoDefecto, onCursoDefectoChange }: Props
             <Text size={200} block style={{ color: 'var(--texto-suave)', marginBottom: '8px' }}>
               {header.ano && <>Año: <strong>{header.ano}</strong> · </>}
               {header.centroEducativo && <>{header.centroEducativo} · </>}
-              {headerNivel && <>Nivel: <strong>{nivelShort(headerNivel)}</strong> · </>}
+              {(tipoPdf || headerNivel) && <>Nivel: <strong>{nivelShort(tipoPdf || headerNivel || '')}</strong> · </>}
               {header.grado && <>Grado: <strong>{header.grado}</strong> · </>}
               {header.seccion && <>Sec.: <strong>{header.seccion}</strong></>}
             </Text>

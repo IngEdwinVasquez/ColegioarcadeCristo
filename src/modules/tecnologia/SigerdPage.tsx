@@ -8,7 +8,7 @@ import { dataService } from '../../services/dataService'
 import { useCollection } from '../../hooks/useCollection'
 import { useApp } from '../../context/useApp'
 import { formatDate } from '../../utils/helpers'
-import { cursoNombre } from '../../utils/academic'
+import { cursoNombre, nivelShort } from '../../utils/academic'
 import type { Enrollment, SigerdReport, SigerdStudent, Student } from '../../types'
 
 const useStyles = makeStyles({
@@ -129,7 +129,7 @@ export function SigerdPage() {
               <option value="">Todos los reportes</option>
               {reports.map((r) => (
                 <option key={r.id} value={r.id}>
-                  {(r.header.grado || '—')} · {(r.header.seccion || '—')} · {(r.header.docentes || '—')} · {formatDate(r.createdAt.slice(0, 10))} ({r.studentsCount})
+                  {r.nivel ? `${nivelShort(r.nivel)} · ` : ''}{(r.header.grado || '—')} · {(r.header.seccion || '—')} · {(r.header.docentes || '—')} · {formatDate(r.createdAt.slice(0, 10))} ({r.studentsCount})
                 </option>
               ))}
             </Select>
@@ -139,6 +139,7 @@ export function SigerdPage() {
           {selected && (
             <div className={styles.header}>
               <Text size={200}><strong>Año:</strong> {selected.header.ano || '—'}</Text>
+              {selected.nivel && <Text size={200}><strong>Nivel:</strong> {nivelShort(selected.nivel)}</Text>}
               <Text size={200}><strong>Centro:</strong> {selected.header.centroEducativo || '—'}</Text>
               <Text size={200}><strong>Regional:</strong> {selected.header.direccionRegional || '—'}</Text>
               <Text size={200}><strong>Distrito:</strong> {selected.header.distritoEducativo || '—'}</Text>
