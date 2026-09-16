@@ -306,28 +306,29 @@ export function AsignacionesPage() {
   }
 
   // ---------------------------------------------------------------- Asignaturas por curso (Excel)
-  /** Descarga un Excel con todos los cursos y sus asignaturas (A: curso, B: asignatura). */
+  /** Descarga un Excel con un curso por fila: columna A = curso, columnas B, C, D… = sus asignaturas. */
   const exportarAsignaturasPorCurso = () => {
-    const rows: Array<{ Curso: string; Asignatura: string }> = []
-    for (const c of cursosCatalogo) {
-      const materias = [...new Set(grades.filter((g) => cursoNombre(g) === c.nombre && isRealSubject(asignaturaDe(g))).map((g) => asignaturaDe(g)))]
-        .sort((a, b) => a.localeCompare(b))
-      if (materias.length === 0) rows.push({ Curso: c.nombre, Asignatura: '' })
-      else for (const m of materias) rows.push({ Curso: c.nombre, Asignatura: m })
-    }
-    if (rows.length === 0) {
+    const porCurso = cursosCatalogo.map((c) => ({
+      curso: c.nombre,
+      materias: [...new Set(grades.filter((g) => cursoNombre(g) === c.nombre && isRealSubject(asignaturaDe(g))).map((g) => asignaturaDe(g)))]
+        .sort((a, b) => a.localeCompare(b)),
+    }))
+    if (porCurso.length === 0) {
       toaster.dispatchToast('No hay cursos registrados para exportar.', { intent: 'error' })
       return
     }
-    const ws = XLSX.utils.json_to_sheet(rows, { header: ['Curso', 'Asignatura'] })
-    ws['!cols'] = [{ wch: 34 }, { wch: 44 }]
+    const maxMaterias = Math.max(1, ...porCurso.map((c) => c.materias.length))
+    const header = ['Curso', ...Array.from({ length: maxMaterias }, (_, i) => `Asignatura ${i + 1}`)]
+    const rows: string[][] = [header, ...porCurso.map((c) => [c.curso, ...c.materias])]
+    const ws = XLSX.utils.aoa_to_sheet(rows)
+    ws['!cols'] = [{ wch: 34 }, ...Array.from({ length: maxMaterias }, () => ({ wch: 26 }))]
     const wb = XLSX.utils.book_new()
     XLSX.utils.book_append_sheet(wb, ws, 'Asignaturas por curso')
     XLSX.writeFile(wb, `Asignaturas_por_curso_${new Date().toISOString().slice(0, 10)}.xlsx`)
-    toaster.dispatchToast(`${cursosCatalogo.length} curso(s) exportado(s). Edita la columna B y vuelve a cargar el archivo.`, { intent: 'success' })
+    toaster.dispatchToast(`${porCurso.length} curso(s) exportado(s). Cada asignatura va en una columna (B, C, D…).`, { intent: 'success' })
   }
 
-  /** Carga el Excel y deja cada curso con única y exclusivamente las asignaturas indicadas. */
+  /** Carga el Excel (un curso por fila) y deja cada curso con única y exclusivamente las asignaturas indicadas. */
   const importarAsignaturasPorCurso = async (file: File | undefined) => {
     if (!file) return
     setImportingSubjects(true)
@@ -340,12 +341,15 @@ export function AsignacionesPage() {
       for (const r of rows) {
         const curso = String(r?.[0] ?? '').trim()
         if (!curso || /^curso$/i.test(curso)) continue
-        const asig = String(r?.[1] ?? '').trim()
         if (!grupos.has(curso)) grupos.set(curso, new Set())
-        if (asig && !/^asignatura/i.test(asig)) grupos.get(curso)!.add(asig)
+        // Todas las columnas desde la B son asignaturas del curso.
+        for (let i = 1; i < (r?.length ?? 0); i++) {
+          const asig = String(r[i] ?? '').trim()
+          if (asig && !/^asignatura/i.test(asig)) grupos.get(curso)!.add(asig)
+        }
       }
       if (grupos.size === 0) {
-        toaster.dispatchToast('El Excel no contiene cursos (columna A) ni asignaturas (columna B).', { intent: 'error' })
+        toaster.dispatchToast('El Excel no contiene cursos (columna A) ni asignaturas (columnas B, C…).', { intent: 'error' })
         return
       }
       let creadas = 0
@@ -803,7 +807,7 @@ export function AsignacionesPage() {
         <Card className={styles.card}>
           <Text weight="semibold" size={300}>Asignaturas por curso</Text>
           <Text size={200} style={{ color: 'var(--texto-suave)' }}>
-            Descarga el Excel con todos los cursos y sus asignaturas (columna A: nombre del curso; columna B: cada asignatura del curso).
+            Descarga el Excel con un curso por fila (columna A: nombre del curso) y sus asignaturas en las columnas B, C, D… (una asignatura por columna).
             Modifícalo y cárgalo de vuelta: cada curso quedará con única y exclusivamente las asignaturas indicadas en el archivo.
           </Text>
           <input ref={subjectExcelRef} type="file" accept=".xlsx,.xls,.csv" style={{ display: 'none' }} onChange={(e) => void importarAsignaturasPorCurso(e.target.files?.[0])} />
