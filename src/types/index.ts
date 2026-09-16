@@ -960,6 +960,8 @@ export interface GradeRegister {
   periodId: string
   plantillaNombre?: string
   plantillaUrl?: string
+  /** Id. de la portada (primera página del PDF) subida a OneDrive. */
+  portadaRef?: string
   centro?: RegistroCentro
   estudiantes: RegistroStudent[]
   /** Asistencia y puntualidad por número de estudiante (días asistidos/ausencias/tardanzas por periodo). */

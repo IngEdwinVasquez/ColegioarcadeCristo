@@ -4,7 +4,7 @@ import {
   Input, Select, Spinner, Tab, TabList, Table, TableBody, TableCell, TableHeader, TableHeaderCell,
   TableRow, Text, Textarea, useToastController, makeStyles,
 } from '@fluentui/react-components'
-import { AddRegular, DeleteRegular, DocumentPdfRegular, SaveRegular, BookRegular, PeopleRegular } from '@fluentui/react-icons'
+import { AddRegular, DeleteRegular, DocumentPdfRegular, SaveRegular, BookRegular, PeopleRegular, SparkleRegular, ArrowUploadRegular } from '@fluentui/react-icons'
 import { PageHeader } from '../../components/shared/PageHeader'
 import { EmptyStateView } from '../../components/shared/EmptyStateView'
 import { NivelSelector } from '../coordinacion/NivelSelector'
@@ -13,11 +13,13 @@ import { FormField, FieldRow } from '../../components/shared/form'
 import { useApp } from '../../context/useApp'
 import { dataService } from '../../services/dataService'
 import { useCollection } from '../../hooks/useCollection'
-import { uploadAndShare } from '../../services/onedrive'
+import { uploadFile, uploadAndShare, downloadFileAsDataUrl } from '../../services/onedrive'
+import { extractPdfFirstPageText, renderPdfFirstPageToBlob } from '../../services/pdf'
+import { aiChat } from '../../services/ai'
 import { graphErrorMessage } from '../../services/graph'
 import { appConfig } from '../../config/appConfig'
 import { genId } from '../../utils/helpers'
-import { cursoNombre, nivelShort, asignaturaDe, isRealSubject, ordenarCursos } from '../../utils/academic'
+import { cursoNombre, nivelShort, asignaturaDe, isRealSubject, ordenarCursos, GRADOS } from '../../utils/academic'
 import type {
   Activity, AttendanceRecord, Enrollment, Grade, GradeRegister, Persona, RegistroCalificacion,
   RegistroCentro, RegistroPeriodos, RegistroStudent, SigerdReport, StudentGuardian, TeacherAssignment,
@@ -64,6 +66,52 @@ function deriveCal(c: RegistroCalificacion): RegistroCalificacion {
   const situacion = ref == null ? (c.situacion ?? '') : ref >= 65 ? 'A' : 'R'
   const s = (v?: number) => (v == null ? undefined : String(v))
   return { ...c, comp50: s(comp50), comp30: s(comp30), compCcf: s(compCcf), ext30: s(ext30), ext70: s(ext70), extCexf: s(extCexf), situacion }
+}
+
+const portadaCache = new Map<string, string>()
+
+/** Portada del registro (primera página del PDF) con respaldo degradado. */
+function RegistroPortada({ reg, height = 160 }: { reg: GradeRegister; height?: number }) {
+  const [src, setSrc] = useState('')
+  useEffect(() => {
+    const ref = reg.portadaRef
+    if (!ref) { setSrc(''); return }
+    const cached = portadaCache.get(ref)
+    if (cached) { setSrc(cached); return }
+    let alive = true
+    downloadFileAsDataUrl(ref).then((d) => { portadaCache.set(ref, d); if (alive) setSrc(d) }).catch(() => { /* sin portada */ })
+    return () => { alive = false }
+  }, [reg.portadaRef])
+  if (!src) {
+    return (
+      <div style={{ height, borderRadius: '10px', background: 'linear-gradient(135deg,#0A6E4E,#7FB069)', color: '#fff', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+        <BookRegular />
+        <Text size={200}>{reg.nivel}</Text>
+      </div>
+    )
+  }
+  return <img src={src} alt={reg.curso} style={{ width: '100%', height, objectFit: 'cover', objectPosition: 'top', borderRadius: '10px', border: '1px solid var(--borde)' }} />
+}
+
+interface RegistroMeta { gradoNum?: number; level?: string; nivel?: string; ciclo?: string; seccion?: string; year?: string }
+
+/** Extrae grado, nivel, ciclo, sección y año del texto de la primera página del PDF. */
+function parseRegistroMeta(text: string): RegistroMeta {
+  const t = text.replace(/\s+/g, ' ').trim()
+  const up = t.toUpperCase()
+  let level = ''
+  if (/NIVEL\s+INICIAL|EDUCACI[OÓ]N\s+INICIAL|PREPRIMARI|PREESCOLAR/.test(up)) level = 'Nivel Inicial'
+  else if (/NIVEL\s+SECUNDARI|EDUCACI[OÓ]N\s+SECUNDARIA/.test(up)) level = 'Nivel Secundario'
+  else if (/NIVEL\s+PRIMARI|EDUCACI[OÓ]N\s+PRIMARIA/.test(up)) level = 'Nivel Primario'
+  const gm = t.match(/\b([1-6])\s*(?:ER|DO|RO|TO|MO|NO|VO|°|º)?\s*GRADO/i) || t.match(/GRADO\s*([1-6])/i)
+  const gradoNum = gm ? Number(gm[1]) : undefined
+  let ciclo = ''
+  if (/PRIMER\s+CICLO/.test(up)) ciclo = 'Primer ciclo'
+  else if (/SEGUNDO\s+CICLO/.test(up)) ciclo = 'Segundo ciclo'
+  else if (gradoNum && (level === 'Nivel Primario' || level === 'Nivel Secundario')) ciclo = gradoNum <= 3 ? 'Primer ciclo' : 'Segundo ciclo'
+  const sm = t.match(/SECCI[OÓ]N\s*:?\s*([A-G])\b/i)
+  const ym = t.match(/20\s*_?\s*(\d{2})\s*[-–]?\s*20\s*_?\s*(\d{2})/)
+  return { gradoNum, level: level || undefined, nivel: level ? nivelShort(level) : undefined, ciclo, seccion: sm ? sm[1].toUpperCase() : undefined, year: ym ? `20${ym[1]}-20${ym[2]}` : undefined }
 }
 
 const useStyles = makeStyles({
@@ -124,10 +172,9 @@ export function RegistroGradoPage({ scope, title = 'Registro de Grado', subtitle
   const [tab, setTab] = useState('centro')
   const [periodoInicial, setPeriodoInicial] = useState('p1')
   const [busy, setBusy] = useState(false)
-  const [nuevoCurso, setNuevoCurso] = useState('')
+  const [archivoPdf, setArchivoPdf] = useState<File | null>(null)
   const [nuevoPeriodo, setNuevoPeriodo] = useState(periods.find((p) => p.isActive)?.id ?? periods[0]?.id ?? '')
-  const [plantilla, setPlantilla] = useState<{ nombre?: string; url?: string }>({})
-  const plantillaRef = useRef<HTMLInputElement>(null)
+  const pdfRef = useRef<HTMLInputElement>(null)
 
   const cursosCatalogo = useMemo(
     () => ordenarCursos(grades.filter((g) => isRealSubject(asignaturaDe(g)))).map((g) => ({ nombre: cursoNombre(g), grade: g })),
@@ -304,48 +351,47 @@ export function RegistroGradoPage({ scope, title = 'Registro de Grado', subtitle
   }
 
   const abrirNuevo = () => {
-    setNuevoCurso(cursosPermitidos[0]?.nombre ?? '')
-    setPlantilla({})
+    setArchivoPdf(null)
     setOpenNew(true)
   }
 
-  const subirPlantilla = async (file: File | undefined) => {
-    if (!file) return
-    setBusy(true)
-    try {
-      const ref = await uploadAndShare('Registro de Grado', file)
-      setPlantilla({ nombre: file.name, url: ref.webUrl })
-      toaster.dispatchToast('Plantilla cargada.', { intent: 'success' })
-    } catch (e) {
-      toaster.dispatchToast(graphErrorMessage(e), { intent: 'error' })
-    } finally {
-      setBusy(false)
-    }
-  }
-
   const crear = async () => {
-    const curso = cursosPermitidos.find((c) => c.nombre === nuevoCurso)
-    if (!curso) { toaster.dispatchToast('Selecciona un curso.', { intent: 'error' }); return }
+    if (!archivoPdf) { toaster.dispatchToast('Selecciona el PDF del registro de grado.', { intent: 'error' }); return }
     setBusy(true)
     try {
-      const estudiantes: RegistroStudent[] = estudiantesCurso(curso.nombre).map((s, i) => ({
-        studentId: s.id,
-        number: i + 1,
-        apellidos: s.fullName.split(' ').slice(1).join(' ') || s.fullName,
-        nombres: s.fullName.split(' ')[0] ?? '',
-      }))
-      const reg: GradeRegister = {
+      const meta = parseRegistroMeta(await extractPdfFirstPageText(archivoPdf))
+      const seccion = meta.seccion || 'A'
+      const gradoNombre = meta.gradoNum ? GRADOS[meta.gradoNum - 1] : ''
+      const nivel = meta.level || (nivelFiltro ? `Nivel ${nivelFiltro}` : 'Nivel Primario')
+      const curso = gradoNombre ? `${gradoNombre}.${seccion} · ${nivelShort(nivel)}` : `${seccion} · ${nivelShort(nivel)}`
+
+      let portadaRef: string | undefined
+      try {
+        const blob = await renderPdfFirstPageToBlob(archivoPdf)
+        if (blob) {
+          const ref = await uploadFile('Registro de Grado/Portadas', `${curso.replace(/[^\w.-]+/g, '_')}.jpg`, blob)
+          portadaRef = ref.id
+          portadaCache.set(ref.id, URL.createObjectURL(blob))
+        }
+      } catch { /* sin portada */ }
+      let plantillaUrl: string | undefined
+      try { plantillaUrl = (await uploadAndShare('Registro de Grado', archivoPdf)).webUrl } catch { /* sin plantilla */ }
+
+      const existing = grades.filter((g) => cursoNombre(g) === curso)
+      const students = estudiantesCurso(curso)
+      const base: GradeRegister = {
         id: genId('rg'),
-        level: curso.grade.level,
-        nivel: nivelShort(curso.grade.level),
-        ciclo: curso.grade.ciclo || '',
-        curso: curso.nombre,
-        gradeId: curso.grade.id,
+        level: existing[0]?.level ?? nivel,
+        nivel: nivelShort(existing[0]?.level ?? nivel),
+        ciclo: existing[0]?.ciclo || meta.ciclo || ciclo || '',
+        curso,
+        gradeId: existing[0]?.id ?? '',
         periodId: nuevoPeriodo,
-        plantillaNombre: plantilla.nombre,
-        plantillaUrl: plantilla.url,
+        plantillaNombre: archivoPdf.name,
+        plantillaUrl,
+        portadaRef,
         centro: {},
-        estudiantes,
+        estudiantes: students.map((s, i) => ({ studentId: s.id, number: i + 1, apellidos: s.fullName.split(' ').slice(1).join(' ') || s.fullName, nombres: s.fullName.split(' ')[0] ?? '' })),
         asistencia: {},
         especificaciones: {},
         calificaciones: {},
@@ -353,9 +399,12 @@ export function RegistroGradoPage({ scope, title = 'Registro de Grado', subtitle
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       }
-      const full = await preencher(reg)
+      const full = await preencher(base)
       await registrosCol.save(full)
-      toaster.dispatchToast('Registro de grado creado y prellenado.', { intent: 'success' })
+      toaster.dispatchToast(
+        existing.length ? 'Registro de grado creado y prellenado.' : `Registro creado. El curso "${curso}" no existe en Gestión académica: créelo para cargar estudiantes.`,
+        { intent: existing.length ? 'success' : 'warning' },
+      )
       setOpenNew(false)
       setDetalle(full)
     } catch (e) {
@@ -378,6 +427,34 @@ export function RegistroGradoPage({ scope, title = 'Registro de Grado', subtitle
       await registrosCol.save(next)
       setDetalle(next)
       toaster.dispatchToast('Registro guardado.', { intent: 'success' })
+    } catch (e) {
+      toaster.dispatchToast(graphErrorMessage(e), { intent: 'error' })
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  /** Genera con IA las especificaciones curriculares por asignatura/área y periodo. */
+  const llenarConIA = async () => {
+    if (!draft) return
+    setBusy(true)
+    try {
+      const prompt = `Eres un docente del nivel ${draft.nivel} en República Dominicana (currículo MINERD). Para el curso ${draft.curso}${draft.ciclo ? ` (${draft.ciclo})` : ''}, redacta las especificaciones curriculares (contenidos y competencias trabajadas) por área/asignatura para los periodos I, II, III y IV.
+Devuelve un JSON válido con la forma {"Area 1":{"p1":"texto","p2":"texto","p3":"texto","p4":"texto"}, ...}, usando EXACTAMENTE estas áreas: ${areasCurso.join(', ')}.
+Responde ÚNICAMENTE el JSON.`
+      const res = await aiChat(
+        [{ role: 'system', content: 'Asistente curricular MINERD. Responde solo JSON válido.' }, { role: 'user', content: prompt }],
+        { temperature: 0.3, jsonMode: true, maxTokens: 2600 },
+      )
+      const json = res.match(/\{[\s\S]*\}/)?.[0] ?? res
+      const parsed = JSON.parse(json) as Record<string, RegistroPeriodos>
+      const next = { ...(draft.especificaciones ?? {}) }
+      for (const [area, val] of Object.entries(parsed)) {
+        const match = areasCurso.find((a) => a.trim().toLowerCase() === area.trim().toLowerCase())
+        if (match) next[match] = { ...(next[match] ?? {}), ...val }
+      }
+      setDraft({ ...draft, especificaciones: next })
+      toaster.dispatchToast('Especificaciones generadas con IA. Revísalas y guarda.', { intent: 'success' })
     } catch (e) {
       toaster.dispatchToast(graphErrorMessage(e), { intent: 'error' })
     } finally {
@@ -424,7 +501,7 @@ export function RegistroGradoPage({ scope, title = 'Registro de Grado', subtitle
               </Select>
             </FormField>
           )}
-          {!esDocente && <Button appearance="primary" icon={<AddRegular />} onClick={abrirNuevo} disabled={cursosPermitidos.length === 0}>Nuevo registro de grado</Button>}
+          {!esDocente && <Button appearance="primary" icon={<ArrowUploadRegular />} onClick={abrirNuevo}>Subir registro de grado (PDF)</Button>}
         </div>
       </Card>
 
@@ -435,7 +512,8 @@ export function RegistroGradoPage({ scope, title = 'Registro de Grado', subtitle
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 280px), 1fr))', gap: '16px' }}>
           {registros.map((r) => (
-            <Card key={r.id} style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            <Card key={r.id} style={{ padding: '14px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <RegistroPortada reg={r} />
               <Text weight="semibold" size={400}>{r.curso}</Text>
               <Text size={200} style={{ color: 'var(--texto-suave)' }}>{r.nivel}{r.ciclo ? ` · ${r.ciclo}` : ''} · {r.estudiantes.length} estudiante(s)</Text>
               {r.plantillaNombre && <Text size={200} style={{ color: 'var(--texto-suave)' }}>Plantilla: {r.plantillaNombre}</Text>}
@@ -452,29 +530,27 @@ export function RegistroGradoPage({ scope, title = 'Registro de Grado', subtitle
       <Dialog open={openNew} onOpenChange={(_, d) => { if (!d.open) setOpenNew(false) }}>
         <DialogSurface style={{ maxWidth: 560 }}>
           <DialogBody>
-            <DialogTitle>Nuevo registro de grado</DialogTitle>
+            <DialogTitle>Subir registro de grado (PDF)</DialogTitle>
             <DialogContent>
-              <FormField label="Curso" required>
-                <Select value={nuevoCurso} onChange={(_, d) => setNuevoCurso(d.value)}>
-                  {cursosPermitidos.map((c) => <option key={c.nombre} value={c.nombre}>{c.nombre}</option>)}
-                </Select>
+              <Text size={200} block style={{ color: 'var(--texto-suave)', marginBottom: '10px' }}>
+                Se extraen el <strong>grado</strong> y el <strong>nivel</strong> del PDF, y el <strong>ciclo</strong> se determina por el primer número del grado (1-3 primer ciclo, 4-6 segundo ciclo; no aplica a Inicial). Se usa la primera página como portada.
+              </Text>
+              <FormField label="PDF del registro del curso" required>
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                  <input ref={pdfRef} type="file" accept="application/pdf" style={{ display: 'none' }} onChange={(e) => setArchivoPdf(e.target.files?.[0] ?? null)} />
+                  <Button icon={<ArrowUploadRegular />} disabled={busy} onClick={() => pdfRef.current?.click()}>Seleccionar PDF</Button>
+                  {archivoPdf && <Text size={200}>{archivoPdf.name}</Text>}
+                </div>
               </FormField>
               <FormField label="Año escolar / período" required>
                 <Select value={nuevoPeriodo} onChange={(_, d) => setNuevoPeriodo(d.value)}>
                   {periods.map((p) => <option key={p.id} value={p.id}>{p.name}{p.isActive ? ' (activo)' : ''}</option>)}
                 </Select>
               </FormField>
-              <FormField label="Plantilla (PDF del modelo de registro)" hint="Opcional. Se guarda como referencia del registro.">
-                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                  <input ref={plantillaRef} type="file" accept="application/pdf" style={{ display: 'none' }} onChange={(e) => void subirPlantilla(e.target.files?.[0])} />
-                  <Button icon={<DocumentPdfRegular />} disabled={busy} onClick={() => plantillaRef.current?.click()}>Seleccionar PDF</Button>
-                  {plantilla.nombre && <Text size={200}>{plantilla.nombre}</Text>}
-                </div>
-              </FormField>
             </DialogContent>
             <DialogActions>
               <Button appearance="secondary" onClick={() => setOpenNew(false)} disabled={busy}>Cancelar</Button>
-              <Button appearance="primary" onClick={() => void crear()} disabled={busy || !nuevoCurso}>Crear</Button>
+              <Button appearance="primary" icon={busy ? <Spinner size="tiny" /> : <ArrowUploadRegular />} onClick={() => void crear()} disabled={busy || !archivoPdf}>Subir y crear</Button>
             </DialogActions>
           </DialogBody>
         </DialogSurface>
@@ -593,6 +669,10 @@ export function RegistroGradoPage({ scope, title = 'Registro de Grado', subtitle
 
                   {tab === 'especificaciones' && (
                     <div className={styles.scroll}>
+                      <div className={styles.actions} style={{ marginBottom: '10px' }}>
+                        <Button appearance="secondary" icon={busy ? <Spinner size="tiny" /> : <SparkleRegular />} disabled={busy || areasCurso.length === 0} onClick={() => void llenarConIA()}>Llenar con IA</Button>
+                        <Text size={200} style={{ color: 'var(--texto-suave)' }}>Genera las especificaciones curriculares por asignatura/área y periodo.</Text>
+                      </div>
                       <Table size="small">
                         <TableHeader>
                           <TableRow>
