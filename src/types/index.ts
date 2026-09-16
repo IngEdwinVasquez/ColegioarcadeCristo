@@ -968,8 +968,10 @@ export interface GradeRegister {
   especificaciones?: Record<string, RegistroPeriodos>
   /** Calificaciones por asignatura → número de estudiante → calificaciones. */
   calificaciones?: Record<string, Record<string, RegistroCalificacion>>
-  /** Promoción de grado por número de estudiante (A/R). */
-  promocion?: Record<string, string>
+  /** Promoción de grado por asignatura → número de estudiante (A/R). */
+  promocion?: Record<string, Record<string, string>>
+  /** Nivel Inicial: periodo → número de estudiante → dominio → código (I/EP/L/N/E). */
+  inicial?: Record<string, Record<string, Record<string, string>>>
   createdAt: string
   updatedAt: string
 }
