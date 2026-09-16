@@ -54,6 +54,11 @@ export function StaffPage({ kind, extra }: { kind: keyof typeof STAFF_TIPOS; ext
       throw new Error('Datos incompletos')
     }
     const account = await requireAccount(p.userId)
+    const dup = personasCol.items.find((x) => x.id !== p.id && ((!!x.userId && x.userId === account.id) || (!!x.email && x.email.trim().toLowerCase() === entraEmail(account).trim().toLowerCase())))
+    if (dup) {
+      toaster.dispatchToast(`Ya existe personal con esa cuenta o correo (${dup.fullName}). No se permiten duplicados.`, { intent: 'error' })
+      throw new Error('Duplicado')
+    }
     try {
       const previous = personasCol.items.find((x) => x.id === p.id)
       if (previous?.userId && previous.userId !== account.id) {
