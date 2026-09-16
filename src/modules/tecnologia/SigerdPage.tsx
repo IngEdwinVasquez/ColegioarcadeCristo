@@ -117,7 +117,15 @@ export function SigerdPage() {
 
       {busy && progreso && <Text size={200} block style={{ color: 'var(--texto-suave)', marginBottom: '8px' }}>{progreso}</Text>}
 
-      <ImportarSigerdCard cursoDefecto={cursoDefecto} onCursoDefectoChange={setCursoDefecto} />
+      <ImportarSigerdCard
+        cursoDefecto={cursoDefecto}
+        onCursoDefectoChange={setCursoDefecto}
+        onImported={() => {
+          void studentsCol.refresh()
+          void reportsCol.refresh()
+          void enrollmentsCol.refresh()
+        }}
+      />
 
       {reports.length === 0 ? (
         <EmptyStateView title="Sin registros SIGERD" message="Carga un PDF del SIGERD para crear los registros de estudiantes." />
