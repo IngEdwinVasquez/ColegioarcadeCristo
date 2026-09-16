@@ -90,7 +90,7 @@ export function MisClasesPage() {
 
   return (
     <div>
-      <Button appearance="subtle" icon={<ArrowLeftRegular />} onClick={() => navigate(`/docentes/aulas/${gradeId}/${encodeURIComponent(section)}`)} style={{ marginBottom: '12px' }}>Volver a la asignatura</Button>
+      <Button appearance="subtle" icon={<ArrowLeftRegular />} onClick={() => navigate('/docentes/aulas')} style={{ marginBottom: '12px' }}>Volver a Mis Aulas</Button>
       <PageHeader
         title={`Mis Clases · ${subjectName}`}
         subtitle={`${aula} · Cree clases a partir de las Unidades de Aprendizaje de su Planificación Anual.`}
