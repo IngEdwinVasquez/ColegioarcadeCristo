@@ -57,12 +57,33 @@ export function parseSigerdText(text: string): SigerdParseResult {
     .split('\n')
     .map((l) => l.replace(/\s+/g, ' ').trim())
     .filter(Boolean)
-  const estudiantes: SigerdStudent[] = []
+  // Cada estudiante se ancla en 3 valores fiables: No. de orden, Id. de
+  // estudiante (7-9 dígitos) y fecha de nacimiento (5 líneas después). El resto
+  // de columnas fijas se leen a partir del ancla. El tramo final (Grado,
+  // Sección, Condición, Estado) se interpreta de forma tolerante porque la celda
+  // "Grado" del SIGERD puede ocupar varias líneas (p. ej. "Cuarto grado" +
+  // "(2do. Nivel)"), lo que desalinea un conteo fijo de columnas.
   const starts: number[] = []
-  const studentLine = new Set<number>()
   for (let i = 0; i + 16 < lines.length; i++) {
-    if (!(isNum(lines[i]) && isId(lines[i + 1]) && isDate(lines[i + 5]))) continue
-    const b = i
+    if (isNum(lines[i]) && isId(lines[i + 1]) && isDate(lines[i + 5])) starts.push(i)
+  }
+  const estudiantes: SigerdStudent[] = []
+  const studentLine = new Set<number>()
+  const SECCION_RE = /^[A-Ga-g][\s.\-]?$/
+  for (let k = 0; k < starts.length; k++) {
+    const b = starts[k]
+    const nextStart = k + 1 < starts.length ? starts[k + 1] : lines.length
+    // El tramo final termina donde empieza el próximo encabezado (o el próximo estudiante).
+    let tailEnd = nextStart
+    for (let j = b + 13; j < nextStart; j++) {
+      if (HEADER_MARK.test(lines[j])) { tailEnd = j; break }
+    }
+    const tail = lines.slice(b + 13, tailEnd)
+    const secIdx = tail.findIndex((l) => SECCION_RE.test(l))
+    const seccion = secIdx >= 0 ? tail[secIdx].replace(/[\s.\-]+$/, '').toUpperCase() : ''
+    const grado = (tail[0] ?? '').trim()
+    const condicion = secIdx >= 0 ? (tail[secIdx + 1] ?? '').trim() : (tail[1] ?? '').trim()
+    const estado = tail.length ? (tail[tail.length - 1] ?? '').trim() : ''
     estudiantes.push({
       noOrden: lines[b],
       idEstudiante: lines[b + 1],
@@ -77,14 +98,12 @@ export function parseSigerdText(text: string): SigerdParseResult {
       folio: lines[b + 10],
       acta: lines[b + 11],
       anio: lines[b + 12],
-      grado: lines[b + 13],
-      seccion: lines[b + 14],
-      condicion: lines[b + 15],
-      estado: lines[b + 16],
+      grado,
+      seccion,
+      condicion,
+      estado,
     })
-    starts.push(b)
-    for (let k = b; k <= b + 16; k++) studentLine.add(k)
-    i = b + 16
+    for (let j = b; j < tailEnd; j++) studentLine.add(j)
   }
 
   // Encabezados repetidos: cada bloque aplica a los estudiantes que le siguen. Si un
