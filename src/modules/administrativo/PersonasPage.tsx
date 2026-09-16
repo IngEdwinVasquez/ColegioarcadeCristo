@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Button, Input, Select, Tab, TabList, Text, makeStyles, useToastController } from '@fluentui/react-components'
 import { CloudArrowDownRegular, DeleteRegular } from '@fluentui/react-icons'
 import { PageHeader } from '../../components/shared/PageHeader'
@@ -69,7 +69,7 @@ interface BasePerson { id: string; fullName: string; userId?: string }
 export function PersonasPage() {
   const styles = useStyles()
   const toaster = useToastController()
-  const { grades, subjects, students, teachers, periods } = useApp()
+  const { grades, subjects, periods } = useApp()
   const studentsCol = useCollection<Student>(dataService.getStudents, dataService.saveStudent, dataService.deleteStudent)
   const teachersCol = useCollection<Teacher>(dataService.getTeachers, dataService.saveTeacher, dataService.deleteTeacher)
   const guardiansCol = useCollection<StudentGuardian>(dataService.getGuardians, dataService.saveGuardian, dataService.deleteGuardian)
@@ -79,6 +79,20 @@ export function PersonasPage() {
   const [tab, setTab] = useState('estudiantes')
   const [importOpen, setImportOpen] = useState(false)
   const [deduping, setDeduping] = useState(false)
+  const [soloActivos, setSoloActivos] = useState(true)
+  const [activeIds, setActiveIds] = useState<Set<string> | null>(null)
+
+  // Usuarios activos del directorio (Microsoft 365) para el filtro único de todas las pestañas.
+  useEffect(() => {
+    let alive = true
+    void getDirectoryUsers()
+      .then((list) => { if (alive) setActiveIds(new Set(list.map((u) => u.id))) })
+      .catch(() => { if (alive) setActiveIds(new Set()) })
+    return () => { alive = false }
+  }, [])
+
+  const esActivo = (p: { userId?: string }) => !!p.userId && !!activeIds?.has(p.userId)
+  const applyFilter = <T extends { userId?: string }>(items: T[]) => (soloActivos && activeIds ? items.filter(esActivo) : items)
   const [nivelFilter, setNivelFilter] = useState('')
   const [cicloFilter, setCicloFilter] = useState('')
 
@@ -353,7 +367,7 @@ export function PersonasPage() {
   const personaCrud = (title: string, tipos: TipoOp[], defaultTipo: TipoOp, conNivel = false) => (
     <EntityCrud<Persona>
       title={title}
-      items={personasCol.items.filter((p) => tipos.includes(p.tipo as TipoOp))}
+      items={applyFilter(personasCol.items.filter((p) => tipos.includes(p.tipo as TipoOp)))}
       loading={personasCol.loading}
       columns={personaColumns}
       searchText={(p) => `${p.fullName} ${p.email}`}
@@ -408,25 +422,33 @@ export function PersonasPage() {
         }
       />
       <ImportPersonasWizard open={importOpen} onOpenChange={setImportOpen} />
+      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px', flexWrap: 'wrap' }}>
+        <Text size={200} weight="semibold">Mostrar:</Text>
+        <Select value={soloActivos ? 'activos' : 'todos'} onChange={(_, d) => setSoloActivos(d.value === 'activos')} style={{ maxWidth: '260px' }}>
+          <option value="activos">Usuarios activos (Microsoft 365)</option>
+          <option value="todos">Todos</option>
+        </Select>
+        {soloActivos && activeIds && <Text size={200} style={{ color: 'var(--texto-suave)' }}>{activeIds.size} usuario(s) activo(s) en el directorio</Text>}
+      </div>
       <TabList className={styles.tabs} selectedValue={tab} onTabSelect={(_, d) => setTab(String(d.value))}>
-        <Tab value="estudiantes">Estudiantes ({students.length})</Tab>
-        <Tab value="docentes">Docentes ({teachers.length})</Tab>
-        <Tab value="padres">Familias ({guardiansCol.items.length})</Tab>
-        <Tab value="personas">Personal ({personasCol.items.length})</Tab>
-        <Tab value="coordinacion">Coordinación Pedagógica ({personasCol.items.filter((p) => p.tipo === 'coordinador').length})</Tab>
-        <Tab value="tecnologia">Tecnología ({personasCol.items.filter((p) => p.tipo === 'tic').length})</Tab>
-        <Tab value="psicologia">Psicología y Prometacom ({personasCol.items.filter((p) => p.tipo === 'psicologia' || p.tipo === 'prometacom').length})</Tab>
-        <Tab value="padres-tab">Padres ({guardiansCol.items.length})</Tab>
-        <Tab value="pasantes">Pasantes ({personasCol.items.filter((p) => p.tipo === 'pasante').length})</Tab>
-        <Tab value="apoyo">Personal de apoyo ({personasCol.items.filter((p) => p.tipo === 'apoyo').length})</Tab>
-        <Tab value="directores">Directores ({personasCol.items.filter((p) => p.tipo === 'director').length})</Tab>
-        <Tab value="administradores">Administradores ({personasCol.items.filter((p) => p.tipo === 'administrador').length})</Tab>
+        <Tab value="estudiantes">Estudiantes ({applyFilter(studentsCol.items).length})</Tab>
+        <Tab value="docentes">Docentes ({applyFilter(teachersCol.items).length})</Tab>
+        <Tab value="padres">Familias ({applyFilter(guardiansCol.items).length})</Tab>
+        <Tab value="personas">Personal ({applyFilter(personasCol.items).length})</Tab>
+        <Tab value="coordinacion">Coordinación Pedagógica ({applyFilter(personasCol.items.filter((p) => p.tipo === 'coordinador')).length})</Tab>
+        <Tab value="tecnologia">Tecnología ({applyFilter(personasCol.items.filter((p) => p.tipo === 'tic')).length})</Tab>
+        <Tab value="psicologia">Psicología y Prometacom ({applyFilter(personasCol.items.filter((p) => p.tipo === 'psicologia' || p.tipo === 'prometacom')).length})</Tab>
+        <Tab value="padres-tab">Padres ({applyFilter(guardiansCol.items).length})</Tab>
+        <Tab value="pasantes">Pasantes ({applyFilter(personasCol.items.filter((p) => p.tipo === 'pasante')).length})</Tab>
+        <Tab value="apoyo">Personal de apoyo ({applyFilter(personasCol.items.filter((p) => p.tipo === 'apoyo')).length})</Tab>
+        <Tab value="directores">Directores ({applyFilter(personasCol.items.filter((p) => p.tipo === 'director')).length})</Tab>
+        <Tab value="administradores">Administradores ({applyFilter(personasCol.items.filter((p) => p.tipo === 'administrador')).length})</Tab>
       </TabList>
 
       {tab === 'estudiantes' && (
         <EntityCrud
           title="Estudiantes"
-          items={studentsCol.items}
+          items={applyFilter(studentsCol.items)}
           loading={studentsCol.loading}
           columns={studentColumns}
           searchText={(s) => `${s.fullName} ${s.parentName}`}
@@ -472,7 +494,7 @@ export function PersonasPage() {
       {tab === 'docentes' && (
         <EntityCrud
           title="Docentes"
-          items={teachersCol.items}
+          items={applyFilter(teachersCol.items)}
           loading={teachersCol.loading}
           columns={teacherColumns}
           searchText={(t) => `${t.fullName} ${t.email}`}
@@ -533,7 +555,7 @@ export function PersonasPage() {
       {(tab === 'padres' || tab === 'padres-tab') && (
         <EntityCrud<StudentGuardian>
           title="Padres y tutores"
-          items={guardiansCol.items}
+          items={applyFilter(guardiansCol.items)}
           loading={guardiansCol.loading}
           columns={[
             { header: 'Nombre', render: (g) => <Text weight="semibold">{g.fullName}</Text> },
@@ -582,7 +604,7 @@ export function PersonasPage() {
       {tab === 'personas' && (
         <EntityCrud<Persona>
           title="Personal"
-          items={personasCol.items}
+          items={applyFilter(personasCol.items)}
           loading={personasCol.loading}
           columns={personaColumns}
           searchText={(p) => `${p.fullName} ${p.email} ${p.tipo}`}
