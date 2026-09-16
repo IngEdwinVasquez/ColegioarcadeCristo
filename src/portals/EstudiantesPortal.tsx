@@ -2,6 +2,7 @@ import { Route, Routes } from 'react-router-dom'
 import { AppShell, type NavItem } from '../components/layout/AppShell'
 import { EstudianteDashboard } from '../modules/dashboard/EstudianteDashboard'
 import { StudentAulaView, StudentAsistenciaView, StudentClassesView } from '../modules/dashboard/StudentViews'
+import { StudentAulasView } from '../modules/aulas/aulas'
 import { Comunicados } from '../modules/dashboard/Comunicados'
 import { ChatPage } from '../modules/chat/ChatPage'
 import { CopilotPage } from '../modules/copilot/CopilotPage'
@@ -14,6 +15,7 @@ import {
   MegaphoneRegular,
   ChatRegular,
   SparkleRegular,
+  BookRegular,
 } from '@fluentui/react-icons'
 
 function StudentWrapper({ children }: { children: (studentId: string) => React.ReactNode }) {
@@ -25,6 +27,7 @@ export function EstudiantesPortal() {
   const NAV: NavItem[] = [
     { to: '/estudiantes', label: 'Inicio', icon: <HomeRegular />, end: true, group: 'General' },
     { to: '/estudiantes/clases', label: 'Mis Clases', icon: <NotebookRegular />, group: 'Académico' },
+    { to: '/estudiantes/aulas', label: 'Mis Aulas', icon: <BookRegular />, group: 'Académico' },
     { to: '/estudiantes/aula', label: 'Aula Virtual', icon: <VideoRegular />, group: 'Académico' },
     { to: '/estudiantes/asistencia', label: 'Mi Asistencia', icon: <CalendarCheckmarkRegular />, group: 'Académico' },
     { to: '/estudiantes/comunicados', label: 'Comunicados', icon: <MegaphoneRegular />, group: 'Comunidad' },
@@ -37,6 +40,7 @@ export function EstudiantesPortal() {
       <Route element={<AppShell nav={NAV} />}>
         <Route index element={<EstudianteDashboard />} />
         <Route path="clases" element={<StudentWrapper>{(id) => <StudentClassesView studentId={id} />}</StudentWrapper>} />
+        <Route path="aulas" element={<StudentWrapper>{(id) => <StudentAulasView studentId={id} />}</StudentWrapper>} />
         <Route path="aula" element={<StudentWrapper>{(id) => <StudentAulaView studentId={id} />}</StudentWrapper>} />
         <Route path="asistencia" element={<StudentWrapper>{(id) => <StudentAsistenciaView studentId={id} />}</StudentWrapper>} />
         <Route path="comunicados" element={<Comunicados />} />
