@@ -19,6 +19,7 @@ import { CalendarCheckmarkRegular, StarRegular, NotebookRegular } from '@fluentu
 import { PageHeader } from '../../components/shared/PageHeader'
 import { StatCard } from '../../components/shared/StatCard'
 import { GruposPersonas } from './GruposPersonas'
+import { PortalesActividad } from './PortalesActividad'
 import { useApp } from '../../context/useApp'
 import { dataService } from '../../services/dataService'
 import { useCollection } from '../../hooks/useCollection'
@@ -156,6 +157,11 @@ export function DireccionPage() {
       <Text weight="semibold" size={500} block style={{ margin: '4px 0 12px' }}>Grupos de personas</Text>
       <div style={{ marginBottom: '20px' }}>
         <GruposPersonas />
+      </div>
+
+      <Text weight="semibold" size={500} block style={{ margin: '4px 0 12px' }}>Actividad y cumplimiento por portal</Text>
+      <div style={{ marginBottom: '20px' }}>
+        <PortalesActividad />
       </div>
 
       <div className={styles.grid}>
