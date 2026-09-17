@@ -71,7 +71,7 @@ function MiniGroupCard({ label, color, people, total, action, rowAction }: { lab
   )
 }
 
-export function GruposPersonas() {
+export function GruposPersonas({ scopeIds }: { scopeIds?: Set<string> | null }) {
   const styles = useStyles()
   const toaster = useToastController()
   const { grades, periods } = useApp()
@@ -83,6 +83,7 @@ export function GruposPersonas() {
   const reportsCol = useCollection<SigerdReport>(dataService.getSigerdReports)
   const [matriculando, setMatriculando] = useState(false)
   const [asig, setAsig] = useState<Record<string, string>>({})
+  const inScope = (gradeId?: string) => !scopeIds || (!!gradeId && scopeIds.has(gradeId))
 
   const [busy, setBusy] = useState(false)
   const [search, setSearch] = useState<Record<string, string>>({})
@@ -90,8 +91,17 @@ export function GruposPersonas() {
   const [target, setTarget] = useState<Record<string, string>>({})
 
   const data = useMemo(
-    () => ({ students: studentsCol.items, teachers: teachersCol.items, guardians: guardiansCol.items, personas: personasCol.items }),
-    [studentsCol.items, teachersCol.items, guardiansCol.items, personasCol.items],
+    () => ({
+      students: studentsCol.items.filter((s) => inScope(s.gradeId)),
+      teachers: teachersCol.items.filter((t) => !scopeIds || t.grades.some((g) => scopeIds.has(g))),
+      guardians: guardiansCol.items.filter((g) => {
+        if (!scopeIds) return true
+        const st = studentsCol.items.find((s) => s.id === g.studentId)
+        return !!st && inScope(st.gradeId)
+      }),
+      personas: personasCol.items,
+    }),
+    [studentsCol.items, teachersCol.items, guardiansCol.items, personasCol.items, scopeIds],
   )
   const total = data.students.length + data.teachers.length + data.guardians.length + data.personas.length
 
