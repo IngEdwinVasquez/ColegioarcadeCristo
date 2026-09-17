@@ -24,12 +24,11 @@ export interface PersonGroup {
   tipos?: PersonaTipo[]
 }
 
-/** Grupos de personas por rol (igual que las pestañas de Datos institucionales). */
+/** Grupos de personas por rol (mutuamente excluyentes: cada persona en un solo grupo). */
 export const PERSON_GROUPS: PersonGroup[] = [
   { key: 'estudiantes', label: 'Estudiantes', color: '#004D6B', kind: 'estudiante' },
   { key: 'docentes', label: 'Docentes', color: '#2E7D32', kind: 'docente' },
-  { key: 'familias', label: 'Familias', color: '#7D1D24', kind: 'padre' },
-  { key: 'padres', label: 'Padres', color: '#5B6B1F', kind: 'padre' },
+  { key: 'padres', label: 'Padres y Tutores', color: '#7D1D24', kind: 'padre' },
   { key: 'coordinacion', label: 'Coordinación Pedagógica', color: '#EF6C00', kind: 'persona', tipo: 'coordinador' },
   { key: 'tecnologia', label: 'Tecnología', color: '#0084B3', kind: 'persona', tipo: 'tic' },
   { key: 'psicologia', label: 'Psicología y Prometacom', color: '#AD1457', kind: 'persona', tipos: ['psicologia', 'prometacom'] },
@@ -38,7 +37,6 @@ export const PERSON_GROUPS: PersonGroup[] = [
   { key: 'directores', label: 'Directores', color: '#37474F', kind: 'persona', tipo: 'director' },
   { key: 'administradores', label: 'Administradores', color: '#616161', kind: 'persona', tipo: 'administrador' },
   { key: 'siger', label: 'SIGERD', color: '#00695C', kind: 'persona', tipo: 'siger' },
-  { key: 'personal', label: 'Personal (todos)', color: '#455A64', kind: 'persona' },
 ]
 
 const ROLE_BY_TIPO: Record<string, Role> = {
@@ -57,14 +55,25 @@ const sourceLinkOf = (ref: PersonRef): LinkTarget =>
 
 interface PeopleData { students: Student[]; teachers: Teacher[]; guardians: StudentGuardian[]; personas: Persona[] }
 
-/** Personas que pertenecen a un grupo (por rol). */
+/** Personas que pertenecen a un grupo (por rol), sin repetir a la misma persona. */
 export function peopleInGroup(group: PersonGroup, data: PeopleData): PersonRef[] {
-  if (group.kind === 'estudiante') return data.students.map((s) => ({ kind: 'estudiante', id: s.id, fullName: s.fullName, userId: s.userId, email: s.email }))
-  if (group.kind === 'docente') return data.teachers.map((t) => ({ kind: 'docente', id: t.id, fullName: t.fullName, userId: t.userId, email: t.email }))
-  if (group.kind === 'padre') return data.guardians.map((g) => ({ kind: 'padre', id: g.id, fullName: g.fullName, userId: g.userId, email: g.email }))
-  const tipos = group.tipos ?? (group.tipo ? [group.tipo] : null)
-  const list = tipos ? data.personas.filter((p) => tipos.includes(p.tipo)) : data.personas
-  return list.map((p) => ({ kind: 'persona', id: p.id, fullName: p.fullName, userId: p.userId, email: p.email, tipo: p.tipo }))
+  let list: PersonRef[]
+  if (group.kind === 'estudiante') list = data.students.map((s) => ({ kind: 'estudiante', id: s.id, fullName: s.fullName, userId: s.userId, email: s.email }))
+  else if (group.kind === 'docente') list = data.teachers.map((t) => ({ kind: 'docente', id: t.id, fullName: t.fullName, userId: t.userId, email: t.email }))
+  else if (group.kind === 'padre') list = data.guardians.map((g) => ({ kind: 'padre', id: g.id, fullName: g.fullName, userId: g.userId, email: g.email }))
+  else {
+    const tipos = group.tipos ?? (group.tipo ? [group.tipo] : null)
+    const personas = tipos ? data.personas.filter((p) => tipos.includes(p.tipo)) : data.personas
+    list = personas.map((p) => ({ kind: 'persona', id: p.id, fullName: p.fullName, userId: p.userId, email: p.email, tipo: p.tipo }))
+  }
+  // Cada persona aparece una sola vez (identidad = cuenta o correo o nombre).
+  const seen = new Set<string>()
+  return list.filter((ref) => {
+    const key = ref.userId ? `u:${ref.userId}` : ref.email ? `e:${ref.email.trim().toLowerCase()}` : `n:${ref.fullName.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim().toLowerCase()}`
+    if (seen.has(key)) return false
+    seen.add(key)
+    return true
+  })
 }
 
 /** Transfiere una persona de su grupo actual a otro grupo (cambia el registro y el rol de acceso). */
