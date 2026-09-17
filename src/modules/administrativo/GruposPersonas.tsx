@@ -1,12 +1,24 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, type ReactNode } from 'react'
 import { Button, Card, Input, Select, Text, useToastController, makeStyles } from '@fluentui/react-components'
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip as RTooltip } from 'recharts'
 import { useApp } from '../../context/useApp'
 import { dataService } from '../../services/dataService'
 import { useCollection } from '../../hooks/useCollection'
 import { graphErrorMessage } from '../../services/graph'
+import { genId } from '../../utils/helpers'
+import { GRADOS, cursoNombre, gradoDe, seccionDe, nivelShort, nivelDeTanda } from '../../utils/academic'
 import { PERSON_GROUPS, peopleInGroup, transferPerson } from '../../services/personGroups'
-import type { Enrollment, Persona, Student, StudentGuardian, Teacher } from '../../types'
+import type { Enrollment, GradeSection, Persona, SigerdReport, Student, StudentGuardian, Teacher } from '../../types'
+
+const GRADO_WORDS: Record<string, number> = {
+  '1ro': 1, '1er': 1, primero: 1, primer: 1, '2do': 2, segundo: 2, '3ro': 3, tercero: 3, '4to': 4, cuarto: 4, '5to': 5, quinto: 5, '6to': 6, sexto: 6,
+}
+const numGrado = (g?: string): number | null => {
+  const t = ` ${(g ?? '').toLowerCase()} `
+  for (const [k, v] of Object.entries(GRADO_WORDS)) if (t.includes(k)) return v
+  const m = (g ?? '').match(/\b([1-6])\b/)
+  return m ? Number(m[1]) : null
+}
 
 const useStyles = makeStyles({
   grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 320px), 1fr))', gap: '16px' },
@@ -21,7 +33,7 @@ const useStyles = makeStyles({
  * un buscador para ver los nombres y la opción de transferir una persona a otro grupo.
  */
 /** Cuadro informativo (cantidad + gráfico + búsqueda por nombre) para un grupo de estudiantes. */
-function MiniGroupCard({ label, color, people, total }: { label: string; color: string; people: Array<{ id: string; fullName: string }>; total: number }) {
+function MiniGroupCard({ label, color, people, total, action }: { label: string; color: string; people: Array<{ id: string; fullName: string }>; total: number; action?: ReactNode }) {
   const styles = useStyles()
   const [q, setQ] = useState('')
   const filt = q ? people.filter((p) => p.fullName.toLowerCase().includes(q.toLowerCase())) : people
@@ -47,6 +59,7 @@ function MiniGroupCard({ label, color, people, total }: { label: string; color: 
       <div style={{ maxHeight: '120px', overflow: 'auto', border: '1px solid var(--borde)', borderRadius: '6px', padding: '6px 10px' }}>
         {filt.length === 0 ? <Text size={200} style={{ color: 'var(--texto-suave)' }}>Sin resultados.</Text> : filt.map((p) => <Text key={p.id} size={200} block>{p.fullName}</Text>)}
       </div>
+      {action}
     </Card>
   )
 }
@@ -60,6 +73,8 @@ export function GruposPersonas() {
   const guardiansCol = useCollection<StudentGuardian>(dataService.getGuardians, dataService.saveGuardian)
   const personasCol = useCollection<Persona>(dataService.getPersonas, dataService.savePersona)
   const enrollmentsCol = useCollection<Enrollment>(dataService.getEnrollments)
+  const reportsCol = useCollection<SigerdReport>(dataService.getSigerdReports)
+  const [matriculando, setMatriculando] = useState(false)
 
   const [busy, setBusy] = useState(false)
   const [search, setSearch] = useState<Record<string, string>>({})
@@ -81,6 +96,46 @@ export function GruposPersonas() {
     const ids = new Set(matriculados.map((s) => s.id))
     return data.students.filter((s) => !ids.has(s.id))
   }, [data.students, matriculados])
+
+  /** Determina el curso del estudiante con la evidencia existente (curso asignado o registro SIGERD). */
+  const cursoEvidente = (s: Student): GradeSection | undefined => {
+    const directo = s.gradeId ? grades.find((g) => g.id === s.gradeId) : undefined
+    if (directo) return directo
+    const sg = s.sigerd
+    const rep = s.sigerdReportId ? reportsCol.items.find((r) => r.id === s.sigerdReportId) : undefined
+    const n = numGrado(sg?.grado) ?? numGrado(rep?.header.grado)
+    if (!n) return undefined
+    const sec = (sg?.seccion || rep?.header.seccion || '').trim().toUpperCase()
+    const nivel = sg?.nivel || rep?.nivel || nivelDeTanda(rep?.header.tandaServicio) || undefined
+    const exacto = grades.find((g) => cursoNombre(g) === `${GRADOS[n - 1]}.${sec}${nivel ? ` · ${nivelShort(nivel)}` : ''}`)
+    if (exacto) return exacto
+    return grades.find((g) => gradoDe(g) === GRADOS[n - 1] && seccionDe(g) === sec && (!nivel || g.level === nivel || nivelShort(g.level) === nivelShort(nivel)))
+      ?? grades.find((g) => gradoDe(g) === GRADOS[n - 1] && seccionDe(g) === sec)
+  }
+
+  /** Matricula a los no matriculados solo cuando hay evidencia del curso (asignado o SIGERD). */
+  const matricularNoMatriculados = async () => {
+    if (!activePeriod) { toaster.dispatchToast('No hay un período activo.', { intent: 'error' }); return }
+    if (!window.confirm(`¿Intentar matricular a los ${noMatriculados.length} estudiantes no matriculados usando la evidencia del curso/SIGERD? Solo se matricularán los que tengan curso identificable.`)) return
+    setMatriculando(true)
+    try {
+      let ok = 0
+      let sinEvidencia = 0
+      for (const s of noMatriculados) {
+        const curso = cursoEvidente(s)
+        if (!curso) { sinEvidencia += 1; continue }
+        await dataService.saveEnrollment({ id: genId('enr'), studentId: s.id, gradeId: curso.id, periodId: activePeriod })
+        if (s.gradeId !== curso.id) await dataService.saveStudent({ ...s, gradeId: curso.id })
+        ok += 1
+      }
+      await Promise.all([studentsCol.refresh(), enrollmentsCol.refresh()])
+      toaster.dispatchToast(`Matriculados: ${ok}. Sin evidencia de curso (no matriculados): ${sinEvidencia}.`, { intent: ok ? 'success' : 'warning' })
+    } catch (error) {
+      toaster.dispatchToast(graphErrorMessage(error), { intent: 'error' })
+    } finally {
+      setMatriculando(false)
+    }
+  }
 
   const transferir = async (groupKey: string) => {
     const group = PERSON_GROUPS.find((g) => g.key === groupKey)
@@ -104,7 +159,17 @@ export function GruposPersonas() {
   return (
     <div className={styles.grid}>
       <MiniGroupCard label="Estudiantes matriculados" color="#00695C" people={matriculados} total={data.students.length} />
-      <MiniGroupCard label="Estudiantes no matriculados" color="#B42318" people={noMatriculados} total={data.students.length} />
+      <MiniGroupCard
+        label="Estudiantes no matriculados"
+        color="#B42318"
+        people={noMatriculados}
+        total={data.students.length}
+        action={
+          <Button appearance="primary" size="small" disabled={matriculando || noMatriculados.length === 0} onClick={() => void matricularNoMatriculados()}>
+            {matriculando ? 'Matriculando…' : 'Matricular (comparar con SIGERD)'}
+          </Button>
+        }
+      />
       {PERSON_GROUPS.map((group) => {
         const people = peopleInGroup(group, data)
         const q = (search[group.key] ?? '').toLowerCase()
