@@ -18,6 +18,7 @@ import {
 import { PeopleRegular, PersonSupportRegular, CalendarCheckmarkRegular, StarRegular, NotebookRegular, PeopleTeamRegular } from '@fluentui/react-icons'
 import { PageHeader } from '../../components/shared/PageHeader'
 import { StatCard } from '../../components/shared/StatCard'
+import { GruposPersonas } from './GruposPersonas'
 import { useApp } from '../../context/useApp'
 import { dataService } from '../../services/dataService'
 import { useCollection } from '../../hooks/useCollection'
@@ -181,6 +182,11 @@ export function DireccionPage() {
         <StatCard title="Acuerdos pendientes" value={pendingAgreements} icon={<CalendarCheckmarkRegular />} color="#7D1D24" sub="Derivados de encuentros virtuales" />
         <StatCard title="Familias" value={guardiansCol.items.length} icon={<PersonSupportRegular />} color="#7D1D24" sub="Padres y tutores" />
         <StatCard title="Personal institucional" value={personasCol.items.length} icon={<PeopleTeamRegular />} color="#00695C" sub="Coordinación, TIC, apoyo y más" />
+      </div>
+
+      <Text weight="semibold" size={500} block style={{ margin: '4px 0 12px' }}>Grupos de personas</Text>
+      <div style={{ marginBottom: '20px' }}>
+        <GruposPersonas />
       </div>
 
       <div className={styles.grid}>
