@@ -71,7 +71,7 @@ function MiniGroupCard({ label, color, people, total, action, rowAction }: { lab
   )
 }
 
-export function GruposPersonas({ scopeIds }: { scopeIds?: Set<string> | null }) {
+export function GruposPersonas({ scopeIds, levelFilter }: { scopeIds?: Set<string> | null; levelFilter?: string }) {
   const styles = useStyles()
   const toaster = useToastController()
   const { grades, periods } = useApp()
@@ -85,6 +85,22 @@ export function GruposPersonas({ scopeIds }: { scopeIds?: Set<string> | null }) 
   const [asig, setAsig] = useState<Record<string, string>>({})
   const inScope = (gradeId?: string) => !scopeIds || (!!gradeId && scopeIds.has(gradeId))
 
+  // Clasificación robusta del nivel (curso o, si falta, el SIGERD).
+  const norm = (v?: string | null): string => {
+    const s = (v ?? '').toLowerCase()
+    if (s.includes('inicial')) return 'Inicial'
+    if (s.includes('primar')) return 'Primaria'
+    if (s.includes('secund')) return 'Secundaria'
+    return ''
+  }
+  const nivelDeCurso = (g?: GradeSection) => (g ? norm(g.level) || norm(g.nivel) || norm(g.name) : '')
+  const nivelDeEstudiante = (s: Student): string => {
+    const porCurso = nivelDeCurso(s.gradeId ? grades.find((x) => x.id === s.gradeId) : undefined)
+    if (porCurso) return porCurso
+    const rep = s.sigerdReportId ? reportsCol.items.find((r) => r.id === s.sigerdReportId) : undefined
+    return norm(s.sigerd?.nivel) || norm(rep?.nivel) || norm(nivelDeTanda(rep?.header.tandaServicio))
+  }
+
   const [busy, setBusy] = useState(false)
   const [search, setSearch] = useState<Record<string, string>>({})
   const [sel, setSel] = useState<Record<string, string>>({})
@@ -92,16 +108,19 @@ export function GruposPersonas({ scopeIds }: { scopeIds?: Set<string> | null }) 
 
   const data = useMemo(
     () => ({
-      students: studentsCol.items.filter((s) => inScope(s.gradeId)),
-      teachers: teachersCol.items.filter((t) => !scopeIds || t.grades.some((g) => scopeIds.has(g))),
+      students: studentsCol.items.filter((s) => (levelFilter ? nivelDeEstudiante(s) === levelFilter : inScope(s.gradeId))),
+      teachers: teachersCol.items.filter((t) => (levelFilter
+        ? t.grades.some((id) => nivelDeCurso(grades.find((x) => x.id === id)) === levelFilter)
+        : (!scopeIds || t.grades.some((g) => scopeIds.has(g))))),
       guardians: guardiansCol.items.filter((g) => {
-        if (!scopeIds) return true
         const st = studentsCol.items.find((s) => s.id === g.studentId)
+        if (levelFilter) return !!st && nivelDeEstudiante(st) === levelFilter
+        if (!scopeIds) return true
         return !!st && inScope(st.gradeId)
       }),
       personas: personasCol.items,
     }),
-    [studentsCol.items, teachersCol.items, guardiansCol.items, personasCol.items, scopeIds],
+    [studentsCol.items, teachersCol.items, guardiansCol.items, personasCol.items, scopeIds, levelFilter, grades, reportsCol.items],
   )
   const total = data.students.length + data.teachers.length + data.guardians.length + data.personas.length
 

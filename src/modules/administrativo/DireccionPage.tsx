@@ -26,7 +26,7 @@ import { dataService } from '../../services/dataService'
 import { useCollection } from '../../hooks/useCollection'
 import type { ClassPlan, SchoolClassRecord, AttendanceRecord, Activity, Grade, VirtualMeeting, TeacherAssignment } from '../../types'
 import { formatDate, pct } from '../../utils/helpers'
-import { cursoNombre, nivelShort } from '../../utils/academic'
+import { cursoNombre, detectLevel } from '../../utils/academic'
 
 const useStyles = makeStyles({
   kpis: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 220px), 1fr))', gap: '16px', marginBottom: '20px' },
@@ -53,7 +53,20 @@ export function DireccionPage() {
   // Ámbito de cursos según los filtros (grado tiene prioridad sobre nivel; vacío = todo).
   const scopeIds = useMemo<Set<string> | null>(() => {
     if (gradeFilter) return new Set([gradeFilter])
-    if (levelFilter) return new Set(grades.filter((g) => nivelShort(g.level) === levelFilter).map((g) => g.id))
+    if (levelFilter) {
+      const norm = (v?: string | null): string => {
+        const s = (v ?? '').toLowerCase()
+        if (s.includes('inicial')) return 'Inicial'
+        if (s.includes('primar')) return 'Primaria'
+        if (s.includes('secund')) return 'Secundaria'
+        return ''
+      }
+      return new Set(
+        grades
+          .filter((g) => (norm(g.level) || norm(g.nivel) || norm(detectLevel(g.name))) === levelFilter)
+          .map((g) => g.id),
+      )
+    }
     return null
   }, [gradeFilter, levelFilter, grades])
   const inScope = (gradeId?: string) => !scopeIds || (!!gradeId && scopeIds.has(gradeId))
@@ -194,7 +207,7 @@ export function DireccionPage() {
 
       <Text weight="semibold" size={500} block style={{ margin: '4px 0 12px' }}>Grupos de personas</Text>
       <div style={{ marginBottom: '20px' }}>
-        <GruposPersonas scopeIds={scopeIds} />
+        <GruposPersonas scopeIds={scopeIds} levelFilter={levelFilter} />
       </div>
 
       <Text weight="semibold" size={500} block style={{ margin: '4px 0 12px' }}>Actividad y cumplimiento por portal</Text>
