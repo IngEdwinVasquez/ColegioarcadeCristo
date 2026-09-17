@@ -15,16 +15,16 @@ import {
   LineChart,
   Line,
 } from 'recharts'
-import { PeopleRegular, PersonSupportRegular, CalendarCheckmarkRegular, StarRegular, NotebookRegular, PeopleTeamRegular } from '@fluentui/react-icons'
+import { CalendarCheckmarkRegular, StarRegular, NotebookRegular } from '@fluentui/react-icons'
 import { PageHeader } from '../../components/shared/PageHeader'
 import { StatCard } from '../../components/shared/StatCard'
 import { GruposPersonas } from './GruposPersonas'
 import { useApp } from '../../context/useApp'
 import { dataService } from '../../services/dataService'
 import { useCollection } from '../../hooks/useCollection'
-import type { ClassPlan, SchoolClassRecord, AttendanceRecord, Activity, Grade, VirtualMeeting, Persona, StudentGuardian } from '../../types'
+import type { ClassPlan, SchoolClassRecord, AttendanceRecord, Activity, Grade, VirtualMeeting } from '../../types'
 import { formatDate, pct } from '../../utils/helpers'
-import { cursoNombre, nivelShort } from '../../utils/academic'
+import { cursoNombre } from '../../utils/academic'
 
 const useStyles = makeStyles({
   kpis: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 220px), 1fr))', gap: '16px', marginBottom: '20px' },
@@ -35,15 +35,13 @@ const useStyles = makeStyles({
 
 export function DireccionPage() {
   const styles = useStyles()
-  const { subjects, grades, teacherById, students, teachers, gradeById } = useApp()
+  const { subjects, grades, teacherById } = useApp()
   const plansCol = useCollection<ClassPlan>(dataService.getClassPlans)
   const classesCol = useCollection<SchoolClassRecord>(dataService.getClasses)
   const attendanceCol = useCollection<AttendanceRecord>(dataService.getAttendance)
   const activitiesCol = useCollection<Activity>(dataService.getActivities)
   const scoresCol = useCollection<Grade>(dataService.getScores)
   const meetingsCol = useCollection<VirtualMeeting>(dataService.getMeetings)
-  const personasCol = useCollection<Persona>(dataService.getPersonas)
-  const guardiansCol = useCollection<StudentGuardian>(dataService.getGuardians)
 
   const [gradeFilter, setGradeFilter] = useState('')
 
@@ -127,31 +125,6 @@ export function DireccionPage() {
     return agreements.length
   }, [meetingsCol.items])
 
-  const PALETA = ['#004D6B', '#2E7D32', '#EF6C00', '#0084B3', '#AD1457', '#7D1D24', '#9A9C2E', '#5B6B1F', '#00695C']
-
-  // Personal institucional por categoría (coordinación, TIC, psicología, apoyo, etc.).
-  const personalPorCategoria = useMemo(() => {
-    const label: Record<string, string> = {
-      coordinador: 'Coordinación', tic: 'Tecnología', psicologia: 'Psicología', prometacom: 'Prometacom',
-      pasante: 'Pasantes', apoyo: 'Apoyo', director: 'Directores', administrador: 'Administradores', siger: 'SIGERD',
-    }
-    const conteo = new Map<string, number>()
-    for (const p of personasCol.items) conteo.set(p.tipo, (conteo.get(p.tipo) ?? 0) + 1)
-    return Object.keys(label).map((k) => ({ name: label[k], value: conteo.get(k) ?? 0 })).filter((d) => d.value > 0)
-  }, [personasCol.items])
-
-  // Matrícula por nivel educativo.
-  const estudiantesPorNivel = useMemo(() => {
-    const conteo = new Map<string, number>()
-    for (const s of students) {
-      const g = gradeById(s.gradeId)
-      const nivel = g ? nivelShort(g.level) : 'Sin curso'
-      conteo.set(nivel, (conteo.get(nivel) ?? 0) + 1)
-    }
-    const orden = ['Inicial', 'Primaria', 'Secundaria', 'Sin curso']
-    return [...conteo.entries()].sort((a, b) => orden.indexOf(a[0]) - orden.indexOf(b[0])).map(([name, value]) => ({ name, value }))
-  }, [students, gradeById])
-
   const pieCumplimiento = [
     { name: 'Impartidas', value: completed.length, color: '#004D6B' },
     { name: 'Pendientes', value: Math.max(planned.length - completed.length, 0), color: '#E30613' },
@@ -174,14 +147,10 @@ export function DireccionPage() {
       </div>
 
       <div className={styles.kpis}>
-        <StatCard title="Estudiantes" value={students.length} icon={<PeopleRegular />} color="#004D6B" sub="Matrícula registrada" />
-        <StatCard title="Docentes" value={teachers.length} icon={<PersonSupportRegular />} color="#2E7D32" sub="Cuerpo docente" />
         <StatCard title="Cumplimiento de planificación" value={`${cumplimiento}%`} icon={<CalendarCheckmarkRegular />} color="#EF6C00" sub={`${completed.length} clases impartidas de ${planned.length} planificadas`} />
         <StatCard title="Asistencia promedio" value={`${avgAttendance}%`} icon={<NotebookRegular />} color="#0084B3" sub="Basado en el registro por asignatura" />
         <StatCard title="Rendimiento académico" value={`${avgAcademic}/100`} icon={<StarRegular />} color="#AD1457" sub="Promedio normalizado de actividades" />
         <StatCard title="Acuerdos pendientes" value={pendingAgreements} icon={<CalendarCheckmarkRegular />} color="#7D1D24" sub="Derivados de encuentros virtuales" />
-        <StatCard title="Familias" value={guardiansCol.items.length} icon={<PersonSupportRegular />} color="#7D1D24" sub="Padres y tutores" />
-        <StatCard title="Personal institucional" value={personasCol.items.length} icon={<PeopleTeamRegular />} color="#00695C" sub="Coordinación, TIC, apoyo y más" />
       </div>
 
       <Text weight="semibold" size={500} block style={{ margin: '4px 0 12px' }}>Grupos de personas</Text>
@@ -190,33 +159,6 @@ export function DireccionPage() {
       </div>
 
       <div className={styles.grid}>
-        <Card className={styles.card}>
-          <Text weight="semibold" size={400} block>Personal institucional por categoría</Text>
-          <ResponsiveContainer width="100%" height={260}>
-            <BarChart data={personalPorCategoria}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="name" fontSize={10} interval={0} angle={-18} textAnchor="end" height={64} />
-              <YAxis allowDecimals={false} fontSize={11} />
-              <RTooltip />
-              <Bar dataKey="value" name="Personas" radius={[4, 4, 0, 0]}>
-                {personalPorCategoria.map((d, i) => <Cell key={d.name} fill={PALETA[i % PALETA.length]} />)}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
-        </Card>
-
-        <Card className={styles.card}>
-          <Text weight="semibold" size={400} block>Matrícula por nivel</Text>
-          <ResponsiveContainer width="100%" height={260}>
-            <PieChart>
-              <Pie data={estudiantesPorNivel} dataKey="value" nameKey="name" outerRadius={90} label>
-                {estudiantesPorNivel.map((d, i) => <Cell key={d.name} fill={PALETA[i % PALETA.length]} />)}
-              </Pie>
-              <RTooltip />
-              <Legend />
-            </PieChart>
-          </ResponsiveContainer>
-        </Card>
         <Card className={styles.card}>
           <Text weight="semibold" size={400} block>Planificación vs. clases impartidas</Text>
           <ResponsiveContainer width="100%" height={260}>
