@@ -24,7 +24,7 @@ import { ModalForm } from '../../components/shared/ModalForm'
 import { useApp } from '../../context/useApp'
 import { dataService } from '../../services/dataService'
 import { useCollection } from '../../hooks/useCollection'
-import type { ClassPlan, SchoolClassRecord, AttendanceRecord, Activity, Grade, VirtualMeeting } from '../../types'
+import type { ClassPlan, SchoolClassRecord, AttendanceRecord, Activity, Grade, VirtualMeeting, TeacherAssignment } from '../../types'
 import { formatDate, pct } from '../../utils/helpers'
 import { cursoNombre } from '../../utils/academic'
 
@@ -44,6 +44,7 @@ export function DireccionPage() {
   const activitiesCol = useCollection<Activity>(dataService.getActivities)
   const scoresCol = useCollection<Grade>(dataService.getScores)
   const meetingsCol = useCollection<VirtualMeeting>(dataService.getMeetings)
+  const assignmentsCol = useCollection<TeacherAssignment>(dataService.getTeacherAssignments)
 
   const [gradeFilter, setGradeFilter] = useState('')
   const [detalle, setDetalle] = useState<'cumplimiento' | 'asistencia' | 'rendimiento' | 'acuerdos' | null>(null)
@@ -127,6 +128,26 @@ export function DireccionPage() {
     const agreements = meetingsCol.items.flatMap((m) => (m.record?.agreements ?? []).filter((a) => a.status !== 'completado'))
     return agreements.length
   }, [meetingsCol.items])
+
+  // Reporte por asignatura asignada: todo lo realizado por el docente en esa asignatura.
+  const detalleAsignaturas = useMemo(() => {
+    type Row = { key: string; subjectId: string; gradeId: string; teacherId: string; plan: number; imp: number; act: number; asi: number; cal: number }
+    const map = new Map<string, Row>()
+    const keyOf = (subjectId: string, gradeId: string, teacherId: string) => `${subjectId}|${gradeId}|${teacherId}`
+    const ensure = (subjectId: string, gradeId: string, teacherId: string) => {
+      const key = keyOf(subjectId, gradeId, teacherId)
+      if (!map.has(key)) map.set(key, { key, subjectId, gradeId, teacherId, plan: 0, imp: 0, act: 0, asi: 0, cal: 0 })
+      return map.get(key) as Row
+    }
+    const completedIds = new Set(classesCol.items.filter((c) => c.status === 'completada').map((c) => c.planId))
+    for (const a of assignmentsCol.items) ensure(a.subjectId, a.gradeId, a.teacherId)
+    for (const p of plansCol.items) { const e = ensure(p.subjectId, p.gradeId, p.teacherId); e.plan += 1; if (completedIds.has(p.id)) e.imp += 1 }
+    for (const a of activitiesCol.items) ensure(a.subjectId, a.gradeId, a.teacherId).act += 1
+    const actSubject = new Map(activitiesCol.items.map((a) => [a.id, a]))
+    for (const s of scoresCol.items) { const act = actSubject.get(s.activityId); if (act) ensure(act.subjectId, act.gradeId, act.teacherId).cal += 1 }
+    for (const r of attendanceCol.items) for (const e of map.values()) if (e.subjectId === r.subjectId && e.gradeId === r.gradeId) e.asi += 1
+    return [...map.values()].sort((a, b) => (subjectById(a.subjectId)?.name ?? a.subjectId).localeCompare(subjectById(b.subjectId)?.name ?? b.subjectId))
+  }, [assignmentsCol.items, plansCol.items, classesCol.items, activitiesCol.items, scoresCol.items, attendanceCol.items, subjectById])
 
   const pieCumplimiento = [
     { name: 'Impartidas', value: completed.length, color: '#004D6B' },
@@ -265,35 +286,44 @@ export function DireccionPage() {
         open={!!detalle}
         onOpenChange={(o) => { if (!o) setDetalle(null) }}
         title={
-          detalle === 'cumplimiento' ? 'Detalle · Cumplimiento de planificación'
+          detalle === 'cumplimiento' ? 'Detalle por asignatura · trabajo del docente'
             : detalle === 'asistencia' ? 'Detalle · Asistencia promedio'
               : detalle === 'rendimiento' ? 'Detalle · Rendimiento académico'
                 : 'Detalle · Acuerdos pendientes'
         }
-        subtitle="Datos de origen del indicador."
+        subtitle="Informes de lo realizado por el docente en las asignaturas que le fueron asignadas (aulas por curso)."
         width={1000}
         actions={<Button appearance="secondary" onClick={() => setDetalle(null)}>Cerrar</Button>}
       >
         {detalle === 'cumplimiento' && (
-          <Table aria-label="Detalle cumplimiento">
+          <Table aria-label="Detalle por asignatura">
             <TableHeader>
               <TableRow>
                 <TableHeaderCell>Asignatura</TableHeaderCell>
                 <TableHeaderCell>Curso</TableHeaderCell>
                 <TableHeaderCell>Docente</TableHeaderCell>
-                <TableHeaderCell>Estado</TableHeaderCell>
+                <TableHeaderCell>Planificadas</TableHeaderCell>
+                <TableHeaderCell>Impartidas</TableHeaderCell>
+                <TableHeaderCell>Actividades</TableHeaderCell>
+                <TableHeaderCell>Asistencia</TableHeaderCell>
+                <TableHeaderCell>Calificaciones</TableHeaderCell>
+                <TableHeaderCell>Cumplimiento</TableHeaderCell>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {planned.map((p) => {
-                const impartida = completed.some((c) => c.planId === p.id)
-                const g = gradeById(p.gradeId)
+              {detalleAsignaturas.map((r) => {
+                const g = gradeById(r.gradeId)
                 return (
-                  <TableRow key={p.id}>
-                    <TableCell>{subjectById(p.subjectId)?.name ?? p.subjectId}</TableCell>
-                    <TableCell>{g ? cursoNombre(g) : p.gradeId}</TableCell>
-                    <TableCell>{teacherById(p.teacherId)?.fullName ?? p.teacherId}</TableCell>
-                    <TableCell>{impartida ? 'Impartida' : 'Pendiente'}</TableCell>
+                  <TableRow key={r.key}>
+                    <TableCell>{subjectById(r.subjectId)?.name ?? r.subjectId}</TableCell>
+                    <TableCell>{g ? cursoNombre(g) : r.gradeId}</TableCell>
+                    <TableCell>{teacherById(r.teacherId)?.fullName ?? r.teacherId}</TableCell>
+                    <TableCell>{r.plan}</TableCell>
+                    <TableCell>{r.imp}</TableCell>
+                    <TableCell>{r.act}</TableCell>
+                    <TableCell>{r.asi}</TableCell>
+                    <TableCell>{r.cal}</TableCell>
+                    <TableCell>{r.plan ? `${pct(r.imp, r.plan)}%` : '—'}</TableCell>
                   </TableRow>
                 )
               })}
