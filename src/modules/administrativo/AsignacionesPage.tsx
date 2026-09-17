@@ -81,6 +81,20 @@ export function AsignacionesPage() {
     () => ordenarCursos(grades.filter((g) => isRealSubject(asignaturaDe(g)))).map((g) => ({ nombre: cursoNombre(g), curso: g })),
     [grades],
   )
+
+  // Cursos con sus asignaturas (una entrada por curso, sin repetir).
+  const cursosConAsignaturas = useMemo(() => {
+    const map = new Map<string, Set<string>>()
+    for (const g of grades) {
+      if (!isRealSubject(asignaturaDe(g))) continue
+      const curso = cursoNombre(g)
+      if (!map.has(curso)) map.set(curso, new Set())
+      map.get(curso)!.add(asignaturaDe(g))
+    }
+    return [...map.entries()]
+      .map(([curso, set]) => ({ curso, asignaturas: [...set].sort((a, b) => a.localeCompare(b)) }))
+      .sort((a, b) => a.curso.localeCompare(b.curso))
+  }, [grades])
   // Cursos con docente encargado, filtrados por el curso y/o docente seleccionados.
   const cursosEncargado = useMemo(
     () => cursosCatalogo.filter((c) => {
@@ -827,25 +841,55 @@ export function AsignacionesPage() {
 
       {/* ------------------------------ Agregar asignaturas por curso ------------------------------ */}
       {tab === 'asignaturas' && (
-        <Card className={styles.card}>
-          <Text weight="semibold" size={300}>Asignaturas por curso</Text>
-          <Text size={200} style={{ color: 'var(--texto-suave)' }}>
-            Descarga el Excel con un curso por fila (columna A: nombre del curso) y sus asignaturas en las columnas B, C, D… (una asignatura por columna).
-            Modifícalo y cárgalo de vuelta: cada curso quedará con única y exclusivamente las asignaturas indicadas en el archivo.
-          </Text>
-          <input ref={subjectExcelRef} type="file" accept=".xlsx,.xls,.csv" style={{ display: 'none' }} onChange={(e) => void importarAsignaturasPorCurso(e.target.files?.[0])} />
-          <div className={styles.actions}>
-            <Button appearance="primary" icon={<ArrowDownloadRegular />} disabled={importingSubjects || cursosCatalogo.length === 0} onClick={exportarAsignaturasPorCurso}>
-              Crear y exportar Excel
-            </Button>
-            <Button appearance="secondary" icon={importingSubjects ? <Spinner size="tiny" /> : <ArrowUploadRegular />} disabled={importingSubjects} onClick={() => subjectExcelRef.current?.click()}>
-              {importingSubjects ? 'Procesando…' : 'Cargar Excel actualizado'}
-            </Button>
-          </div>
-          <Text size={200} block style={{ color: 'var(--texto-suave)' }}>
-            {cursosCatalogo.length} curso(s) · {cursosCatalogo.reduce((acc, c) => acc + grades.filter((g) => cursoNombre(g) === c.nombre && isRealSubject(asignaturaDe(g))).length, 0)} asignatura(s) registrada(s).
-          </Text>
-        </Card>
+        <>
+          <Card className={styles.card}>
+            <Text weight="semibold" size={300}>Asignaturas por curso</Text>
+            <Text size={200} style={{ color: 'var(--texto-suave)' }}>
+              Descarga el Excel con un curso por fila (columna A: nombre del curso) y sus asignaturas en las columnas B, C, D… (una asignatura por columna).
+              Modifícalo y cárgalo de vuelta: cada curso quedará con única y exclusivamente las asignaturas indicadas en el archivo.
+            </Text>
+            <input ref={subjectExcelRef} type="file" accept=".xlsx,.xls,.csv" style={{ display: 'none' }} onChange={(e) => void importarAsignaturasPorCurso(e.target.files?.[0])} />
+            <div className={styles.actions}>
+              <Button appearance="primary" icon={<ArrowDownloadRegular />} disabled={importingSubjects || cursosCatalogo.length === 0} onClick={exportarAsignaturasPorCurso}>
+                Crear y exportar Excel
+              </Button>
+              <Button appearance="secondary" icon={importingSubjects ? <Spinner size="tiny" /> : <ArrowUploadRegular />} disabled={importingSubjects} onClick={() => subjectExcelRef.current?.click()}>
+                {importingSubjects ? 'Procesando…' : 'Cargar Excel actualizado'}
+              </Button>
+            </div>
+            <Text size={200} block style={{ color: 'var(--texto-suave)' }}>
+              {cursosCatalogo.length} curso(s) · {cursosCatalogo.reduce((acc, c) => acc + grades.filter((g) => cursoNombre(g) === c.nombre && isRealSubject(asignaturaDe(g))).length, 0)} asignatura(s) registrada(s).
+            </Text>
+          </Card>
+
+          <Text weight="semibold" size={400} block style={{ margin: '4px 0 10px' }}>Cursos con sus asignaturas ({cursosConAsignaturas.length})</Text>
+          <Table aria-label="Cursos y asignaturas" size="small">
+            <TableHeader>
+              <TableRow>
+                <TableHeaderCell>Curso</TableHeaderCell>
+                <TableHeaderCell>Asignaturas</TableHeaderCell>
+                <TableHeaderCell>Total</TableHeaderCell>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {cursosConAsignaturas.map((c) => (
+                <TableRow key={c.curso}>
+                  <TableCell><Text weight="semibold">{c.curso}</Text></TableCell>
+                  <TableCell>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                      {c.asignaturas.map((a) => (
+                        <span key={a} style={{ border: '1px solid var(--borde)', borderRadius: '999px', padding: '2px 10px' }}>
+                          <Text size={200}>{a}</Text>
+                        </span>
+                      ))}
+                    </div>
+                  </TableCell>
+                  <TableCell>{c.asignaturas.length}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </>
       )}
 
       {/* -------- Editar matrícula -------- */}
