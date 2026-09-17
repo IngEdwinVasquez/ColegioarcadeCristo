@@ -26,7 +26,7 @@ import { dataService } from '../../services/dataService'
 import { useCollection } from '../../hooks/useCollection'
 import type { ClassPlan, SchoolClassRecord, AttendanceRecord, Activity, Grade, VirtualMeeting, TeacherAssignment } from '../../types'
 import { formatDate, pct } from '../../utils/helpers'
-import { cursoNombre } from '../../utils/academic'
+import { cursoNombre, nivelShort } from '../../utils/academic'
 
 const useStyles = makeStyles({
   kpis: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 220px), 1fr))', gap: '16px', marginBottom: '20px' },
@@ -47,16 +47,25 @@ export function DireccionPage() {
   const assignmentsCol = useCollection<TeacherAssignment>(dataService.getTeacherAssignments)
 
   const [gradeFilter, setGradeFilter] = useState('')
+  const [levelFilter, setLevelFilter] = useState('')
   const [detalle, setDetalle] = useState<'cumplimiento' | 'asistencia' | 'rendimiento' | 'acuerdos' | null>(null)
 
-  const planned = useMemo(
-    () => plansCol.items.filter((p) => !gradeFilter || p.gradeId === gradeFilter),
-    [plansCol.items, gradeFilter],
-  )
-  const completed = classesCol.items.filter((c) => c.status === 'completada' && (!gradeFilter || c.gradeId === gradeFilter))
-  const attendance = attendanceCol.items.filter((a) => !gradeFilter || a.gradeId === gradeFilter)
-  const activities = activitiesCol.items.filter((a) => !gradeFilter || a.gradeId === gradeFilter)
-  const scores = scoresCol.items
+  // Ámbito de cursos según los filtros (grado tiene prioridad sobre nivel; vacío = todo).
+  const scopeIds = useMemo<Set<string> | null>(() => {
+    if (gradeFilter) return new Set([gradeFilter])
+    if (levelFilter) return new Set(grades.filter((g) => nivelShort(g.level) === levelFilter).map((g) => g.id))
+    return null
+  }, [gradeFilter, levelFilter, grades])
+  const inScope = (gradeId?: string) => !scopeIds || (!!gradeId && scopeIds.has(gradeId))
+
+  const planned = useMemo(() => plansCol.items.filter((p) => inScope(p.gradeId)), [plansCol.items, scopeIds])
+  const completed = useMemo(() => classesCol.items.filter((c) => c.status === 'completada' && inScope(c.gradeId)), [classesCol.items, scopeIds])
+  const attendance = useMemo(() => attendanceCol.items.filter((a) => inScope(a.gradeId)), [attendanceCol.items, scopeIds])
+  const activities = useMemo(() => activitiesCol.items.filter((a) => inScope(a.gradeId)), [activitiesCol.items, scopeIds])
+  const scores = useMemo(() => {
+    const actGrade = new Map(activitiesCol.items.map((a) => [a.id, a.gradeId]))
+    return scoresCol.items.filter((s) => inScope(actGrade.get(s.activityId)))
+  }, [scoresCol.items, activitiesCol.items, scopeIds])
 
   const cumplimiento = planned.length ? pct(completed.length, planned.length) : 0
 
@@ -140,14 +149,14 @@ export function DireccionPage() {
       return map.get(key) as Row
     }
     const completedIds = new Set(classesCol.items.filter((c) => c.status === 'completada').map((c) => c.planId))
-    for (const a of assignmentsCol.items) ensure(a.subjectId, a.gradeId, a.teacherId)
-    for (const p of plansCol.items) { const e = ensure(p.subjectId, p.gradeId, p.teacherId); e.plan += 1; if (completedIds.has(p.id)) e.imp += 1 }
-    for (const a of activitiesCol.items) ensure(a.subjectId, a.gradeId, a.teacherId).act += 1
+    for (const a of assignmentsCol.items.filter((x) => inScope(x.gradeId))) ensure(a.subjectId, a.gradeId, a.teacherId)
+    for (const p of plansCol.items.filter((x) => inScope(x.gradeId))) { const e = ensure(p.subjectId, p.gradeId, p.teacherId); e.plan += 1; if (completedIds.has(p.id)) e.imp += 1 }
+    for (const a of activitiesCol.items.filter((x) => inScope(x.gradeId))) ensure(a.subjectId, a.gradeId, a.teacherId).act += 1
     const actSubject = new Map(activitiesCol.items.map((a) => [a.id, a]))
-    for (const s of scoresCol.items) { const act = actSubject.get(s.activityId); if (act) ensure(act.subjectId, act.gradeId, act.teacherId).cal += 1 }
-    for (const r of attendanceCol.items) for (const e of map.values()) if (e.subjectId === r.subjectId && e.gradeId === r.gradeId) e.asi += 1
+    for (const s of scoresCol.items) { const act = actSubject.get(s.activityId); if (act && inScope(act.gradeId)) ensure(act.subjectId, act.gradeId, act.teacherId).cal += 1 }
+    for (const r of attendanceCol.items.filter((x) => inScope(x.gradeId))) for (const e of map.values()) if (e.subjectId === r.subjectId && e.gradeId === r.gradeId) e.asi += 1
     return [...map.values()].sort((a, b) => (subjectById(a.subjectId)?.name ?? a.subjectId).localeCompare(subjectById(b.subjectId)?.name ?? b.subjectId))
-  }, [assignmentsCol.items, plansCol.items, classesCol.items, activitiesCol.items, scoresCol.items, attendanceCol.items, subjectById])
+  }, [assignmentsCol.items, plansCol.items, classesCol.items, activitiesCol.items, scoresCol.items, attendanceCol.items, subjectById, scopeIds])
 
   const pieCumplimiento = [
     { name: 'Impartidas', value: completed.length, color: '#004D6B' },
@@ -168,6 +177,12 @@ export function DireccionPage() {
                 <option key={g.id} value={g.id}>{cursoNombre(g)}</option>
           ))}
         </Select>
+        <Select value={levelFilter} onChange={(_, d) => setLevelFilter(d.value)} style={{ minWidth: '180px' }}>
+          <option value="">Todos los niveles</option>
+          <option value="Inicial">Inicial</option>
+          <option value="Primaria">Primaria</option>
+          <option value="Secundaria">Secundaria</option>
+        </Select>
       </div>
 
       <div className={styles.kpis}>
@@ -179,12 +194,12 @@ export function DireccionPage() {
 
       <Text weight="semibold" size={500} block style={{ margin: '4px 0 12px' }}>Grupos de personas</Text>
       <div style={{ marginBottom: '20px' }}>
-        <GruposPersonas />
+        <GruposPersonas scopeIds={scopeIds} />
       </div>
 
       <Text weight="semibold" size={500} block style={{ margin: '4px 0 12px' }}>Actividad y cumplimiento por portal</Text>
       <div style={{ marginBottom: '20px' }}>
-        <PortalesActividad />
+        <PortalesActividad scopeIds={scopeIds} />
       </div>
 
       <div className={styles.grid}>

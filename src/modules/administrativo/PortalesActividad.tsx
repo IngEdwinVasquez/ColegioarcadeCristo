@@ -59,7 +59,7 @@ function PortalCard({ title, subtitle, color, icon, metrics, cumplimiento }: Por
 }
 
 /** Gráficos de actividad, progreso y cumplimiento por cada portal de la plataforma. */
-export function PortalesActividad() {
+export function PortalesActividad({ scopeIds }: { scopeIds?: Set<string> | null }) {
   const styles = useStyles()
   const { students, teachers } = useApp()
   const plansCol = useCollection<ClassPlan>(dataService.getClassPlans)
@@ -78,12 +78,20 @@ export function PortalesActividad() {
   const guardiansCol = useCollection<StudentGuardian>(dataService.getGuardians)
   const usersCol = useCollection<User>(dataService.getUsers)
 
-  const completed = classesCol.items.filter((c) => c.status === 'completada').length
-  const cumplimientoPlan = plansCol.items.length ? pct(completed, plansCol.items.length) : 0
+  const inScope = (g?: string) => !scopeIds || (!!g && scopeIds.has(g))
+  const plansScope = plansCol.items.filter((p) => inScope(p.gradeId))
+  const completed = classesCol.items.filter((c) => c.status === 'completada' && inScope(c.gradeId)).length
+  const cumplimientoPlan = plansScope.length ? pct(completed, plansScope.length) : 0
 
-  const actsPublicadas = activitiesCol.items.filter((a) => a.status === 'publicada').length
-  const entregas = scoresCol.items.length
+  const actsPublicadas = activitiesCol.items.filter((a) => a.status === 'publicada' && inScope(a.gradeId)).length
+  const actGrade = new Map(activitiesCol.items.map((a) => [a.id, a.gradeId]))
+  const entregas = scoresCol.items.filter((s) => inScope(actGrade.get(s.activityId))).length
   const cumplimientoEntrega = actsPublicadas ? pct(entregas, actsPublicadas) : 0
+
+  const attendanceCount = attendanceCol.items.filter((a) => inScope(a.gradeId)).length
+  const schedulesCount = schedulesCol.items.filter((s) => inScope(s.gradeId)).length
+  const studentsScope = students.filter((s) => inScope(s.gradeId)).length
+  const teachersScope = teachers.filter((t) => !scopeIds || t.grades.some((g) => scopeIds.has(g))).length
 
   const acuerdosPendientes = useMemo(
     () => meetingsCol.items.flatMap((m) => (m.record?.agreements ?? []).filter((a) => a.status !== 'completado')).length,
@@ -107,10 +115,10 @@ export function PortalesActividad() {
         color="#0082AD" icon={<PersonSupportRegular />}
         cumplimiento={cumplimientoPlan}
         metrics={[
-          { name: 'Planificadas', value: plansCol.items.length },
+          { name: 'Planificadas', value: plansScope.length },
           { name: 'Impartidas', value: completed },
-          { name: 'Asistencia', value: attendanceCol.items.length },
-          { name: 'Docentes', value: teachers.length },
+          { name: 'Asistencia', value: attendanceCount },
+          { name: 'Docentes', value: teachersScope },
         ]}
       />
       <PortalCard
@@ -121,7 +129,7 @@ export function PortalesActividad() {
         metrics={[
           { name: 'Publicadas', value: actsPublicadas },
           { name: 'Calificaciones', value: entregas },
-          { name: 'Estudiantes', value: students.length },
+          { name: 'Estudiantes', value: studentsScope },
         ]}
       />
       <PortalCard
@@ -175,7 +183,7 @@ export function PortalesActividad() {
           { name: 'Planificados', value: accPlan },
           { name: 'Realizados', value: accReal },
           { name: 'Seguimiento', value: accSeg },
-          { name: 'Horarios', value: schedulesCol.items.length },
+          { name: 'Horarios', value: schedulesCount },
         ]}
       />
     </div>
