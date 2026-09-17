@@ -10,6 +10,10 @@ import { AnualPlanPage } from '../modules/anualPlan/AnualPlanPage'
 import { ClasesPage } from '../modules/clases/ClasesPage'
 import { ClaseDetail } from '../modules/clases/ClaseDetail'
 import { AsistenciaPage } from '../modules/asistencia/AsistenciaPage'
+import { PersonasPage } from '../modules/administrativo/PersonasPage'
+import { SigerdPage } from '../modules/tecnologia/SigerdPage'
+import { UsuariosPage } from '../modules/administrativo/UsuariosPage'
+import { RolesPage } from '../modules/administrativo/RolesPage'
 import { AulasPage } from '../modules/aulas/AulasPage'
 import { AulasView } from '../modules/aulas/aulas'
 import { RegistroGradoPage } from '../modules/registro/RegistroGradoPage'
@@ -33,6 +37,10 @@ import {
   SparkleRegular,
   ClipboardTaskRegular,
   BookRegular,
+  PeopleTeamRegular,
+  BookOpenRegular,
+  ShieldPersonRegular,
+  ShieldCheckmarkRegular,
 } from '@fluentui/react-icons'
 
 const NAV: NavItem[] = [
@@ -49,6 +57,10 @@ const NAV: NavItem[] = [
   { to: '/administrativo/aulas', label: 'Aulas Virtuales', icon: <VideoRegular />, group: 'Académico' },
   { to: '/administrativo/aulas-curso', label: 'Aulas por curso', icon: <VideoRegular />, group: 'Académico' },
   { to: '/administrativo/encuentros', label: 'Encuentros', icon: <VideoPersonRegular />, group: 'Académico' },
+  { to: '/administrativo/personas', label: 'Personal', icon: <PeopleTeamRegular />, group: 'Personas' },
+  { to: '/administrativo/siger', label: 'SIGERD', icon: <BookOpenRegular />, group: 'Personas' },
+  { to: '/administrativo/usuarios', label: 'Usuarios y roles', icon: <ShieldPersonRegular />, group: 'Personas' },
+  { to: '/administrativo/roles', label: 'Roles', icon: <ShieldCheckmarkRegular />, group: 'Personas' },
   { to: '/administrativo/comunicados', label: 'Comunicados', icon: <MegaphoneRegular />, group: 'Comunidad' },
   { to: '/administrativo/chat', label: 'Mensajería', icon: <ChatRegular />, group: 'Comunidad' },
   { to: '/administrativo/copilot', label: 'Copilot', icon: <SparkleRegular />, group: 'Herramientas' },
@@ -73,6 +85,10 @@ export function AdminPortal() {
         <Route path="aulas-curso" element={<AulasView scope={{ kind: 'todos' }} pageTitle="Aulas por curso" subtitle="Todas las aulas del colegio con sus asignaturas y aulas de Teams." />} />
         <Route path="encuentros" element={<EncuentrosPage />} />
         <Route path="encuentros/:id" element={<EncuentroDetail />} />
+        <Route path="personas" element={<PersonasPage />} />
+        <Route path="siger" element={<SigerdPage />} />
+        <Route path="usuarios" element={<UsuariosPage />} />
+        <Route path="roles" element={<RolesPage />} />
         <Route path="comunicados" element={<Comunicados />} />
         <Route path="chat" element={<ChatPage />} />
         <Route path="copilot" element={<CopilotPage />} />
