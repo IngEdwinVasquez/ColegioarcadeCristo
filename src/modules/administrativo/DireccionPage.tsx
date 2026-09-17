@@ -24,9 +24,9 @@ import { ModalForm } from '../../components/shared/ModalForm'
 import { useApp } from '../../context/useApp'
 import { dataService } from '../../services/dataService'
 import { useCollection } from '../../hooks/useCollection'
-import type { ClassPlan, SchoolClassRecord, AttendanceRecord, Activity, Grade, VirtualMeeting, TeacherAssignment } from '../../types'
+import type { ClassPlan, SchoolClassRecord, AttendanceRecord, Activity, Grade, VirtualMeeting, TeacherAssignment, GradeSection } from '../../types'
 import { formatDate, pct } from '../../utils/helpers'
-import { cursoNombre, detectLevel } from '../../utils/academic'
+import { cursoNombre, detectLevel, ordenarCursos } from '../../utils/academic'
 
 const useStyles = makeStyles({
   kpis: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 220px), 1fr))', gap: '16px', marginBottom: '20px' },
@@ -50,25 +50,28 @@ export function DireccionPage() {
   const [levelFilter, setLevelFilter] = useState('')
   const [detalle, setDetalle] = useState<'cumplimiento' | 'asistencia' | 'rendimiento' | 'acuerdos' | null>(null)
 
+  // Clasificación robusta del nivel y cursos únicos por nivel.
+  const normNivel = (v?: string | null): string => {
+    const s = (v ?? '').toLowerCase()
+    if (s.includes('inicial')) return 'Inicial'
+    if (s.includes('primar')) return 'Primaria'
+    if (s.includes('secund')) return 'Secundaria'
+    return ''
+  }
+  const nivelDeCurso = (g: GradeSection): string => normNivel(g.level) || normNivel(g.nivel) || normNivel(detectLevel(g.name))
+
   // Ámbito de cursos según los filtros (grado tiene prioridad sobre nivel; vacío = todo).
   const scopeIds = useMemo<Set<string> | null>(() => {
     if (gradeFilter) return new Set([gradeFilter])
-    if (levelFilter) {
-      const norm = (v?: string | null): string => {
-        const s = (v ?? '').toLowerCase()
-        if (s.includes('inicial')) return 'Inicial'
-        if (s.includes('primar')) return 'Primaria'
-        if (s.includes('secund')) return 'Secundaria'
-        return ''
-      }
-      return new Set(
-        grades
-          .filter((g) => (norm(g.level) || norm(g.nivel) || norm(detectLevel(g.name))) === levelFilter)
-          .map((g) => g.id),
-      )
-    }
+    if (levelFilter) return new Set(grades.filter((g) => nivelDeCurso(g) === levelFilter).map((g) => g.id))
     return null
   }, [gradeFilter, levelFilter, grades])
+
+  // Cursos únicos (sin repetir) que corresponden al nivel seleccionado.
+  const cursosOpciones = useMemo(
+    () => ordenarCursos(levelFilter ? grades.filter((g) => nivelDeCurso(g) === levelFilter) : grades),
+    [grades, levelFilter],
+  )
   const inScope = (gradeId?: string) => !scopeIds || (!!gradeId && scopeIds.has(gradeId))
 
   const planned = useMemo(() => plansCol.items.filter((p) => inScope(p.gradeId)), [plansCol.items, scopeIds])
@@ -185,12 +188,12 @@ export function DireccionPage() {
 
       <div className={styles.filterRow}>
         <Select value={gradeFilter} onChange={(_, d) => setGradeFilter(d.value)} style={{ minWidth: '180px' }}>
-          <option value="">Todos los grados</option>
-          {grades.map((g) => (
-                <option key={g.id} value={g.id}>{cursoNombre(g)}</option>
+          <option value="">Todos los cursos</option>
+          {cursosOpciones.map((g) => (
+            <option key={g.id} value={g.id}>{cursoNombre(g)}</option>
           ))}
         </Select>
-        <Select value={levelFilter} onChange={(_, d) => setLevelFilter(d.value)} style={{ minWidth: '180px' }}>
+        <Select value={levelFilter} onChange={(_, d) => { setLevelFilter(d.value); setGradeFilter('') }} style={{ minWidth: '180px' }}>
           <option value="">Todos los niveles</option>
           <option value="Inicial">Inicial</option>
           <option value="Primaria">Primaria</option>
