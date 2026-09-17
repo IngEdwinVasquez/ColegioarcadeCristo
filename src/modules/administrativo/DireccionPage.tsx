@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Card, Select, Table, TableBody, TableCell, TableHeader, TableHeaderCell, TableRow, Text, makeStyles } from '@fluentui/react-components'
+import { Button, Card, Select, Table, TableBody, TableCell, TableHeader, TableHeaderCell, TableRow, Text, makeStyles } from '@fluentui/react-components'
 import {
   ResponsiveContainer,
   BarChart,
@@ -20,6 +20,7 @@ import { PageHeader } from '../../components/shared/PageHeader'
 import { StatCard } from '../../components/shared/StatCard'
 import { GruposPersonas } from './GruposPersonas'
 import { PortalesActividad } from './PortalesActividad'
+import { ModalForm } from '../../components/shared/ModalForm'
 import { useApp } from '../../context/useApp'
 import { dataService } from '../../services/dataService'
 import { useCollection } from '../../hooks/useCollection'
@@ -36,7 +37,7 @@ const useStyles = makeStyles({
 
 export function DireccionPage() {
   const styles = useStyles()
-  const { subjects, grades, teacherById } = useApp()
+  const { subjects, grades, teacherById, subjectById, gradeById, studentById } = useApp()
   const plansCol = useCollection<ClassPlan>(dataService.getClassPlans)
   const classesCol = useCollection<SchoolClassRecord>(dataService.getClasses)
   const attendanceCol = useCollection<AttendanceRecord>(dataService.getAttendance)
@@ -45,6 +46,7 @@ export function DireccionPage() {
   const meetingsCol = useCollection<VirtualMeeting>(dataService.getMeetings)
 
   const [gradeFilter, setGradeFilter] = useState('')
+  const [detalle, setDetalle] = useState<'cumplimiento' | 'asistencia' | 'rendimiento' | 'acuerdos' | null>(null)
 
   const planned = useMemo(
     () => plansCol.items.filter((p) => !gradeFilter || p.gradeId === gradeFilter),
@@ -148,10 +150,10 @@ export function DireccionPage() {
       </div>
 
       <div className={styles.kpis}>
-        <StatCard title="Cumplimiento de planificación" value={`${cumplimiento}%`} icon={<CalendarCheckmarkRegular />} color="#EF6C00" sub={`${completed.length} clases impartidas de ${planned.length} planificadas`} />
-        <StatCard title="Asistencia promedio" value={`${avgAttendance}%`} icon={<NotebookRegular />} color="#0084B3" sub="Basado en el registro por asignatura" />
-        <StatCard title="Rendimiento académico" value={`${avgAcademic}/100`} icon={<StarRegular />} color="#AD1457" sub="Promedio normalizado de actividades" />
-        <StatCard title="Acuerdos pendientes" value={pendingAgreements} icon={<CalendarCheckmarkRegular />} color="#7D1D24" sub="Derivados de encuentros virtuales" />
+        <StatCard title="Cumplimiento de planificación" value={`${cumplimiento}%`} icon={<CalendarCheckmarkRegular />} color="#EF6C00" sub={`${completed.length} clases impartidas de ${planned.length} planificadas`} action={<Button appearance="subtle" size="small" onClick={() => setDetalle('cumplimiento')}>Verificar detalle</Button>} />
+        <StatCard title="Asistencia promedio" value={`${avgAttendance}%`} icon={<NotebookRegular />} color="#0084B3" sub="Basado en el registro por asignatura" action={<Button appearance="subtle" size="small" onClick={() => setDetalle('asistencia')}>Verificar detalle</Button>} />
+        <StatCard title="Rendimiento académico" value={`${avgAcademic}/100`} icon={<StarRegular />} color="#AD1457" sub="Promedio normalizado de actividades" action={<Button appearance="subtle" size="small" onClick={() => setDetalle('rendimiento')}>Verificar detalle</Button>} />
+        <StatCard title="Acuerdos pendientes" value={pendingAgreements} icon={<CalendarCheckmarkRegular />} color="#7D1D24" sub="Derivados de encuentros virtuales" action={<Button appearance="subtle" size="small" onClick={() => setDetalle('acuerdos')}>Verificar detalle</Button>} />
       </div>
 
       <Text weight="semibold" size={500} block style={{ margin: '4px 0 12px' }}>Grupos de personas</Text>
@@ -258,6 +260,131 @@ export function DireccionPage() {
           </Table>
         </Card>
       </div>
+
+      <ModalForm
+        open={!!detalle}
+        onOpenChange={(o) => { if (!o) setDetalle(null) }}
+        title={
+          detalle === 'cumplimiento' ? 'Detalle · Cumplimiento de planificación'
+            : detalle === 'asistencia' ? 'Detalle · Asistencia promedio'
+              : detalle === 'rendimiento' ? 'Detalle · Rendimiento académico'
+                : 'Detalle · Acuerdos pendientes'
+        }
+        subtitle="Datos de origen del indicador."
+        width={1000}
+        actions={<Button appearance="secondary" onClick={() => setDetalle(null)}>Cerrar</Button>}
+      >
+        {detalle === 'cumplimiento' && (
+          <Table aria-label="Detalle cumplimiento">
+            <TableHeader>
+              <TableRow>
+                <TableHeaderCell>Asignatura</TableHeaderCell>
+                <TableHeaderCell>Curso</TableHeaderCell>
+                <TableHeaderCell>Docente</TableHeaderCell>
+                <TableHeaderCell>Estado</TableHeaderCell>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {planned.map((p) => {
+                const impartida = completed.some((c) => c.planId === p.id)
+                const g = gradeById(p.gradeId)
+                return (
+                  <TableRow key={p.id}>
+                    <TableCell>{subjectById(p.subjectId)?.name ?? p.subjectId}</TableCell>
+                    <TableCell>{g ? cursoNombre(g) : p.gradeId}</TableCell>
+                    <TableCell>{teacherById(p.teacherId)?.fullName ?? p.teacherId}</TableCell>
+                    <TableCell>{impartida ? 'Impartida' : 'Pendiente'}</TableCell>
+                  </TableRow>
+                )
+              })}
+            </TableBody>
+          </Table>
+        )}
+
+        {detalle === 'asistencia' && (
+          <Table aria-label="Detalle asistencia">
+            <TableHeader>
+              <TableRow>
+                <TableHeaderCell>Fecha</TableHeaderCell>
+                <TableHeaderCell>Curso</TableHeaderCell>
+                <TableHeaderCell>Asignatura</TableHeaderCell>
+                <TableHeaderCell>Presentes</TableHeaderCell>
+                <TableHeaderCell>Total</TableHeaderCell>
+                <TableHeaderCell>%</TableHeaderCell>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {attendance.map((rec) => {
+                const total = rec.entries.length
+                const presentes = rec.entries.filter((e) => e.status === 'presente').length
+                const g = gradeById(rec.gradeId)
+                return (
+                  <TableRow key={rec.id}>
+                    <TableCell>{formatDate(rec.date)}</TableCell>
+                    <TableCell>{g ? cursoNombre(g) : rec.gradeId}</TableCell>
+                    <TableCell>{subjectById(rec.subjectId)?.name ?? rec.subjectId}</TableCell>
+                    <TableCell>{presentes}</TableCell>
+                    <TableCell>{total}</TableCell>
+                    <TableCell>{pct(presentes, total)}%</TableCell>
+                  </TableRow>
+                )
+              })}
+            </TableBody>
+          </Table>
+        )}
+
+        {detalle === 'rendimiento' && (
+          <Table aria-label="Detalle rendimiento">
+            <TableHeader>
+              <TableRow>
+                <TableHeaderCell>Estudiante</TableHeaderCell>
+                <TableHeaderCell>Actividad</TableHeaderCell>
+                <TableHeaderCell>Nota</TableHeaderCell>
+                <TableHeaderCell>Puntos</TableHeaderCell>
+                <TableHeaderCell>%</TableHeaderCell>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {scores.map((s) => {
+                const act = activitiesCol.items.find((a) => a.id === s.activityId)
+                const pts = act?.points ?? 100
+                return (
+                  <TableRow key={s.id}>
+                    <TableCell>{studentById(s.studentId)?.fullName ?? s.studentId}</TableCell>
+                    <TableCell>{act?.title ?? s.activityId}</TableCell>
+                    <TableCell>{s.score}</TableCell>
+                    <TableCell>{pts}</TableCell>
+                    <TableCell>{pct(s.score, pts)}%</TableCell>
+                  </TableRow>
+                )
+              })}
+            </TableBody>
+          </Table>
+        )}
+
+        {detalle === 'acuerdos' && (
+          <Table aria-label="Detalle acuerdos">
+            <TableHeader>
+              <TableRow>
+                <TableHeaderCell>Encuentro</TableHeaderCell>
+                <TableHeaderCell>Fecha</TableHeaderCell>
+                <TableHeaderCell>Acuerdo</TableHeaderCell>
+                <TableHeaderCell>Estado</TableHeaderCell>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {meetingsCol.items.flatMap((m) => (m.record?.agreements ?? []).filter((a) => a.status !== 'completado').map((a) => (
+                <TableRow key={`${m.id}-${a.id}`}>
+                  <TableCell>{m.title}</TableCell>
+                  <TableCell>{formatDate(m.date)}</TableCell>
+                  <TableCell>{a.description}</TableCell>
+                  <TableCell>{a.status}</TableCell>
+                </TableRow>
+              )))}
+            </TableBody>
+          </Table>
+        )}
+      </ModalForm>
     </div>
   )
 }

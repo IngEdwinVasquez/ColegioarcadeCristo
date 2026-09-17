@@ -38,9 +38,10 @@ interface StatCardProps {
   color: string
   sub?: ReactNode
   gradient?: string
+  action?: ReactNode
 }
 
-export function StatCard({ title, value, icon, color, sub, gradient }: StatCardProps) {
+export function StatCard({ title, value, icon, color, sub, gradient, action }: StatCardProps) {
   const styles = useStyles()
   return (
     <div className={styles.card}>
@@ -50,6 +51,7 @@ export function StatCard({ title, value, icon, color, sub, gradient }: StatCardP
       </div>
       <div className={styles.value}>{value}</div>
       {sub && <Text size={200} className={styles.sub}>{sub}</Text>}
+      {action}
     </div>
   )
 }
