@@ -37,7 +37,7 @@ const useStyles = makeStyles({
 
 export function DireccionPage() {
   const styles = useStyles()
-  const { subjects, grades, teacherById, subjectById, gradeById, studentById } = useApp()
+  const { subjects, grades, teacherById, subjectById, gradeById, studentById, teachers } = useApp()
   const plansCol = useCollection<ClassPlan>(dataService.getClassPlans)
   const classesCol = useCollection<SchoolClassRecord>(dataService.getClasses)
   const attendanceCol = useCollection<AttendanceRecord>(dataService.getAttendance)
@@ -62,7 +62,13 @@ export function DireccionPage() {
 
   // Ámbito de cursos según los filtros (grado tiene prioridad sobre nivel; vacío = todo).
   const scopeIds = useMemo<Set<string> | null>(() => {
-    if (gradeFilter) return new Set([gradeFilter])
+    if (gradeFilter) {
+      // Un curso agrupa varios registros (uno por asignatura); se incluyen todos.
+      const g = grades.find((x) => x.id === gradeFilter)
+      if (!g) return new Set([gradeFilter])
+      const curso = cursoNombre(g)
+      return new Set(grades.filter((x) => cursoNombre(x) === curso).map((x) => x.id))
+    }
     if (levelFilter) return new Set(grades.filter((g) => nivelDeCurso(g) === levelFilter).map((g) => g.id))
     return null
   }, [gradeFilter, levelFilter, grades])
@@ -150,9 +156,11 @@ export function DireccionPage() {
   }, [attendance])
 
   const pendingAgreements = useMemo(() => {
-    const agreements = meetingsCol.items.flatMap((m) => (m.record?.agreements ?? []).filter((a) => a.status !== 'completado'))
-    return agreements.length
-  }, [meetingsCol.items])
+    const teacherIds = scopeIds ? new Set(teachers.filter((t) => t.grades.some((g) => scopeIds.has(g))).map((t) => t.id)) : null
+    return meetingsCol.items
+      .filter((m) => !teacherIds || teacherIds.has(m.organizerId))
+      .flatMap((m) => (m.record?.agreements ?? []).filter((a) => a.status !== 'completado')).length
+  }, [meetingsCol.items, scopeIds, teachers])
 
   // Reporte por asignatura asignada: todo lo realizado por el docente en esa asignatura.
   const detalleAsignaturas = useMemo(() => {
