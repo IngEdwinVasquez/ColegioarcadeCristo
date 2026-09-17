@@ -354,10 +354,33 @@ export function AsignacionesPage() {
       }
       let creadas = 0
       let eliminadas = 0
+      let cursosCreados = 0
       const noEncontrados: string[] = []
       for (const [curso, setAsig] of grupos) {
         const registros = grades.filter((g) => cursoNombre(g) === curso)
-        if (registros.length === 0) { noEncontrados.push(curso); continue }
+        // Curso nuevo: se crea con exactamente las asignaturas del Excel.
+        if (registros.length === 0) {
+          if (setAsig.size === 0) { noEncontrados.push(curso); continue }
+          const [base, nivelRaw = ''] = curso.split(' · ')
+          const temp = { id: '', name: base, level: nivelRaw } as GradeSection
+          const grado = gradoDe(temp)
+          const section = grado ? seccionDe(temp) : base
+          for (const asig of setAsig) {
+            await dataService.saveGrade({
+              id: genId('g'),
+              name: base,
+              grado: grado || undefined,
+              section,
+              level: nivelRaw,
+              nivel: nivelShort(nivelRaw),
+              ciclo: cicloFromGrade(nivelRaw, grado),
+              asignatura: asig,
+            })
+            creadas += 1
+          }
+          cursosCreados += 1
+          continue
+        }
         const template = registros.find((g) => isRealSubject(asignaturaDe(g))) ?? registros[0]
         const setLower = new Set([...setAsig].map((a) => a.toLowerCase()))
         // Quita las asignaturas que ya no están en el Excel (deja intactos otros registros del curso).
@@ -386,7 +409,7 @@ export function AsignacionesPage() {
       }
       await Promise.all([gradesCol.refresh(), refreshCatalogs()])
       toaster.dispatchToast(
-        `Asignaturas actualizadas: ${creadas} agregada(s), ${eliminadas} quitada(s)${noEncontrados.length ? `. Cursos no encontrados: ${noEncontrados.slice(0, 5).join(', ')}${noEncontrados.length > 5 ? '…' : ''}` : ''}.`,
+        `Asignaturas actualizadas: ${creadas} agregada(s), ${eliminadas} quitada(s)${cursosCreados ? `, ${cursosCreados} curso(s) creado(s)` : ''}${noEncontrados.length ? `. Cursos sin asignaturas: ${noEncontrados.slice(0, 5).join(', ')}${noEncontrados.length > 5 ? '…' : ''}` : ''}.`,
         { intent: noEncontrados.length ? 'warning' : 'success' },
       )
     } catch (error) {
