@@ -6,7 +6,7 @@ import { dataService } from '../../services/dataService'
 import { useCollection } from '../../hooks/useCollection'
 import { graphErrorMessage } from '../../services/graph'
 import { genId } from '../../utils/helpers'
-import { GRADOS, cursoNombre, gradoDe, seccionDe, nivelShort, nivelDeTanda } from '../../utils/academic'
+import { GRADOS, cursoNombre, gradoDe, seccionDe, nivelShort, nivelDeTanda, isRealSubject, asignaturaDe, ordenarCursos } from '../../utils/academic'
 import { PERSON_GROUPS, peopleInGroup, transferPerson } from '../../services/personGroups'
 import type { Enrollment, GradeSection, Persona, SigerdReport, Student, StudentGuardian, Teacher } from '../../types'
 
@@ -33,7 +33,7 @@ const useStyles = makeStyles({
  * un buscador para ver los nombres y la opción de transferir una persona a otro grupo.
  */
 /** Cuadro informativo (cantidad + gráfico + búsqueda por nombre) para un grupo de estudiantes. */
-function MiniGroupCard({ label, color, people, total, action }: { label: string; color: string; people: Array<{ id: string; fullName: string }>; total: number; action?: ReactNode }) {
+function MiniGroupCard({ label, color, people, total, action, rowAction }: { label: string; color: string; people: Array<{ id: string; fullName: string }>; total: number; action?: ReactNode; rowAction?: (p: { id: string; fullName: string }) => ReactNode }) {
   const styles = useStyles()
   const [q, setQ] = useState('')
   const filt = q ? people.filter((p) => p.fullName.toLowerCase().includes(q.toLowerCase())) : people
@@ -56,8 +56,15 @@ function MiniGroupCard({ label, color, people, total, action }: { label: string;
         </PieChart>
       </ResponsiveContainer>
       <Input placeholder="Filtrar por nombre…" value={q} onChange={(_, d) => setQ(d.value)} />
-      <div style={{ maxHeight: '120px', overflow: 'auto', border: '1px solid var(--borde)', borderRadius: '6px', padding: '6px 10px' }}>
-        {filt.length === 0 ? <Text size={200} style={{ color: 'var(--texto-suave)' }}>Sin resultados.</Text> : filt.map((p) => <Text key={p.id} size={200} block>{p.fullName}</Text>)}
+      <div style={{ maxHeight: '160px', overflow: 'auto', border: '1px solid var(--borde)', borderRadius: '6px', padding: '6px 10px' }}>
+        {filt.length === 0
+          ? <Text size={200} style={{ color: 'var(--texto-suave)' }}>Sin resultados.</Text>
+          : filt.map((p) => (
+            <div key={p.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', padding: '3px 0' }}>
+              <Text size={200}>{p.fullName}</Text>
+              {rowAction?.(p)}
+            </div>
+          ))}
       </div>
       {action}
     </Card>
@@ -75,6 +82,7 @@ export function GruposPersonas() {
   const enrollmentsCol = useCollection<Enrollment>(dataService.getEnrollments)
   const reportsCol = useCollection<SigerdReport>(dataService.getSigerdReports)
   const [matriculando, setMatriculando] = useState(false)
+  const [asig, setAsig] = useState<Record<string, string>>({})
 
   const [busy, setBusy] = useState(false)
   const [search, setSearch] = useState<Record<string, string>>({})
@@ -96,6 +104,33 @@ export function GruposPersonas() {
     const ids = new Set(matriculados.map((s) => s.id))
     return data.students.filter((s) => !ids.has(s.id))
   }, [data.students, matriculados])
+
+  const cursos = useMemo(() => ordenarCursos(grades.filter((g) => isRealSubject(asignaturaDe(g)))).map((g) => cursoNombre(g)), [grades])
+  const seleccionados = Object.entries(asig).filter(([, c]) => c)
+
+  /** Matricula a los estudiantes seleccionados en el curso indicado por cada uno. */
+  const matricularSeleccionados = async () => {
+    if (!activePeriod) { toaster.dispatchToast('No hay un período activo.', { intent: 'error' }); return }
+    setMatriculando(true)
+    try {
+      let ok = 0
+      for (const [studentId, cursoSel] of seleccionados) {
+        const grade = grades.find((g) => cursoNombre(g) === cursoSel)
+        if (!grade) continue
+        const st = studentsCol.items.find((s) => s.id === studentId)
+        await dataService.saveEnrollment({ id: genId('enr'), studentId, gradeId: grade.id, periodId: activePeriod })
+        if (st && st.gradeId !== grade.id) await dataService.saveStudent({ ...st, gradeId: grade.id })
+        ok += 1
+      }
+      await Promise.all([studentsCol.refresh(), enrollmentsCol.refresh()])
+      setAsig({})
+      toaster.dispatchToast(`${ok} estudiante(s) matriculado(s).`, { intent: 'success' })
+    } catch (error) {
+      toaster.dispatchToast(graphErrorMessage(error), { intent: 'error' })
+    } finally {
+      setMatriculando(false)
+    }
+  }
 
   /** Determina el curso del estudiante con la evidencia existente (curso asignado o registro SIGERD). */
   const cursoEvidente = (s: Student): GradeSection | undefined => {
@@ -164,10 +199,23 @@ export function GruposPersonas() {
         color="#B42318"
         people={noMatriculados}
         total={data.students.length}
+        rowAction={(p) => (
+          <Select value={asig[p.id] ?? ''} onChange={(_, d) => setAsig((a) => ({ ...a, [p.id]: d.value }))} style={{ minWidth: '150px' }}>
+            <option value="">Matricular en…</option>
+            {cursos.map((c) => <option key={c} value={c}>{c}</option>)}
+          </Select>
+        )}
         action={
-          <Button appearance="primary" size="small" disabled={matriculando || noMatriculados.length === 0} onClick={() => void matricularNoMatriculados()}>
-            {matriculando ? 'Matriculando…' : 'Matricular (comparar con SIGERD)'}
-          </Button>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            {seleccionados.length > 0 && (
+              <Button appearance="primary" size="small" disabled={matriculando} onClick={() => void matricularSeleccionados()}>
+                {matriculando ? 'Matriculando…' : `Matricular seleccionados (${seleccionados.length})`}
+              </Button>
+            )}
+            <Button appearance="secondary" size="small" disabled={matriculando || noMatriculados.length === 0} onClick={() => void matricularNoMatriculados()}>
+              {matriculando ? 'Matriculando…' : 'Matricular (comparar con SIGERD)'}
+            </Button>
+          </div>
         }
       />
       {PERSON_GROUPS.map((group) => {
