@@ -1,13 +1,13 @@
 import { useMemo, useState, type ReactNode } from 'react'
-import { Button, Card, Input, Select, Text, useToastController, makeStyles } from '@fluentui/react-components'
-import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip as RTooltip } from 'recharts'
+import { Button, Card, Input, ProgressBar, Select, Text, useToastController, makeStyles } from '@fluentui/react-components'
+import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Cell, Tooltip as RTooltip } from 'recharts'
 import { useApp } from '../../context/useApp'
 import { dataService } from '../../services/dataService'
 import { useCollection } from '../../hooks/useCollection'
 import { graphErrorMessage } from '../../services/graph'
 import { genId } from '../../utils/helpers'
 import { GRADOS, cursoNombre, gradoDe, seccionDe, nivelShort, nivelDeTanda, isRealSubject, asignaturaDe, ordenarCursos } from '../../utils/academic'
-import { PERSON_GROUPS, peopleInGroup, transferPerson } from '../../services/personGroups'
+import { PERSON_GROUPS, peopleInGroup, transferPerson, type PersonRef } from '../../services/personGroups'
 import type { Enrollment, GradeSection, Persona, SigerdReport, Student, StudentGuardian, Teacher } from '../../types'
 
 const GRADO_WORDS: Record<string, number> = {
@@ -33,28 +33,37 @@ const useStyles = makeStyles({
  * un buscador para ver los nombres y la opción de transferir una persona a otro grupo.
  */
 /** Cuadro informativo (cantidad + gráfico + búsqueda por nombre) para un grupo de estudiantes. */
-function MiniGroupCard({ label, color, people, total, action, rowAction }: { label: string; color: string; people: Array<{ id: string; fullName: string }>; total: number; action?: ReactNode; rowAction?: (p: { id: string; fullName: string }) => ReactNode }) {
+function MiniGroupCard({ label, color, people, total, max = 0, distribucion, action, rowAction }: { label: string; color: string; people: Array<{ id: string; fullName: string }>; total: number; max?: number; distribucion?: Array<{ name: string; value: number }>; action?: ReactNode; rowAction?: (p: { id: string; fullName: string }) => ReactNode }) {
   const styles = useStyles()
   const [q, setQ] = useState('')
   const filt = q ? people.filter((p) => p.fullName.toLowerCase().includes(q.toLowerCase())) : people
-  const chart = [
-    { name: label, value: people.length, color },
-    { name: 'Resto', value: Math.max(total - people.length, 0), color: '#E4E4E4' },
-  ]
+  const tieneDist = !!distribucion && distribucion.some((d) => d.value > 0)
+  const colores = [color, '#7FB069', '#EF6C00']
   return (
     <Card className={styles.card}>
       <div className={styles.head}>
         <Text weight="semibold" size={400}>{label}</Text>
         <span className={styles.count} style={{ color }}>{people.length}</span>
       </div>
-      <ResponsiveContainer width="100%" height={120}>
-        <PieChart>
-          <Pie data={chart} dataKey="value" innerRadius={32} outerRadius={54} startAngle={90} endAngle={-270} stroke="none">
-            {chart.map((c) => <Cell key={c.name} fill={c.color} />)}
-          </Pie>
-          <RTooltip />
-        </PieChart>
-      </ResponsiveContainer>
+      {tieneDist ? (
+        <ResponsiveContainer width="100%" height={132}>
+          <BarChart data={distribucion} margin={{ top: 8, right: 8, left: -22, bottom: 0 }}>
+            <XAxis dataKey="name" fontSize={10} interval={0} />
+            <YAxis allowDecimals={false} fontSize={10} />
+            <RTooltip />
+            <Bar dataKey="value" radius={[6, 6, 0, 0]}>
+              {distribucion!.map((d, i) => <Cell key={d.name} fill={colores[i % colores.length]} />)}
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
+      ) : (
+        <div style={{ padding: '14px 4px 8px' }}>
+          <ProgressBar value={max ? Math.min(people.length / max, 1) : 0} color="brand" thickness="large" />
+          <Text size={200} block style={{ marginTop: '8px', color: 'var(--texto-suave)' }}>
+            {people.length} de {total} ({total ? Math.round((people.length / total) * 100) : 0}%)
+          </Text>
+        </div>
+      )}
       <Input placeholder="Filtrar por nombre…" value={q} onChange={(_, d) => setQ(d.value)} />
       <div style={{ maxHeight: '160px', overflow: 'auto', border: '1px solid var(--borde)', borderRadius: '6px', padding: '6px 10px' }}>
         {filt.length === 0
@@ -123,6 +132,26 @@ export function GruposPersonas({ scopeIds, levelFilter }: { scopeIds?: Set<strin
     [studentsCol.items, teachersCol.items, guardiansCol.items, personasCol.items, scopeIds, levelFilter, grades, reportsCol.items],
   )
   const total = data.students.length + data.teachers.length + data.guardians.length + data.personas.length
+
+  // Nivel de una persona (para el gráfico por nivel de cada grupo).
+  const nivelPersona = (ref: PersonRef): string => {
+    if (ref.kind === 'estudiante') { const s = studentsCol.items.find((x) => x.id === ref.id); return s ? nivelDeEstudiante(s) : '' }
+    if (ref.kind === 'docente') { const t = teachersCol.items.find((x) => x.id === ref.id); return t ? (t.grades.map((id) => nivelDeCurso(grades.find((x) => x.id === id))).find((n) => !!n) ?? '') : '' }
+    if (ref.kind === 'padre') { const g = guardiansCol.items.find((x) => x.id === ref.id); const s = g ? studentsCol.items.find((x) => x.id === g.studentId) : undefined; return s ? nivelDeEstudiante(s) : '' }
+    return ''
+  }
+  const distribucionDe = (refs: PersonRef[]): Array<{ name: string; value: number }> | undefined => {
+    const c: Record<string, number> = { Inicial: 0, Primaria: 0, Secundaria: 0 }
+    for (const ref of refs) { const n = nivelPersona(ref); if (n in c) c[n] += 1 }
+    return Object.values(c).some((v) => v > 0) ? Object.entries(c).map(([name, value]) => ({ name, value })) : undefined
+  }
+  const maxGroup = Math.max(1, ...PERSON_GROUPS.map((g) => peopleInGroup(g, data).length))
+
+  const distNivel = (list: Student[]): Array<{ name: string; value: number }> | undefined => {
+    const c: Record<string, number> = { Inicial: 0, Primaria: 0, Secundaria: 0 }
+    for (const s of list) { const n = nivelDeEstudiante(s); if (n in c) c[n] += 1 }
+    return Object.values(c).some((v) => v > 0) ? Object.entries(c).map(([name, value]) => ({ name, value })) : undefined
+  }
 
   const activePeriod = periods.find((p) => p.isActive)?.id ?? periods[0]?.id ?? ''
   const matriculados = useMemo(() => {
@@ -222,12 +251,27 @@ export function GruposPersonas({ scopeIds, levelFilter }: { scopeIds?: Set<strin
 
   return (
     <div className={styles.grid}>
-      <MiniGroupCard label="Estudiantes matriculados" color="#00695C" people={matriculados} total={data.students.length} />
+      <Card className={styles.card} style={{ gridColumn: '1 / -1' }}>
+        <Text weight="semibold" size={400} block>Personas por grupo</Text>
+        <ResponsiveContainer width="100%" height={220}>
+          <BarChart data={PERSON_GROUPS.map((g) => ({ name: g.label, value: peopleInGroup(g, data).length, color: g.color }))} margin={{ top: 10, right: 10, left: -18, bottom: 0 }}>
+            <XAxis dataKey="name" fontSize={9} interval={0} angle={-15} textAnchor="end" height={72} />
+            <YAxis allowDecimals={false} fontSize={10} />
+            <RTooltip />
+            <Bar dataKey="value" radius={[6, 6, 0, 0]}>
+              {PERSON_GROUPS.map((g) => <Cell key={g.key} fill={g.color} />)}
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
+      </Card>
+      <MiniGroupCard label="Estudiantes matriculados" color="#00695C" people={matriculados} total={data.students.length} max={maxGroup} distribucion={distNivel(matriculados)} />
       <MiniGroupCard
         label="Estudiantes no matriculados"
         color="#B42318"
         people={noMatriculados}
         total={data.students.length}
+        max={maxGroup}
+        distribucion={distNivel(noMatriculados)}
         rowAction={(p) => (
           <Select value={asig[p.id] ?? ''} onChange={(_, d) => setAsig((a) => ({ ...a, [p.id]: d.value }))} style={{ minWidth: '150px' }}>
             <option value="">Matricular en…</option>
@@ -251,24 +295,32 @@ export function GruposPersonas({ scopeIds, levelFilter }: { scopeIds?: Set<strin
         const people = peopleInGroup(group, data)
         const q = (search[group.key] ?? '').toLowerCase()
         const filtrados = q ? people.filter((p) => p.fullName.toLowerCase().includes(q)) : people
-        const chart = [
-          { name: group.label, value: people.length, color: group.color },
-          { name: 'Resto', value: Math.max(total - people.length, 0), color: '#E4E4E4' },
-        ]
+        const dist = distribucionDe(people)
         return (
           <Card key={group.key} className={styles.card}>
             <div className={styles.head}>
               <Text weight="semibold" size={400}>{group.label}</Text>
               <span className={styles.count} style={{ color: group.color }}>{people.length}</span>
             </div>
-            <ResponsiveContainer width="100%" height={120}>
-              <PieChart>
-                <Pie data={chart} dataKey="value" innerRadius={32} outerRadius={54} startAngle={90} endAngle={-270} stroke="none">
-                  {chart.map((c) => <Cell key={c.name} fill={c.color} />)}
-                </Pie>
-                <RTooltip />
-              </PieChart>
-            </ResponsiveContainer>
+            {dist ? (
+              <ResponsiveContainer width="100%" height={132}>
+                <BarChart data={dist} margin={{ top: 8, right: 8, left: -22, bottom: 0 }}>
+                  <XAxis dataKey="name" fontSize={10} interval={0} />
+                  <YAxis allowDecimals={false} fontSize={10} />
+                  <RTooltip />
+                  <Bar dataKey="value" radius={[6, 6, 0, 0]}>
+                    {dist.map((d, i) => <Cell key={d.name} fill={[group.color, '#7FB069', '#EF6C00'][i % 3]} />)}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div style={{ padding: '14px 4px 8px' }}>
+                <ProgressBar value={Math.min(people.length / maxGroup, 1)} color="brand" thickness="large" />
+                <Text size={200} block style={{ marginTop: '8px', color: 'var(--texto-suave)' }}>
+                  {people.length} de {total} ({total ? Math.round((people.length / total) * 100) : 0}%)
+                </Text>
+              </div>
+            )}
             <Input placeholder="Filtrar por nombre…" value={search[group.key] ?? ''} onChange={(_, d) => setSearch((s) => ({ ...s, [group.key]: d.value }))} />
             <Select value={sel[group.key] ?? ''} onChange={(_, d) => setSel((s) => ({ ...s, [group.key]: d.value }))}>
               <option value="">{filtrados.length} persona(s)…</option>
