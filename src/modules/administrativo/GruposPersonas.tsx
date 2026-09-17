@@ -1,6 +1,6 @@
 import { useMemo, useState, type ReactNode } from 'react'
 import { Button, Card, Input, ProgressBar, Select, Text, useToastController, makeStyles } from '@fluentui/react-components'
-import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Cell, Tooltip as RTooltip } from 'recharts'
+import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Cell, LabelList, Tooltip as RTooltip } from 'recharts'
 import { useApp } from '../../context/useApp'
 import { dataService } from '../../services/dataService'
 import { useCollection } from '../../hooks/useCollection'
@@ -252,14 +252,19 @@ export function GruposPersonas({ scopeIds, levelFilter }: { scopeIds?: Set<strin
   return (
     <div className={styles.grid}>
       <Card className={styles.card} style={{ gridColumn: '1 / -1' }}>
-        <Text weight="semibold" size={400} block>Personas por grupo</Text>
-        <ResponsiveContainer width="100%" height={220}>
-          <BarChart data={PERSON_GROUPS.map((g) => ({ name: g.label, value: peopleInGroup(g, data).length, color: g.color }))} margin={{ top: 10, right: 10, left: -18, bottom: 0 }}>
-            <XAxis dataKey="name" fontSize={9} interval={0} angle={-15} textAnchor="end" height={72} />
-            <YAxis allowDecimals={false} fontSize={10} />
+        <Text weight="semibold" size={400} block>Personas por grupo (rol)</Text>
+        <ResponsiveContainer width="100%" height={Math.max(240, PERSON_GROUPS.length * 30)}>
+          <BarChart
+            layout="vertical"
+            data={PERSON_GROUPS.map((g) => ({ name: g.label, value: peopleInGroup(g, data).length, color: g.color })).sort((a, b) => b.value - a.value)}
+            margin={{ top: 8, right: 40, left: 10, bottom: 0 }}
+          >
+            <XAxis type="number" allowDecimals={false} fontSize={10} />
+            <YAxis type="category" dataKey="name" width={170} fontSize={12} tick={{ fontSize: 12 }} />
             <RTooltip />
-            <Bar dataKey="value" radius={[6, 6, 0, 0]}>
+            <Bar dataKey="value" radius={[0, 6, 6, 0]} barSize={18}>
               {PERSON_GROUPS.map((g) => <Cell key={g.key} fill={g.color} />)}
+              <LabelList dataKey="value" position="right" style={{ fontSize: 12, fontWeight: 700, fill: '#0A1F2B' }} />
             </Bar>
           </BarChart>
         </ResponsiveContainer>
