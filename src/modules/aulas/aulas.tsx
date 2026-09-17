@@ -15,8 +15,10 @@ import { useCollection } from '../../hooks/useCollection'
 import { cursoNombre, nivelShort, ordenarCursos, asignaturaDe, isRealSubject, gradoDe, seccionDe } from '../../utils/academic'
 import { createClassTeam, listTenantTeams, resolveTeamUrl } from '../../services/teamsEdu'
 import { graphErrorMessage } from '../../services/graph'
-import { uploadFile, downloadFileAsDataUrl } from '../../services/onedrive'
-import type { Enrollment, GradeSection, TeacherAssignment } from '../../types'
+import { uploadFile, uploadAndShare, downloadFileAsDataUrl } from '../../services/onedrive'
+import { renderPdfFirstPageToBlob } from '../../services/pdf'
+import { genId } from '../../utils/helpers'
+import type { Enrollment, GradeRegister, GradeSection, RegistroStudent, TeacherAssignment } from '../../types'
 
 export const AULA_IMAGENES = [
   '/aulas/aula1.svg', '/aulas/aula2.svg', '/aulas/aula3.svg',
@@ -338,12 +340,16 @@ export function AulasView({ scope, subtitle, pageTitle = 'Aulas', onOpenSubject 
   onOpenSubject?: (g: GradeSection) => void
 }) {
   const styles = useStyles()
-  const { grades, studentById, gradeById } = useApp()
+  const toaster = useToastController()
+  const { grades, studentById, gradeById, students, periods } = useApp()
   const gradesCol = useCollection<GradeSection>(dataService.getGrades, dataService.saveGrade)
   const assignmentsCol = useCollection<TeacherAssignment>(dataService.getTeacherAssignments)
   const enrollmentsCol = useCollection<Enrollment>(dataService.getEnrollments)
+  const registrosCol = useCollection<GradeRegister>(dataService.getGradeRegisters, dataService.saveGradeRegister)
   const [selected, setSelected] = useState<string | null>(null)
   const [imgAula, setImgAula] = useState<Aula | null>(null)
+  const [subiendoReg, setSubiendoReg] = useState(false)
+  const regRef = useRef<HTMLInputElement>(null)
 
   const notas: GradeSection[] = gradesCol.items.length ? gradesCol.items : grades
 
@@ -368,6 +374,63 @@ export function AulasView({ scope, subtitle, pageTitle = 'Aulas', onOpenSubject 
 
   const canManage = scope.kind !== 'estudiante'
   const seleccion = aulas.find((a) => a.curso === selected) ?? null
+
+  const registroDe = (curso?: string) => (curso ? registrosCol.items.find((r) => r.curso === curso) : undefined)
+
+  /** Sube el PDF del registro de grado del aula y lo crea en la plataforma. */
+  const subirRegistro = async (file: File | undefined) => {
+    if (!file || !seleccion) return
+    setSubiendoReg(true)
+    try {
+      const activePeriod = periods.find((p) => p.isActive)?.id ?? periods[0]?.id ?? ''
+      const gradeIds = new Set(seleccion.records.map((r) => r.id))
+      const enrolledIds = new Set(enrollmentsCol.items.filter((e) => gradeIds.has(e.gradeId)).map((e) => e.studentId))
+      const roster = students.filter((s) => gradeIds.has(s.gradeId) || enrolledIds.has(s.id))
+      const existing = registroDe(seleccion.curso)
+      const estudiantes: RegistroStudent[] = roster.map((s, i) => ({
+        studentId: s.id,
+        number: i + 1,
+        apellidos: s.fullName.split(' ').slice(1).join(' ') || s.fullName,
+        nombres: s.fullName.split(' ')[0] ?? '',
+        nacimiento: s.birthDate,
+      }))
+      let portadaRef: string | undefined
+      try {
+        const blob = await renderPdfFirstPageToBlob(file)
+        if (blob) portadaRef = (await uploadFile('Registro de Grado/Portadas', `${seleccion.curso.replace(/[^\w.-]+/g, '_')}.jpg`, blob)).id
+      } catch { /* sin portada */ }
+      let plantillaUrl: string | undefined
+      try { plantillaUrl = (await uploadAndShare('Registro de Grado', file)).webUrl } catch { /* sin plantilla */ }
+      const reg: GradeRegister = {
+        id: existing?.id ?? genId('rg'),
+        level: seleccion.level,
+        nivel: seleccion.nivel,
+        ciclo: seleccion.records[0]?.ciclo ?? '',
+        curso: seleccion.curso,
+        gradeId: seleccion.records[0]?.id ?? '',
+        periodId: activePeriod,
+        plantillaNombre: file.name,
+        plantillaUrl,
+        portadaRef: portadaRef ?? existing?.portadaRef,
+        centro: existing?.centro ?? {},
+        estudiantes: estudiantes.length ? estudiantes : (existing?.estudiantes ?? []),
+        asistencia: existing?.asistencia ?? {},
+        especificaciones: existing?.especificaciones ?? {},
+        calificaciones: existing?.calificaciones ?? {},
+        promocion: existing?.promocion ?? {},
+        inicial: existing?.inicial,
+        createdAt: existing?.createdAt ?? new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      }
+      await registrosCol.save(reg)
+      toaster.dispatchToast(existing ? 'Registro de grado actualizado.' : 'Registro de grado creado.', { intent: 'success' })
+    } catch (error) {
+      toaster.dispatchToast(graphErrorMessage(error), { intent: 'error' })
+    } finally {
+      setSubiendoReg(false)
+      if (regRef.current) regRef.current.value = ''
+    }
+  }
 
   return (
     <div>
@@ -418,6 +481,36 @@ export function AulasView({ scope, subtitle, pageTitle = 'Aulas', onOpenSubject 
                     onOpenSubject={onOpenSubject}
                     onChanged={() => { void gradesCol.refresh() }}
                   />
+
+                  <div style={{ marginTop: '18px' }}>
+                    <input ref={regRef} type="file" accept="application/pdf" style={{ display: 'none' }} onChange={(e) => void subirRegistro(e.target.files?.[0])} />
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', flexWrap: 'wrap', marginBottom: '8px' }}>
+                      <Text weight="semibold" size={400}>Registro de Grado</Text>
+                      {canManage && (
+                        <Button appearance="primary" icon={subiendoReg ? <Spinner size="tiny" /> : <ArrowUploadRegular />} disabled={subiendoReg} onClick={() => regRef.current?.click()}>
+                          {subiendoReg ? 'Subiendo…' : registroDe(seleccion.curso) ? 'Actualizar registro (PDF)' : 'Subir registro del grado (PDF)'}
+                        </Button>
+                      )}
+                    </div>
+                    {(() => {
+                      const reg = registroDe(seleccion.curso)
+                      if (!reg) return <Text size={200} style={{ color: 'var(--texto-suave)' }}>Aún no hay registro de grado para este curso.</Text>
+                      return (
+                        <div style={{ border: '1px solid var(--borde)', borderRadius: '10px', padding: '12px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                          <Text size={200}><strong>Curso:</strong> {reg.curso}</Text>
+                          <Text size={200}><strong>Nivel:</strong> {reg.nivel}{reg.ciclo ? ` · ${reg.ciclo}` : ''}</Text>
+                          <Text size={200}><strong>Estudiantes:</strong> {reg.estudiantes.length}</Text>
+                          {reg.plantillaNombre && <Text size={200}><strong>PDF:</strong> {reg.plantillaNombre}</Text>}
+                          <Text size={200}><strong>Actualizado:</strong> {reg.updatedAt.slice(0, 10)}</Text>
+                          {reg.plantillaUrl && (
+                            <div className={styles.actions}>
+                              <Button size="small" appearance="secondary" as="a" href={reg.plantillaUrl} target="_blank" rel="noopener noreferrer">Ver PDF</Button>
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })()}
+                  </div>
                 </>
               )}
             </DialogContent>
