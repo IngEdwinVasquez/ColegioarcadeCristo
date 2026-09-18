@@ -42,6 +42,26 @@ export function detectLevel(name: string): string | null {
   return null
 }
 
+/** Grados del Nivel Inicial (nombre estándar + edad contemplada). */
+export interface GradoInicial { nombre: string; edad: string }
+export const INICIAL_GRADOS: GradoInicial[] = [
+  { nombre: 'Pre-Kinder', edad: '3 años' },
+  { nombre: 'Kinder', edad: '4 años' },
+  { nombre: 'Pre-Primaria', edad: '5 años' },
+]
+
+/** Reconoce el grado de Inicial a partir de un texto (SIGERD u otro). */
+export function gradoInicialDe(texto?: string): GradoInicial | null {
+  const t = (texto ?? '').toLowerCase()
+  if (/pre\s*-?\s*kinder|prekinder|maternal|nido|3\s*a[nñ]os/.test(t)) return INICIAL_GRADOS[0]
+  if (/pre\s*-?\s*primar|5\s*a[nñ]os/.test(t)) return INICIAL_GRADOS[2]
+  if (/kinder|4\s*a[nñ]os/.test(t)) return INICIAL_GRADOS[1]
+  return null
+}
+
+/** Edad contemplada para un grado (de Inicial). */
+export const edadDeGrado = (grado?: string): string | undefined => gradoInicialDe(grado)?.edad
+
 export const LEVEL_SHORT: Record<string, string> = {
   'Nivel Inicial': 'Inicial',
   'Nivel Primario': 'Primaria',
@@ -73,7 +93,10 @@ export const seccionDe = (curso: GradeSection): string => {
 export const gradoDe = (curso: GradeSection): string => {
   if (curso.grado) return curso.grado.trim()
   const m = curso.name.match(GRADO_RE)
-  if (!m) return ''
+  if (!m) {
+    const gi = gradoInicialDe(curso.name)
+    return gi ? gi.nombre : ''
+  }
   const num = ORD[m[1].toLowerCase()]
   return (num && GRADE_WORD[num - 1]) || m[1]
 }
