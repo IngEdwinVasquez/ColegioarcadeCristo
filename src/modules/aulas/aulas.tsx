@@ -530,6 +530,29 @@ Devuelve ÚNICAMENTE el HTML completo del documento.`
     }
   }
 
+  /** Abre el formulario de planificación con los datos disponibles en la plataforma. */
+  const abrirPlanIA = () => {
+    if (!seleccion) return
+    const asignatura = asignaturaDe(seleccion.records[0])
+    const esp = registroCurso?.especificaciones?.[asignatura]
+    const contenidos = esp ? [esp.p1, esp.p2, esp.p3, esp.p4].filter(Boolean).join('\n') : ''
+    const tema = (contenidos.split('\n')[0] ?? '').slice(0, 140) || asignatura
+    setPlanForm({
+      asignatura,
+      modulo: asignatura,
+      tema,
+      tiempo: '45 minutos',
+      proposito: `Desarrollar las competencias de ${asignatura} en los estudiantes de ${seleccion.curso}.`,
+      contenidos,
+      indicadores: `Reconoce y aplica los conceptos y procedimientos de ${asignatura} en situaciones de su entorno.`,
+      actividades: 'Inicio: motivación y saberes previos. Desarrollo: explicación, modelado y práctica guiada. Cierre: síntesis, preguntas de metacognición y evaluación.',
+      recursos: 'Pizarra, cuaderno, recursos del aula virtual, proyector.',
+      evaluacion: 'Observación directa, participación, ejercicios y la actividad asignada en el módulo.',
+    })
+    setPlanResult(null)
+    setPlanOpen(true)
+  }
+
   return (
     <div>
       <PageHeader title={pageTitle} subtitle={subtitle ?? 'Aulas del colegio. Entre a un aula para ver y gestionar sus asignaturas.'} />
@@ -640,7 +663,7 @@ Devuelve ÚNICAMENTE el HTML completo del documento.`
                           appearance="primary"
                           icon={<SparkleRegular />}
                           disabled={!puedePlanificar}
-                          onClick={() => { setPlanResult(null); setPlanForm((f) => ({ ...f, asignatura: asignaturaDe(seleccion.records[0]) })); setPlanOpen(true) }}
+                          onClick={abrirPlanIA}
                         >
                           Crear planificación con IA
                         </Button>
