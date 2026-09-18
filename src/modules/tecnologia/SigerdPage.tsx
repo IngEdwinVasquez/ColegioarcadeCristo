@@ -8,7 +8,7 @@ import { dataService } from '../../services/dataService'
 import { useCollection } from '../../hooks/useCollection'
 import { useApp } from '../../context/useApp'
 import { formatDate, genId } from '../../utils/helpers'
-import { cursoNombre, nivelShort, gradoInicialDe } from '../../utils/academic'
+import { cursoNombre, nivelShort, gradoInicialDe, INICIAL_GRADOS } from '../../utils/academic'
 import type { Enrollment, GradeSection, SigerdReport, SigerdStudent, Student } from '../../types'
 
 const useStyles = makeStyles({
@@ -111,22 +111,40 @@ export function SigerdPage() {
     setProgreso('Reconstruyendo cursos de Inicial…')
     try {
       const activePeriod = periods.find((p) => p.isActive)?.id ?? periods[0]?.id ?? ''
+      const headerDe = (id?: string) => (id ? reportsCol.items.find((r) => r.id === id)?.header : undefined)
+      const secDe = (s: Student) => ((s.sigerd?.seccion || '').toUpperCase().match(/[A-G]/)?.[0] ?? (gradeById(s.gradeId)?.section || headerDe(s.sigerdReportId)?.seccion || '').toUpperCase().match(/[A-G]/)?.[0] ?? '')
+      const esInicial = (s: Student) => !!gradoInicialDe(s.sigerd?.grado) || !!gradoInicialDe(gradeById(s.gradeId)?.name) || nivelShort(gradeById(s.gradeId)?.level ?? '') === 'Inicial' || !!gradoInicialDe(headerDe(s.sigerdReportId)?.grado)
       const lista = gradesCol.items.length ? [...gradesCol.items] : [...grades]
-      let cursosCreados = 0
-      let actualizados = 0
+
+      // 1) Crear los tres grados de Inicial para cada sección detectada.
+      const secciones = new Set<string>()
       for (const s of studentsCol.items) {
-        const gi = gradoInicialDe(s.sigerd?.grado)
-        if (!gi) continue
-        const sec = (s.sigerd?.seccion || '').trim().toUpperCase()
-        const name = sec ? `${gi.nombre}.${sec}` : gi.nombre
-        const objetivo = `${name} · Inicial`
-        let curso = lista.find((g) => cursoNombre(g) === objetivo)
-        if (!curso) {
-          curso = { id: genId('g'), name, grado: gi.nombre, section: sec || undefined, level: 'Nivel Inicial', nivel: 'Inicial', asignatura: 'Asignaturas Generales', edad: gi.edad }
-          await dataService.saveGrade(curso)
-          lista.push(curso)
+        if (!esInicial(s)) continue
+        const sec = secDe(s)
+        if (sec) secciones.add(sec)
+      }
+      if (secciones.size === 0) secciones.add('A')
+      let cursosCreados = 0
+      for (const sec of secciones) {
+        for (const gi of INICIAL_GRADOS) {
+          const objetivo = `${gi.nombre}.${sec} · Inicial`
+          if (lista.some((x) => cursoNombre(x) === objetivo)) continue
+          const nuevo: GradeSection = { id: genId('g'), name: `${gi.nombre}.${sec}`, grado: gi.nombre, section: sec, level: 'Nivel Inicial', nivel: 'Inicial', asignatura: 'Asignaturas Generales', edad: gi.edad }
+          await dataService.saveGrade(nuevo)
+          lista.push(nuevo)
           cursosCreados += 1
         }
+      }
+
+      // 2) Asignar cada estudiante al curso de su grado.
+      let actualizados = 0
+      for (const s of studentsCol.items) {
+        const gi = gradoInicialDe(s.sigerd?.grado) ?? gradoInicialDe(gradeById(s.gradeId)?.name) ?? gradoInicialDe(headerDe(s.sigerdReportId)?.grado)
+        if (!gi) continue
+        const sec = secDe(s) || 'A'
+        const objetivo = `${gi.nombre}.${sec} · Inicial`
+        const curso = lista.find((x) => cursoNombre(x) === objetivo)
+        if (!curso) continue
         if (s.gradeId !== curso.id) {
           await dataService.saveStudent({ ...s, gradeId: curso.id })
           actualizados += 1
