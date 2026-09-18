@@ -9,6 +9,7 @@ import { MisAulasPage } from '../modules/docente/MisAulasPage'
 import { AulaPage } from '../modules/docente/AulaPage'
 import { MisClasesPage } from '../modules/docente/MisClasesPage'
 import { MiRegistroGradoPage } from '../modules/registro/RegistroGradoPage'
+import { CursoAsignaturaPage } from '../modules/aulas/CursoAsignaturaPage'
 import { ClaseDocenteDetail } from '../modules/docente/ClaseDocenteDetail'
 import { RecursosPage } from '../modules/docente/RecursosPage'
 import { PortafolioPage } from '../modules/docente/PortafolioPage'
@@ -48,6 +49,7 @@ export function DocentesPortal() {
         <Route path="registro-grado" element={<MiRegistroGradoPage />} />
         <Route path="aulas/:gradeId/:section" element={<AulaPage />} />
         <Route path="aulas/:gradeId/:section/:subjectId" element={<MisClasesPage />} />
+        <Route path="aulas/:gradeId/:section/:subjectId/virtual" element={<CursoAsignaturaPage />} />
         <Route path="aulas/:gradeId/:section/:subjectId/clase/:classId" element={<ClaseDocenteDetail />} />
         <Route path="planificaciones" element={<PlanificacionPage />} />
         <Route path="planificador" element={<PlanificadorSemanal />} />
