@@ -31,7 +31,7 @@ import {
 
 const NAV: NavItem[] = [
   { to: '/docentes', label: 'Inicio', icon: <HomeRegular />, end: true, group: 'General' },
-  { to: '/docentes/aulas', label: 'Mis Aulas', icon: <VideoRegular />, group: 'Académico' },
+  { to: '/docentes/aulas', label: 'Aulas por curso', icon: <VideoRegular />, group: 'Académico' },
   { to: '/docentes/registro-grado', label: 'Registro de Grado', icon: <BookRegular />, group: 'Académico' },
   { to: '/docentes/planificador-ia', label: 'Planificador IA', icon: <SparkleRegular />, group: 'Académico' },
   { to: '/docentes/encuentros', label: 'Encuentros Virtuales', icon: <VideoPersonRegular />, group: 'Comunidad' },

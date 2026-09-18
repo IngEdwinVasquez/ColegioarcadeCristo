@@ -27,7 +27,7 @@ export function EstudiantesPortal() {
   const NAV: NavItem[] = [
     { to: '/estudiantes', label: 'Inicio', icon: <HomeRegular />, end: true, group: 'General' },
     { to: '/estudiantes/clases', label: 'Mis Clases', icon: <NotebookRegular />, group: 'Académico' },
-    { to: '/estudiantes/aulas', label: 'Mis Aulas', icon: <BookRegular />, group: 'Académico' },
+    { to: '/estudiantes/aulas', label: 'Aulas por curso', icon: <BookRegular />, group: 'Académico' },
     { to: '/estudiantes/aula', label: 'Aula Virtual', icon: <VideoRegular />, group: 'Académico' },
     { to: '/estudiantes/asistencia', label: 'Mi Asistencia', icon: <CalendarCheckmarkRegular />, group: 'Académico' },
     { to: '/estudiantes/comunicados', label: 'Comunicados', icon: <MegaphoneRegular />, group: 'Comunidad' },
