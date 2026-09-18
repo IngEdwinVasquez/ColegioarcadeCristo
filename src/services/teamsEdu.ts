@@ -102,3 +102,32 @@ export async function resolveTeamUrl(teamId: string): Promise<string> {
   }
   return `https://teams.microsoft.com/l/team/0/conversations?groupId=${teamId}&tenantId=${appConfig.m365.tenantId}`
 }
+
+export interface EducationModule {
+  id: string
+  displayName: string
+}
+
+/**
+ * Crea un módulo ("Trabajo de clase") en la clase de Teams. Requiere el permiso
+ * delegado EduRoster/EduAssignments.ReadWrite y el privilegio del docente/propietario.
+ */
+export async function createClassModule(classId: string, displayName: string, description: string): Promise<EducationModule> {
+  return graphRequest<EducationModule>(`/education/classes/${classId}/modules`, 'POST', { displayName, description })
+}
+
+/** Agrega un archivo (por URL de OneDrive) a un módulo de la clase. */
+export async function addModuleFileResource(classId: string, moduleId: string, fileUrl: string): Promise<void> {
+  await graphRequest(`/education/classes/${classId}/modules/${moduleId}/resources`, 'POST', {
+    distributionType: 'oneDrive',
+    resources: [{ '@odata.type': '#microsoft.graph.educationFileResource', fileUrl }],
+  })
+}
+
+/** Agrega un vínculo a un módulo de la clase. */
+export async function addModuleLinkResource(classId: string, moduleId: string, link: string, displayName: string): Promise<void> {
+  await graphRequest(`/education/classes/${classId}/modules/${moduleId}/resources`, 'POST', {
+    distributionType: 'oneDrive',
+    resources: [{ '@odata.type': '#microsoft.graph.educationLinkResource', link, displayName }],
+  })
+}

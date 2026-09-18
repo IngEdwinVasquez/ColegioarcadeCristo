@@ -34,6 +34,11 @@ export interface GradeSection {
   imageUrl?: string
   /** Id. de la imagen subida a OneDrive (para el aula del curso) */
   imageRef?: string
+  /** Documento modelo (ejemplo) para planificación de clase del curso. */
+  planTemplateRef?: string
+  planTemplateName?: string
+  /** Texto extraído del documento modelo (estructura para la IA). */
+  planTemplateText?: string
   /** Equipo de Microsoft Teams vinculado al curso */
   teamId?: string
   teamUrl?: string
