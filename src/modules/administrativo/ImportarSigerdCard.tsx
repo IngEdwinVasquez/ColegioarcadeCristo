@@ -11,7 +11,7 @@ import { parseSigerdStudentsPdf } from '../../services/sigerdAi'
 import { listEntraUsers, createEntraUser } from '../../services/entraUsers'
 import { graphErrorMessage } from '../../services/graph'
 import { genId } from '../../utils/helpers'
-import { GRADOS, NIVELES, asignaturaDe, cicloFromGrade, cursoNombre, esCursoValido, isRealSubject, nivelDeTanda, nivelShort, ordenarCursos } from '../../utils/academic'
+import { GRADOS, NIVELES, asignaturaDe, cicloFromGrade, cursoNombre, esCursoValido, isRealSubject, nivelDeTanda, nivelShort, ordenarCursos, gradoInicialDe } from '../../utils/academic'
 import type { Enrollment, GradeSection, SigerdHeader, SigerdStudent, Student } from '../../types'
 
 const useStyles = makeStyles({
@@ -103,8 +103,10 @@ export function ImportarSigerdCard({ cursoDefecto, onCursoDefectoChange, onImpor
     }
     if (nivelShort(nivelLargo) === 'Inicial') {
       const gradoTxt = (s.grado || '').trim()
-      if (!gradoTxt && !sec) return undefined
-      return { id: '', name: [gradoTxt, sec].filter(Boolean).join('.') || 'Inicial', grado: gradoTxt || undefined, level: 'Nivel Inicial', nivel: 'Inicial', section: sec || undefined, asignatura: 'Asignaturas Generales' }
+      const gi = gradoInicialDe(gradoTxt)
+      const nombre = gi ? gi.nombre : gradoTxt
+      if (!nombre && !sec) return undefined
+      return { id: '', name: [nombre, sec].filter(Boolean).join('.') || 'Inicial', grado: nombre || undefined, section: sec || undefined, level: 'Nivel Inicial', nivel: 'Inicial', asignatura: 'Asignaturas Generales', edad: gi?.edad }
     }
     return undefined
   }
