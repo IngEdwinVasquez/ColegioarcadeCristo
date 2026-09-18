@@ -1,17 +1,20 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { Button, Card, Input, Select, Spinner, Tab, TabList, Table, TableBody, TableCell, TableHeader, TableHeaderCell, TableRow, Text, Textarea, useToastController, makeStyles } from '@fluentui/react-components'
-import { AddRegular, DeleteRegular, ImageRegular, ArrowUploadRegular, SaveRegular, BookOpenRegular } from '@fluentui/react-icons'
+import { AddRegular, DeleteRegular, ImageRegular, ArrowUploadRegular, SaveRegular, BookOpenRegular, SparkleRegular } from '@fluentui/react-icons'
 import { PageHeader } from '../../components/shared/PageHeader'
+import { ModalForm } from '../../components/shared/ModalForm'
 import { FormField, FieldRow } from '../../components/shared/form'
 import { useApp } from '../../context/useApp'
 import { dataService } from '../../services/dataService'
 import { useCollection } from '../../hooks/useCollection'
-import { uploadFile, downloadFileAsDataUrl } from '../../services/onedrive'
+import { uploadFile, uploadAndShare, downloadFileAsDataUrl } from '../../services/onedrive'
+import { aiChat } from '../../services/ai'
+import { createClassModule, addModuleFileResource } from '../../services/teamsEdu'
 import { graphErrorMessage } from '../../services/graph'
 import { genId } from '../../utils/helpers'
 import { cursoNombre } from '../../utils/academic'
-import type { CoursePage, CursoActividad, CursoEntrega, CursoLabel, CursoRecurso, CursoRecursoTipo, CursoUnidad, Enrollment, GradeSection } from '../../types'
+import type { CoursePage, CursoActividad, CursoEntrega, CursoLabel, CursoRecurso, CursoRecursoTipo, CursoUnidad, Enrollment, GradeRegister, GradeSection } from '../../types'
 
 const RECURSO_TIPOS: Array<{ value: CursoRecursoTipo; label: string }> = [
   { value: 'texto', label: 'Texto / página' },
@@ -54,9 +57,14 @@ export function CursoAsignaturaPage() {
   const styles = useStyles()
   const toaster = useToastController()
   const params = useParams()
-  const { user, gradeById, subjectById, students, students: allStudents } = useApp()
+  const { user, gradeById, subjectById, students, students: allStudents, grades } = useApp()
   const pagesCol = useCollection<CoursePage>(dataService.getCoursePages, dataService.saveCoursePage, dataService.deleteCoursePage)
   const enrollmentsCol = useCollection<Enrollment>(dataService.getEnrollments)
+  const registrosCol = useCollection<GradeRegister>(dataService.getGradeRegisters)
+  const [planOpen, setPlanOpen] = useState(false)
+  const [planBusy, setPlanBusy] = useState(false)
+  const [planDoc, setPlanDoc] = useState<{ url: string; modulo: string } | null>(null)
+  const [planForm, setPlanForm] = useState({ titulo: '', tema: '', tiempo: '45 minutos', proposito: '', contenidos: '', indicadores: '', actividades: '', recursos: '', evaluacion: '' })
 
   const gradeId = params.gradeId ?? ''
   const section = decodeURIComponent(params.section ?? '')
@@ -213,12 +221,75 @@ export function CursoAsignaturaPage() {
 
   if (pagesCol.loading || !draft) return <Spinner label="Cargando aula virtual…" />
 
+  const courseRecs = grades.filter((g) => cursoNombre(g) === draft.curso)
+  const teamId = gradeById(gradeId)?.teamId
+
+  /** Genera la planificación con IA (según el formulario, el registro de grado y el documento modelo) y crea el módulo en Teams. */
+  const planificarConIA = async () => {
+    if (!planForm.titulo.trim() || !planForm.tema.trim()) {
+      toaster.dispatchToast('Indica el título y el tema de la clase.', { intent: 'error' })
+      return
+    }
+    setPlanBusy(true)
+    try {
+      const template = (courseRecs[0]?.planTemplateText ?? '').slice(0, 12000)
+      const registro = registrosCol.items.find((r) => r.curso === draft.curso)
+      const registroInfo = registro ? `Centro: ${registro.centro?.nombre ?? ''} | Nivel: ${registro.nivel} | Curso: ${registro.curso} | Estudiantes: ${registro.estudiantes.length}` : ''
+      const prompt = `Eres un docente de República Dominicana (MINERD). Redacta una PLANIFICACIÓN DE CLASE en HTML para la asignatura ${subject?.name ?? ''} del curso ${draft.curso}.
+Datos del formulario:
+- Título: ${planForm.titulo}
+- Tema: ${planForm.tema}
+- Tiempo: ${planForm.tiempo}
+- Propósito: ${planForm.proposito}
+- Contenidos: ${planForm.contenidos}
+- Indicadores de logro: ${planForm.indicadores}
+- Actividades/estrategias: ${planForm.actividades}
+- Recursos: ${planForm.recursos}
+- Evaluación: ${planForm.evaluacion}
+Contexto del registro de grado: ${registroInfo}
+Usa EXACTAMENTE la estructura, secciones y encabezados del siguiente documento modelo (respétala):
+"""${template || 'Estructura estándar: Encabezado (centro, nivel, curso, asignatura, docente, fecha), Tema, Propósito, Contenidos, Indicadores de logro, Actividades (inicio, desarrollo, cierre), Recursos, Evaluación.'}"""
+Basa el contenido en el tema del formulario. Devuelve ÚNICAMENTE el HTML completo del documento.`
+      const html = await aiChat([
+        { role: 'system', content: 'Asistente de planificación docente MINERD. Devuelve HTML.' },
+        { role: 'user', content: prompt },
+      ], { temperature: 0.4, maxTokens: 3200 })
+      const limpio = html.replace(/```html?/gi, '').replace(/```/g, '').trim()
+      const blob = new Blob([limpio], { type: 'text/html' })
+      const file = new File([blob], `${planForm.titulo.replace(/[^\w.-]+/g, '_')}.html`, { type: 'text/html' })
+      const ref = await uploadAndShare('Planificaciones', file)
+      let modulo = ''
+      if (teamId) {
+        try {
+          const mod = await createClassModule(teamId, planForm.titulo, planForm.tema)
+          try { await addModuleFileResource(teamId, mod.id, ref.webUrl) } catch { /* recurso opcional */ }
+          modulo = 'Módulo creado en el aula de Teams.'
+        } catch (e) {
+          modulo = `No se pudo crear el módulo en Teams: ${graphErrorMessage(e)}`
+        }
+      } else {
+        modulo = 'La asignatura no tiene un aula de Teams relacionada.'
+      }
+      setPlanDoc({ url: ref.webUrl, modulo })
+      toaster.dispatchToast('Planificación generada con IA.', { intent: 'success' })
+    } catch (error) {
+      toaster.dispatchToast(graphErrorMessage(error), { intent: 'error' })
+    } finally {
+      setPlanBusy(false)
+    }
+  }
+
   return (
     <div>
       <PageHeader
         title={`${subject?.name ?? 'Asignatura'} · ${draft.curso}`}
         subtitle="Aula virtual de la asignatura: recursos, actividades, entregas y calificaciones."
-        actions={editable ? <Button appearance="primary" icon={busy ? <Spinner size="tiny" /> : <SaveRegular />} disabled={busy} onClick={() => void guardar()}>Guardar</Button> : undefined}
+        actions={editable ? (
+          <>
+            <Button appearance="secondary" icon={<SparkleRegular />} onClick={() => { setPlanDoc(null); setPlanOpen(true) }}>Crear planificación</Button>
+            <Button appearance="primary" icon={busy ? <Spinner size="tiny" /> : <SaveRegular />} disabled={busy} onClick={() => void guardar()}>Guardar</Button>
+          </>
+        ) : undefined}
       />
 
       <TabList selectedValue={tab} onTabSelect={(_, d) => setTab(String(d.value))} style={{ marginBottom: '14px' }}>
@@ -408,6 +479,45 @@ export function CursoAsignaturaPage() {
           <Text size={200} style={{ color: 'var(--texto-suave)' }}>Las columnas son las actividades y cada fila un estudiante. La calificación se edita cuando el estudiante tiene una entrega registrada.</Text>
         </Card>
       )}
+
+      <ModalForm
+        open={planOpen}
+        onOpenChange={(o) => { if (!o) setPlanOpen(false) }}
+        title="Crear planificación de clase"
+        subtitle="Completa las opciones y usa la IA (se basa en el tema, el registro de grado del curso y el documento modelo)."
+        width={760}
+        actions={
+          <>
+            <Button appearance="secondary" onClick={() => setPlanOpen(false)} disabled={planBusy}>Cerrar</Button>
+            <Button appearance="primary" icon={planBusy ? <Spinner size="tiny" /> : <SparkleRegular />} disabled={planBusy} onClick={() => void planificarConIA()}>
+              {planBusy ? 'Generando…' : 'Planificar con IA'}
+            </Button>
+          </>
+        }
+      >
+        <FormField label="Título de la clase" required><Input value={planForm.titulo} onChange={(_, d) => setPlanForm({ ...planForm, titulo: d.value })} /></FormField>
+        <FieldRow>
+          <FormField label="Tema" required><Input value={planForm.tema} onChange={(_, d) => setPlanForm({ ...planForm, tema: d.value })} /></FormField>
+          <FormField label="Tiempo"><Input value={planForm.tiempo} onChange={(_, d) => setPlanForm({ ...planForm, tiempo: d.value })} /></FormField>
+        </FieldRow>
+        <FormField label="Propósito"><Textarea value={planForm.proposito} onChange={(_, d) => setPlanForm({ ...planForm, proposito: d.value })} /></FormField>
+        <FormField label="Contenidos"><Textarea value={planForm.contenidos} onChange={(_, d) => setPlanForm({ ...planForm, contenidos: d.value })} /></FormField>
+        <FormField label="Indicadores de logro"><Textarea value={planForm.indicadores} onChange={(_, d) => setPlanForm({ ...planForm, indicadores: d.value })} /></FormField>
+        <FormField label="Actividades / estrategias"><Textarea value={planForm.actividades} onChange={(_, d) => setPlanForm({ ...planForm, actividades: d.value })} /></FormField>
+        <FieldRow>
+          <FormField label="Recursos"><Input value={planForm.recursos} onChange={(_, d) => setPlanForm({ ...planForm, recursos: d.value })} /></FormField>
+          <FormField label="Evaluación"><Input value={planForm.evaluacion} onChange={(_, d) => setPlanForm({ ...planForm, evaluacion: d.value })} /></FormField>
+        </FieldRow>
+        {planDoc && (
+          <Card style={{ padding: '12px' }}>
+            <Text size={200} block><strong>Planificación generada:</strong> guardada en OneDrive.</Text>
+            <Text size={200} block>{planDoc.modulo}</Text>
+            <div className={styles.actions}>
+              <Button size="small" appearance="secondary" as="a" href={planDoc.url} target="_blank" rel="noopener noreferrer">Abrir planificación</Button>
+            </div>
+          </Card>
+        )}
+      </ModalForm>
     </div>
   )
 }

@@ -16,7 +16,7 @@ import { cursoNombre, nivelShort, ordenarCursos, asignaturaDe, isRealSubject, gr
 import { createClassTeam, listTenantTeams, resolveTeamUrl } from '../../services/teamsEdu'
 import { graphErrorMessage } from '../../services/graph'
 import { uploadFile, uploadAndShare, downloadFileAsDataUrl } from '../../services/onedrive'
-import { renderPdfFirstPageToBlob } from '../../services/pdf'
+import { renderPdfFirstPageToBlob, extractPdfText } from '../../services/pdf'
 import { genId } from '../../utils/helpers'
 import type { Enrollment, GradeRegister, GradeSection, RegistroStudent, TeacherAssignment } from '../../types'
 
@@ -350,6 +350,8 @@ export function AulasView({ scope, subtitle, pageTitle = 'Aulas', onOpenSubject 
   const [imgAula, setImgAula] = useState<Aula | null>(null)
   const [subiendoReg, setSubiendoReg] = useState(false)
   const regRef = useRef<HTMLInputElement>(null)
+  const [subiendoPlan, setSubiendoPlan] = useState(false)
+  const planRef = useRef<HTMLInputElement>(null)
 
   const notas: GradeSection[] = gradesCol.items.length ? gradesCol.items : grades
 
@@ -432,6 +434,29 @@ export function AulasView({ scope, subtitle, pageTitle = 'Aulas', onOpenSubject 
     }
   }
 
+  /** Sube el documento modelo (ejemplo) para planificación de clase del curso. */
+  const subirPlantillaPlan = async (file: File | undefined) => {
+    if (!file || !seleccion) return
+    setSubiendoPlan(true)
+    try {
+      const ref = await uploadFile('Planificaciones/Modelos', file.name, file)
+      let texto = ''
+      if (file.name.toLowerCase().endsWith('.pdf') || file.type === 'application/pdf') {
+        try { texto = (await extractPdfText(file)).replace(/\s+/g, ' ').trim().slice(0, 15000) } catch { /* sin texto extraíble */ }
+      }
+      for (const g of seleccion.records) {
+        await dataService.saveGrade({ ...g, planTemplateRef: ref.id, planTemplateName: file.name, planTemplateText: texto || g.planTemplateText })
+      }
+      await gradesCol.refresh()
+      toaster.dispatchToast('Documento ejemplo de planificación guardado.', { intent: 'success' })
+    } catch (error) {
+      toaster.dispatchToast(graphErrorMessage(error), { intent: 'error' })
+    } finally {
+      setSubiendoPlan(false)
+      if (planRef.current) planRef.current.value = ''
+    }
+  }
+
   return (
     <div>
       <PageHeader title={pageTitle} subtitle={subtitle ?? 'Aulas del colegio. Entre a un aula para ver y gestionar sus asignaturas.'} />
@@ -510,6 +535,21 @@ export function AulasView({ scope, subtitle, pageTitle = 'Aulas', onOpenSubject 
                         </div>
                       )
                     })()}
+                  </div>
+
+                  <div style={{ marginTop: '18px' }}>
+                    <input ref={planRef} type="file" accept="application/pdf,.doc,.docx" style={{ display: 'none' }} onChange={(e) => void subirPlantillaPlan(e.target.files?.[0])} />
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', flexWrap: 'wrap', marginBottom: '6px' }}>
+                      <Text weight="semibold" size={400}>Documento ejemplo de planificación de clase</Text>
+                      {canManage && (
+                        <Button appearance="secondary" icon={subiendoPlan ? <Spinner size="tiny" /> : <ArrowUploadRegular />} disabled={subiendoPlan} onClick={() => planRef.current?.click()}>
+                          {subiendoPlan ? 'Subiendo…' : seleccion.records[0]?.planTemplateName ? 'Cambiar documento ejemplo' : 'Subir documento ejemplo'}
+                        </Button>
+                      )}
+                    </div>
+                    <Text size={200} style={{ color: 'var(--texto-suave)' }}>
+                      {seleccion.records[0]?.planTemplateName ? `Modelo actual: ${seleccion.records[0].planTemplateName}` : 'Aún no hay documento modelo para este curso.'}
+                    </Text>
                   </div>
                 </>
               )}
