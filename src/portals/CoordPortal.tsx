@@ -38,7 +38,7 @@ const NAV: NavItem[] = [
   { to: '/coordinacion/promocion', label: 'Promoción', icon: <ArrowUpRegular />, group: 'Académico' },
   { to: '/coordinacion/asignaciones', label: 'Asignaciones', icon: <LinkSquareRegular />, group: 'Académico' },
   { to: '/coordinacion/gestion-academica', label: 'Gestión académica', icon: <BookRegular />, group: 'Académico' },
-  { to: '/coordinacion/aulas', label: 'Aulas del nivel', icon: <VideoRegular />, group: 'Académico' },
+  { to: '/coordinacion/aulas', label: 'Aulas por curso', icon: <VideoRegular />, group: 'Académico' },
   { to: '/coordinacion/registro-grado', label: 'Registro de Grado', icon: <BookRegular />, group: 'Académico' },
   { to: '/coordinacion/gestion-tic', label: 'Gestión de Coordinación Pedagógica', icon: <ClipboardTaskRegular />, group: 'Gestión' },
   { to: '/coordinacion/copilot', label: 'Copilot', icon: <SparkleRegular />, group: 'Herramientas' },

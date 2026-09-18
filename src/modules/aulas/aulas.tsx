@@ -322,6 +322,15 @@ export function AulaSubjectsPanel({ subjects, canManage, onOpenSubject, onChange
   )
 }
 
+/** Normaliza el nivel a Inicial | Primaria | Secundaria. */
+const normNivel = (v?: string): string => {
+  const s = (v ?? '').toLowerCase()
+  if (s.includes('inicial')) return 'Inicial'
+  if (s.includes('primar')) return 'Primaria'
+  if (s.includes('secund')) return 'Secundaria'
+  return ''
+}
+
 export type AulaScope =
   | { kind: 'todos'; level?: string }
   | { kind: 'docente'; teacherId: string }
@@ -357,7 +366,7 @@ export function AulasView({ scope, subtitle, pageTitle = 'Aulas', onOpenSubject 
 
   const aulas = useMemo(() => {
     const todas = aulasFromGrades(notas)
-    if (scope.kind === 'todos') return scope.level ? todas.filter((a) => nivelShort(a.level) === scope.level) : todas
+    if (scope.kind === 'todos') return scope.level ? todas.filter((a) => normNivel(a.level) === scope.level || normNivel(a.nivel) === scope.level) : todas
     if (scope.kind === 'docente') {
       const ids = new Set(assignmentsCol.items.filter((a) => a.teacherId === scope.teacherId).map((a) => a.gradeId))
       return todas
