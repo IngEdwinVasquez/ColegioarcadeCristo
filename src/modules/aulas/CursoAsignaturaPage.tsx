@@ -64,6 +64,7 @@ export function CursoAsignaturaPage() {
   const [planOpen, setPlanOpen] = useState(false)
   const [planBusy, setPlanBusy] = useState(false)
   const [planDoc, setPlanDoc] = useState<{ url: string; modulo: string } | null>(null)
+  const [creandoModulo, setCreandoModulo] = useState(false)
   const [planForm, setPlanForm] = useState({ titulo: '', tema: '', tiempo: '45 minutos', proposito: '', contenidos: '', indicadores: '', actividades: '', recursos: '', evaluacion: '' })
 
   const gradeId = params.gradeId ?? ''
@@ -261,9 +262,9 @@ Basa el contenido en el tema del formulario. Devuelve ÚNICAMENTE el HTML comple
       let modulo = ''
       if (teamId) {
         try {
-          const mod = await createClassModule(teamId, planForm.titulo, planForm.tema)
+          const mod = await createClassModule(teamId, `${subject?.name ?? 'Asignatura'} · ${draft.curso}`, `${planForm.titulo} — ${planForm.tema}`)
           try { await addModuleFileResource(teamId, mod.id, ref.webUrl) } catch { /* recurso opcional */ }
-          modulo = 'Módulo creado en el aula de Teams.'
+          modulo = `Módulo creado en el aula de Teams: ${subject?.name ?? ''} · ${draft.curso}.`
         } catch (e) {
           modulo = `No se pudo crear el módulo en Teams: ${graphErrorMessage(e)}`
         }
@@ -279,6 +280,24 @@ Basa el contenido en el tema del formulario. Devuelve ÚNICAMENTE el HTML comple
     }
   }
 
+  /** Crea un módulo en el aula de Teams de la asignatura, nombrado con la asignatura y el curso. */
+  const crearModuloAsignatura = async () => {
+    if (!teamId) {
+      toaster.dispatchToast('La asignatura no tiene un aula de Teams relacionada. Asígnala en Mis Aulas → asignatura.', { intent: 'error' })
+      return
+    }
+    setCreandoModulo(true)
+    try {
+      const nombre = `${subject?.name ?? 'Asignatura'} · ${draft.curso}`
+      const mod = await createClassModule(teamId, nombre, `Módulo de ${subject?.name ?? ''} para el curso ${draft.curso}.`)
+      toaster.dispatchToast(`Módulo creado en Teams: ${mod.displayName || nombre}.`, { intent: 'success' })
+    } catch (error) {
+      toaster.dispatchToast(graphErrorMessage(error), { intent: 'error' })
+    } finally {
+      setCreandoModulo(false)
+    }
+  }
+
   return (
     <div>
       <PageHeader
@@ -287,6 +306,7 @@ Basa el contenido en el tema del formulario. Devuelve ÚNICAMENTE el HTML comple
         actions={editable ? (
           <>
             <Button appearance="secondary" icon={<SparkleRegular />} onClick={() => { setPlanDoc(null); setPlanOpen(true) }}>Crear planificación</Button>
+            <Button appearance="secondary" icon={creandoModulo ? <Spinner size="tiny" /> : <AddRegular />} disabled={creandoModulo} onClick={() => void crearModuloAsignatura()}>{creandoModulo ? 'Creando…' : 'Crear módulo en Teams'}</Button>
             <Button appearance="primary" icon={busy ? <Spinner size="tiny" /> : <SaveRegular />} disabled={busy} onClick={() => void guardar()}>Guardar</Button>
           </>
         ) : undefined}
