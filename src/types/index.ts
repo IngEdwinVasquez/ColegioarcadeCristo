@@ -979,3 +979,70 @@ export interface GradeRegister {
   createdAt: string
   updatedAt: string
 }
+
+// ------------------------------ Aula virtual por asignatura (estilo Moodle) ------------------------------
+
+export interface CursoLabel {
+  id: string
+  texto: string
+  imageRef?: string
+  imageUrl?: string
+}
+
+export type CursoRecursoTipo = 'texto' | 'enlace' | 'documento' | 'audio' | 'imagen' | 'video'
+
+export interface CursoRecurso {
+  id: string
+  tipo: CursoRecursoTipo
+  titulo: string
+  texto?: string
+  url?: string
+  /** Id. del archivo subido a OneDrive (documento, audio, imagen o video). */
+  ref?: string
+  nombre?: string
+}
+
+export interface CursoActividad {
+  id: string
+  titulo: string
+  tema?: string
+  instrucciones?: string
+  puntos?: number
+  desde?: string
+  hasta?: string
+}
+
+export interface CursoEntrega {
+  id: string
+  actividadId: string
+  studentId: string
+  archivos: Array<{ name: string; url: string }>
+  texto?: string
+  calificacion?: string
+  comentario?: string
+  fecha: string
+}
+
+export interface CursoUnidad {
+  id: string
+  titulo: string
+  desde?: string
+  hasta?: string
+  recursos: CursoRecurso[]
+  actividades: CursoActividad[]
+}
+
+export interface CoursePage {
+  id: string
+  gradeId: string
+  section: string
+  subjectId: string
+  curso: string
+  headerRef?: string
+  headerUrl?: string
+  descripcion?: string
+  labels: CursoLabel[]
+  units: CursoUnidad[]
+  entregas: CursoEntrega[]
+  updatedAt: string
+}

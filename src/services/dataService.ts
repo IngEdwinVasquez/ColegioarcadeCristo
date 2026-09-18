@@ -16,6 +16,7 @@ import type {
   Grade,
   GradeSection,
   GradeRegister,
+  CoursePage,
   Period,
   Persona,
   CourseSubject,
@@ -101,6 +102,7 @@ export const collections = {
     promotions: collection<PromotionRecord>(SPO_LISTS.promotions),
     sigerdReports: collection<SigerdReport>(SPO_LISTS.sigerdReports),
     gradeRegisters: collection<GradeRegister>(SPO_LISTS.gradeRegisters),
+    coursePages: collection<CoursePage>(SPO_LISTS.coursePages),
 }
 
 export const dataService = {
@@ -245,6 +247,10 @@ export const dataService = {
   getGradeRegisters: collections.gradeRegisters.getAll,
   saveGradeRegister: collections.gradeRegisters.save,
   deleteGradeRegister: collections.gradeRegisters.remove,
+  // Aula virtual por asignatura (estilo Moodle)
+  getCoursePages: collections.coursePages.getAll,
+  saveCoursePage: collections.coursePages.save,
+  deleteCoursePage: collections.coursePages.remove,
 }
 
 export type DataService = typeof dataService

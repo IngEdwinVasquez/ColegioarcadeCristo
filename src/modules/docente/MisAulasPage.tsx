@@ -18,7 +18,7 @@ export function MisAulasPage() {
       scope={{ kind: 'docente', teacherId }}
       pageTitle="Mis Aulas"
       subtitle="Aulas donde tienes asignaturas asignadas. Entre a un aula para abrir sus asignaturas y su aula de Teams."
-      onOpenSubject={(g: GradeSection) => navigate(`/docentes/aulas/${g.id}/${encodeURIComponent(seccionDe(g))}/${subjectIdOf(g, subjects)}`)}
+      onOpenSubject={(g: GradeSection) => navigate(`/docentes/aulas/${g.id}/${encodeURIComponent(seccionDe(g))}/${subjectIdOf(g, subjects)}/virtual`)}
     />
   )
 }
