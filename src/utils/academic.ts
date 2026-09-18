@@ -103,11 +103,14 @@ export const gradoDe = (curso: GradeSection): string => {
 
 const gradeNum = (grado: string) => ORD[grado.toLowerCase()] ?? (parseInt(grado, 10) || null)
 
-/** Grado + sección (ej. 1ro.A). En Inicial (sin grado numérico) se usa el nombre del curso. */
+/** Grado + sección (ej. 1ro.A). En Inicial es solo el grado (sin sección). */
 export const cursoGrado = (curso: GradeSection): string => {
   const g = gradoDe(curso)
   const s = seccionDe(curso)
-  if (g) return `${g}.${s}`
+  if (g) {
+    if (nivelShort(curso.level) === 'Inicial' && !curso.section) return g
+    return `${g}.${s}`
+  }
   return (curso.name || s).trim()
 }
 

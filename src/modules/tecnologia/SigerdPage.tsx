@@ -104,46 +104,36 @@ export function SigerdPage() {
     }
   }
 
-  /** Reconstruye los cursos de Inicial (Pre-Kinder, Kinder, Pre-Primaria) a partir del SIGERD. */
+  /** Reconstruye los cursos de Inicial (uno por grado) y elimina los que no sigan ese patrón. */
   const reconstruirInicial = async () => {
-    if (!window.confirm('¿Reconstruir los cursos de Inicial (Pre-Kinder, Kinder, Pre-Primaria) con el mismo patrón de Primaria/Secundaria y actualizar el curso de los estudiantes?')) return
+    if (!window.confirm('¿Reconstruir los cursos de Inicial (Pre-Kinder, Kinder, Pre-Primaria) y reemplazar los existentes por estos? Se actualizará el curso de los estudiantes.')) return
     setBusy(true)
     setProgreso('Reconstruyendo cursos de Inicial…')
     try {
       const activePeriod = periods.find((p) => p.isActive)?.id ?? periods[0]?.id ?? ''
       const headerDe = (id?: string) => (id ? reportsCol.items.find((r) => r.id === id)?.header : undefined)
-      const secDe = (s: Student) => ((s.sigerd?.seccion || '').toUpperCase().match(/[A-G]/)?.[0] ?? (gradeById(s.gradeId)?.section || headerDe(s.sigerdReportId)?.seccion || '').toUpperCase().match(/[A-G]/)?.[0] ?? '')
-      const esInicial = (s: Student) => !!gradoInicialDe(s.sigerd?.grado) || !!gradoInicialDe(gradeById(s.gradeId)?.name) || nivelShort(gradeById(s.gradeId)?.level ?? '') === 'Inicial' || !!gradoInicialDe(headerDe(s.sigerdReportId)?.grado)
       const lista = gradesCol.items.length ? [...gradesCol.items] : [...grades]
+      const nombreEstandar = (nombre: string) => `${nombre} · Inicial`
+      const estandar = new Set(INICIAL_GRADOS.map((gi) => nombreEstandar(gi.nombre)))
 
-      // 1) Crear los tres grados de Inicial para cada sección detectada.
-      const secciones = new Set<string>()
-      for (const s of studentsCol.items) {
-        if (!esInicial(s)) continue
-        const sec = secDe(s)
-        if (sec) secciones.add(sec)
-      }
-      if (secciones.size === 0) secciones.add('A')
+      // 1) Asegurar los tres cursos estándar (nombre = grado, sin sección).
       let cursosCreados = 0
-      for (const sec of secciones) {
-        for (const gi of INICIAL_GRADOS) {
-          const objetivo = `${gi.nombre}.${sec} · Inicial`
-          if (lista.some((x) => cursoNombre(x) === objetivo)) continue
-          const nuevo: GradeSection = { id: genId('g'), name: `${gi.nombre}.${sec}`, grado: gi.nombre, section: sec, level: 'Nivel Inicial', nivel: 'Inicial', asignatura: 'Asignaturas Generales', edad: gi.edad }
-          await dataService.saveGrade(nuevo)
-          lista.push(nuevo)
-          cursosCreados += 1
-        }
+      for (const gi of INICIAL_GRADOS) {
+        const objetivo = nombreEstandar(gi.nombre)
+        if (lista.some((x) => cursoNombre(x) === objetivo)) continue
+        const nuevo: GradeSection = { id: genId('g'), name: gi.nombre, grado: gi.nombre, level: 'Nivel Inicial', nivel: 'Inicial', asignatura: 'Asignaturas Generales', edad: gi.edad }
+        await dataService.saveGrade(nuevo)
+        lista.push(nuevo)
+        cursosCreados += 1
       }
 
-      // 2) Asignar cada estudiante al curso de su grado.
+      // 2) Asignar cada estudiante a su grado.
       let actualizados = 0
+      const protegidos = new Set<string>()
       for (const s of studentsCol.items) {
         const gi = gradoInicialDe(s.sigerd?.grado) ?? gradoInicialDe(gradeById(s.gradeId)?.name) ?? gradoInicialDe(headerDe(s.sigerdReportId)?.grado)
-        if (!gi) continue
-        const sec = secDe(s) || 'A'
-        const objetivo = `${gi.nombre}.${sec} · Inicial`
-        const curso = lista.find((x) => cursoNombre(x) === objetivo)
+        if (!gi) { if (s.gradeId) protegidos.add(s.gradeId); continue }
+        const curso = lista.find((x) => cursoNombre(x) === nombreEstandar(gi.nombre))
         if (!curso) continue
         if (s.gradeId !== curso.id) {
           await dataService.saveStudent({ ...s, gradeId: curso.id })
@@ -153,8 +143,19 @@ export function SigerdPage() {
           await dataService.saveEnrollment({ id: genId('enr'), studentId: s.id, gradeId: curso.id, periodId: activePeriod })
         }
       }
+
+      // 3) Eliminar los cursos de Inicial que no sean los estándar (y no estén en uso).
+      let eliminados = 0
+      for (const g of gradesCol.items) {
+        if (nivelShort(g.level) !== 'Inicial') continue
+        if (estandar.has(cursoNombre(g))) continue
+        if (protegidos.has(g.id)) continue
+        await dataService.deleteGrade(g.id)
+        eliminados += 1
+      }
+
       await Promise.all([studentsCol.refresh(), enrollmentsCol.refresh(), gradesCol.refresh(), refreshCatalogs()])
-      toaster.dispatchToast(`Inicial reconstruido: ${cursosCreados} curso(s) creado(s), ${actualizados} estudiante(s) actualizado(s).`, { intent: 'success' })
+      toaster.dispatchToast(`Inicial reconstruido: ${cursosCreados} curso(s), ${actualizados} estudiante(s), ${eliminados} curso(s) obsoleto(s) eliminado(s).`, { intent: 'success' })
     } catch (error) {
       toaster.dispatchToast(error instanceof Error ? error.message : 'No se pudo reconstruir los cursos de Inicial.', { intent: 'error' })
     } finally {

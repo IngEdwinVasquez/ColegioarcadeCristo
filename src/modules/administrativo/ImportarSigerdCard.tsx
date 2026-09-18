@@ -106,7 +106,8 @@ export function ImportarSigerdCard({ cursoDefecto, onCursoDefectoChange, onImpor
       const gi = gradoInicialDe(gradoTxt)
       const nombre = gi ? gi.nombre : gradoTxt
       if (!nombre && !sec) return undefined
-      return { id: '', name: [nombre, sec].filter(Boolean).join('.') || 'Inicial', grado: nombre || undefined, section: sec || undefined, level: 'Nivel Inicial', nivel: 'Inicial', asignatura: 'Asignaturas Generales', edad: gi?.edad }
+      // Un curso por grado de Inicial (sin sección).
+      return { id: '', name: nombre || 'Inicial', grado: nombre || undefined, level: 'Nivel Inicial', nivel: 'Inicial', asignatura: 'Asignaturas Generales', edad: gi?.edad }
     }
     return undefined
   }
