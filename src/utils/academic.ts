@@ -45,7 +45,14 @@ export function detectLevel(name: string): string | null {
 export const LEVEL_SHORT: Record<string, string> = {
   'Nivel Inicial': 'Inicial',
   'Nivel Primario': 'Primaria',
+  'Nivel Primaria': 'Primaria',
+  'Primario': 'Primaria',
+  'Primaria': 'Primaria',
   'Nivel Secundario': 'Secundaria',
+  'Nivel Secundaria': 'Secundaria',
+  'Secundario': 'Secundaria',
+  'Secundaria': 'Secundaria',
+  'Inicial': 'Inicial',
 }
 
 export const nivelShort = (level: string) => LEVEL_SHORT[level] ?? level
@@ -73,11 +80,12 @@ export const gradoDe = (curso: GradeSection): string => {
 
 const gradeNum = (grado: string) => ORD[grado.toLowerCase()] ?? (parseInt(grado, 10) || null)
 
-/** Grado + sección (ej. 1ro.A). Si no hay grado, solo la sección. */
+/** Grado + sección (ej. 1ro.A). En Inicial (sin grado numérico) se usa el nombre del curso. */
 export const cursoGrado = (curso: GradeSection): string => {
   const g = gradoDe(curso)
   const s = seccionDe(curso)
-  return g ? `${g}.${s}` : s
+  if (g) return `${g}.${s}`
+  return (curso.name || s).trim()
 }
 
 /** Nombre del curso = Grado + Sección + Nivel (ej. "1ro.A · Primaria"). */
