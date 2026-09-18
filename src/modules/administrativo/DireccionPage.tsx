@@ -26,7 +26,7 @@ import { dataService } from '../../services/dataService'
 import { useCollection } from '../../hooks/useCollection'
 import type { ClassPlan, SchoolClassRecord, AttendanceRecord, Activity, Grade, VirtualMeeting, TeacherAssignment, GradeSection } from '../../types'
 import { formatDate, pct } from '../../utils/helpers'
-import { cursoNombre, detectLevel, ordenarCursos } from '../../utils/academic'
+import { cursoNombre, detectLevel, ordenarCursos, gradoDe, seccionDe } from '../../utils/academic'
 
 const useStyles = makeStyles({
   kpis: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 220px), 1fr))', gap: '16px', marginBottom: '20px' },
@@ -63,21 +63,31 @@ export function DireccionPage() {
   // Ámbito de cursos según los filtros (grado tiene prioridad sobre nivel; vacío = todo).
   const scopeIds = useMemo<Set<string> | null>(() => {
     if (gradeFilter) {
-      // Un curso agrupa varios registros (uno por asignatura); se incluyen todos.
+      // Un curso agrupa varios registros (uno por asignatura). Se emparejan por grado + sección + nivel
+      // normalizado, para no depender de variantes del nombre del nivel ("Nivel Primaria"/"Primaria").
       const g = grades.find((x) => x.id === gradeFilter)
       if (!g) return new Set([gradeFilter])
-      const curso = cursoNombre(g)
-      return new Set(grades.filter((x) => cursoNombre(x) === curso).map((x) => x.id))
+      const grado = gradoDe(g)
+      const sec = seccionDe(g)
+      const niv = nivelDeCurso(g)
+      return new Set(
+        grades.filter((x) => gradoDe(x) === grado && seccionDe(x) === sec && nivelDeCurso(x) === niv).map((x) => x.id),
+      )
     }
     if (levelFilter) return new Set(grades.filter((g) => nivelDeCurso(g) === levelFilter).map((g) => g.id))
     return null
   }, [gradeFilter, levelFilter, grades])
 
   // Cursos únicos (sin repetir) que corresponden al nivel seleccionado.
-  const cursosOpciones = useMemo(
-    () => ordenarCursos(levelFilter ? grades.filter((g) => nivelDeCurso(g) === levelFilter) : grades),
-    [grades, levelFilter],
-  )
+  const cursosOpciones = useMemo(() => {
+    const base = levelFilter ? grades.filter((g) => nivelDeCurso(g) === levelFilter) : grades
+    const map = new Map<string, GradeSection>()
+    for (const g of base) {
+      const key = `${gradoDe(g)}|${seccionDe(g)}|${nivelDeCurso(g)}`
+      if (!map.has(key)) map.set(key, g)
+    }
+    return ordenarCursos([...map.values()])
+  }, [grades, levelFilter])
   const inScope = (gradeId?: string) => !scopeIds || (!!gradeId && scopeIds.has(gradeId))
 
   const planned = useMemo(() => plansCol.items.filter((p) => inScope(p.gradeId)), [plansCol.items, scopeIds])
