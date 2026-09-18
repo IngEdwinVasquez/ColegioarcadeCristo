@@ -82,19 +82,26 @@ export function AsignacionesPage() {
     [grades],
   )
 
-  // Cursos con sus asignaturas (una entrada por curso, sin repetir).
+  // Cursos con sus asignaturas (una entrada por curso, sin repetir), con su nivel.
   const cursosConAsignaturas = useMemo(() => {
-    const map = new Map<string, Set<string>>()
+    const map = new Map<string, { nivel: string; asignaturas: Set<string> }>()
     for (const g of grades) {
       if (!isRealSubject(asignaturaDe(g))) continue
       const curso = cursoNombre(g)
-      if (!map.has(curso)) map.set(curso, new Set())
-      map.get(curso)!.add(asignaturaDe(g))
+      if (!map.has(curso)) map.set(curso, { nivel: nivelShort(g.level), asignaturas: new Set() })
+      map.get(curso)!.asignaturas.add(asignaturaDe(g))
     }
     return [...map.entries()]
-      .map(([curso, set]) => ({ curso, asignaturas: [...set].sort((a, b) => a.localeCompare(b)) }))
+      .map(([curso, v]) => ({ curso, nivel: v.nivel, asignaturas: [...v.asignaturas].sort((a, b) => a.localeCompare(b)) }))
       .sort((a, b) => a.curso.localeCompare(b.curso))
   }, [grades])
+
+  const cursosPorNivel = useMemo(() => {
+    const niveles = ['Primaria', 'Secundaria', 'Inicial', 'Otros']
+    return niveles
+      .map((nivel) => ({ nivel, cursos: cursosConAsignaturas.filter((c) => (nivel === 'Otros' ? !['Primaria', 'Secundaria', 'Inicial'].includes(c.nivel) : c.nivel === nivel)) }))
+      .filter((g) => g.cursos.length > 0)
+  }, [cursosConAsignaturas])
   // Cursos con docente encargado, filtrados por el curso y/o docente seleccionados.
   const cursosEncargado = useMemo(
     () => cursosCatalogo.filter((c) => {
@@ -863,32 +870,39 @@ export function AsignacionesPage() {
           </Card>
 
           <Text weight="semibold" size={400} block style={{ margin: '4px 0 10px' }}>Cursos con sus asignaturas ({cursosConAsignaturas.length})</Text>
-          <Table aria-label="Cursos y asignaturas" size="small">
-            <TableHeader>
-              <TableRow>
-                <TableHeaderCell>Curso</TableHeaderCell>
-                <TableHeaderCell>Asignaturas</TableHeaderCell>
-                <TableHeaderCell>Total</TableHeaderCell>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {cursosConAsignaturas.map((c) => (
-                <TableRow key={c.curso}>
-                  <TableCell><Text weight="semibold">{c.curso}</Text></TableCell>
-                  <TableCell>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                      {c.asignaturas.map((a) => (
-                        <span key={a} style={{ border: '1px solid var(--borde)', borderRadius: '999px', padding: '2px 10px' }}>
-                          <Text size={200}>{a}</Text>
-                        </span>
-                      ))}
-                    </div>
-                  </TableCell>
-                  <TableCell>{c.asignaturas.length}</TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+          {cursosPorNivel.map((grupo) => (
+            <div key={grupo.nivel} style={{ marginBottom: '18px' }}>
+              <Text weight="semibold" size={300} block style={{ marginBottom: '8px' }}>
+                {grupo.nivel} ({grupo.cursos.length} curso{grupo.cursos.length === 1 ? '' : 's'})
+              </Text>
+              <Table aria-label={`Cursos de ${grupo.nivel}`} size="small">
+                <TableHeader>
+                  <TableRow>
+                    <TableHeaderCell>Curso</TableHeaderCell>
+                    <TableHeaderCell>Asignaturas</TableHeaderCell>
+                    <TableHeaderCell>Total</TableHeaderCell>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {grupo.cursos.map((c) => (
+                    <TableRow key={c.curso}>
+                      <TableCell><Text weight="semibold">{c.curso}</Text></TableCell>
+                      <TableCell>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                          {c.asignaturas.map((a) => (
+                            <span key={a} style={{ border: '1px solid var(--borde)', borderRadius: '999px', padding: '2px 10px' }}>
+                              <Text size={200}>{a}</Text>
+                            </span>
+                          ))}
+                        </div>
+                      </TableCell>
+                      <TableCell>{c.asignaturas.length}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          ))}
         </>
       )}
 
