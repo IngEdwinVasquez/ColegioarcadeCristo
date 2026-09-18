@@ -24,6 +24,8 @@ export interface GradeSection {
   nivel?: string
   /** Grado explícito (1ro…6to o, en Inicial, el nombre del grado: Preprimario, Kinder, …) */
   grado?: string
+  /** Edad contemplada del grado (solo Inicial), p. ej. "4 años". */
+  edad?: string
   /** Ciclo (solo Primaria/Secundaria): Primer ciclo | Segundo ciclo */
   ciclo?: string
   /** Seccion (A, B, ...) si se administra por separado */

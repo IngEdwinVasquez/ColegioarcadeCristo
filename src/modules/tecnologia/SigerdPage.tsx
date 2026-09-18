@@ -1,15 +1,15 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Badge, Button, Input, Select, Table, TableBody, TableCell, TableHeader, TableHeaderCell, TableRow, Text, Toolbar, ToolbarButton, useToastController, makeStyles, tokens } from '@fluentui/react-components'
-import { SearchRegular, DeleteRegular } from '@fluentui/react-icons'
+import { SearchRegular, DeleteRegular, ArrowSyncRegular } from '@fluentui/react-icons'
 import { PageHeader } from '../../components/shared/PageHeader'
 import { EmptyStateView } from '../../components/shared/EmptyStateView'
 import { ImportarSigerdCard } from '../administrativo/ImportarSigerdCard'
 import { dataService } from '../../services/dataService'
 import { useCollection } from '../../hooks/useCollection'
 import { useApp } from '../../context/useApp'
-import { formatDate } from '../../utils/helpers'
-import { cursoNombre, nivelShort } from '../../utils/academic'
-import type { Enrollment, SigerdReport, SigerdStudent, Student } from '../../types'
+import { formatDate, genId } from '../../utils/helpers'
+import { cursoNombre, nivelShort, gradoInicialDe } from '../../utils/academic'
+import type { Enrollment, GradeSection, SigerdReport, SigerdStudent, Student } from '../../types'
 
 const useStyles = makeStyles({
   header: { display: 'flex', flexWrap: 'wrap', gap: '6px 22px', background: tokens.colorNeutralBackground2, borderRadius: '12px', padding: '12px 16px', marginBottom: '16px' },
@@ -22,10 +22,11 @@ const useStyles = makeStyles({
 export function SigerdPage() {
   const styles = useStyles()
   const toaster = useToastController()
-  const { gradeById } = useApp()
+  const { gradeById, grades, periods, refreshCatalogs } = useApp()
   const studentsCol = useCollection<Student>(dataService.getStudents, dataService.saveStudent, dataService.deleteStudent)
   const enrollmentsCol = useCollection<Enrollment>(dataService.getEnrollments)
   const reportsCol = useCollection<SigerdReport>(dataService.getSigerdReports, dataService.saveSigerdReport, dataService.deleteSigerdReport)
+  const gradesCol = useCollection<GradeSection>(dataService.getGrades, dataService.saveGrade)
 
   const [search, setSearch] = useState('')
   const [reportId, setReportId] = useState('')
@@ -103,15 +104,61 @@ export function SigerdPage() {
     }
   }
 
+  /** Reconstruye los cursos de Inicial (Pre-Kinder, Kinder, Pre-Primaria) a partir del SIGERD. */
+  const reconstruirInicial = async () => {
+    if (!window.confirm('¿Reconstruir los cursos de Inicial (Pre-Kinder, Kinder, Pre-Primaria) con el mismo patrón de Primaria/Secundaria y actualizar el curso de los estudiantes?')) return
+    setBusy(true)
+    setProgreso('Reconstruyendo cursos de Inicial…')
+    try {
+      const activePeriod = periods.find((p) => p.isActive)?.id ?? periods[0]?.id ?? ''
+      const lista = gradesCol.items.length ? [...gradesCol.items] : [...grades]
+      let cursosCreados = 0
+      let actualizados = 0
+      for (const s of studentsCol.items) {
+        const gi = gradoInicialDe(s.sigerd?.grado)
+        if (!gi) continue
+        const sec = (s.sigerd?.seccion || '').trim().toUpperCase()
+        const name = sec ? `${gi.nombre}.${sec}` : gi.nombre
+        const objetivo = `${name} · Inicial`
+        let curso = lista.find((g) => cursoNombre(g) === objetivo)
+        if (!curso) {
+          curso = { id: genId('g'), name, grado: gi.nombre, section: sec || undefined, level: 'Nivel Inicial', nivel: 'Inicial', asignatura: 'Asignaturas Generales', edad: gi.edad }
+          await dataService.saveGrade(curso)
+          lista.push(curso)
+          cursosCreados += 1
+        }
+        if (s.gradeId !== curso.id) {
+          await dataService.saveStudent({ ...s, gradeId: curso.id })
+          actualizados += 1
+        }
+        if (activePeriod && !enrollmentsCol.items.some((e) => e.studentId === s.id && e.periodId === activePeriod)) {
+          await dataService.saveEnrollment({ id: genId('enr'), studentId: s.id, gradeId: curso.id, periodId: activePeriod })
+        }
+      }
+      await Promise.all([studentsCol.refresh(), enrollmentsCol.refresh(), gradesCol.refresh(), refreshCatalogs()])
+      toaster.dispatchToast(`Inicial reconstruido: ${cursosCreados} curso(s) creado(s), ${actualizados} estudiante(s) actualizado(s).`, { intent: 'success' })
+    } catch (error) {
+      toaster.dispatchToast(error instanceof Error ? error.message : 'No se pudo reconstruir los cursos de Inicial.', { intent: 'error' })
+    } finally {
+      setBusy(false)
+      setProgreso('')
+    }
+  }
+
   return (
     <div>
       <PageHeader
         title="SIGERD"
         subtitle="Importa la relación de estudiantes del SIGERD (PDF), consulta cada reporte procesado y gestiona los registros sin duplicar datos."
         actions={
-          <Button appearance="secondary" icon={<DeleteRegular />} disabled={busy || (studentsCol.items.length === 0 && reports.length === 0)} onClick={() => void eliminarTodo()}>
-            Eliminar todo el registro SIGERD
-          </Button>
+          <>
+            <Button appearance="secondary" icon={<ArrowSyncRegular />} disabled={busy} onClick={() => void reconstruirInicial()}>
+              Reconstruir cursos de Inicial
+            </Button>
+            <Button appearance="secondary" icon={<DeleteRegular />} disabled={busy || (studentsCol.items.length === 0 && reports.length === 0)} onClick={() => void eliminarTodo()}>
+              Eliminar todo el registro SIGERD
+            </Button>
+          </>
         }
       />
 
