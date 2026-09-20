@@ -65,7 +65,8 @@ export function CursoAsignaturaPage() {
   const [planBusy, setPlanBusy] = useState(false)
   const [planDoc, setPlanDoc] = useState<{ url: string; modulo: string } | null>(null)
   const [creandoModulo, setCreandoModulo] = useState(false)
-  const [planUnidad, setPlanUnidad] = useState<{ unidadId: string; html: string } | null>(null)
+  const [planesUnidad, setPlanesUnidad] = useState<Record<string, string>>({})
+  const [planUnidadId, setPlanUnidadId] = useState<string | null>(null)
   const [unidadBusy, setUnidadBusy] = useState(false)
   const [planForm, setPlanForm] = useState({ titulo: '', tema: '', tiempo: '45 minutos', proposito: '', contenidos: '', indicadores: '', actividades: '', recursos: '', evaluacion: '' })
 
@@ -336,7 +337,10 @@ Basa el contenido en el tema de la unidad. Devuelve ÚNICAMENTE el HTML del docu
         { role: 'system', content: 'Asistente de planificación docente MINERD. Devuelve HTML.' },
         { role: 'user', content: prompt },
       ], { temperature: 0.4, maxTokens: 3200 })).replace(/```html?/gi, '').replace(/```/g, '').trim()
-      setPlanUnidad({ unidadId: u.id, html })
+      if (!html) throw new Error('La IA no devolvió contenido. Revisa la configuración de IA.')
+      setPlanesUnidad((p) => ({ ...p, [u.id]: html }))
+      setPlanUnidadId(u.id)
+      toaster.dispatchToast('Planificación de la unidad generada.', { intent: 'success' })
     } catch (error) {
       toaster.dispatchToast(graphErrorMessage(error), { intent: 'error' })
     } finally {
@@ -376,7 +380,7 @@ Incluye una introducción, al menos 3 recursos variando el tipo según la necesi
       const actividades: CursoActividad[] = (parsed.actividades ?? []).map((a) => ({ id: genId('act'), titulo: a.titulo ?? 'Actividad', tema: a.tema, instrucciones: a.instrucciones }))
       setUnidad(u.id, { introduccion: parsed.introduccion ?? u.introduccion, recursos: [...u.recursos, ...recursos], actividades: [...u.actividades, ...actividades] })
       toaster.dispatchToast('Unidad creada con IA. Puedes editar recursos y actividades.', { intent: 'success' })
-      setPlanUnidad(null)
+      setPlanUnidadId(null)
     } catch (error) {
       toaster.dispatchToast(graphErrorMessage(error), { intent: 'error' })
     } finally {
@@ -465,9 +469,12 @@ Incluye una introducción, al menos 3 recursos variando el tipo según la necesi
               {editable && (
                 <div className={styles.actions}>
                   <Button appearance="secondary" icon={unidadBusy ? <Spinner size="tiny" /> : <SparkleRegular />} disabled={unidadBusy} onClick={() => void planificarUnidad(u)}>
-                    Crear planificación de unidad con IA
+                    {planesUnidad[u.id] ? 'Regenerar planificación de unidad con IA' : 'Crear planificación de unidad con IA'}
                   </Button>
-                  <Button appearance="secondary" icon={unidadBusy ? <Spinner size="tiny" /> : <SparkleRegular />} disabled={unidadBusy} onClick={() => void crearUnidadIA(u)}>
+                  {planesUnidad[u.id] && (
+                    <Button appearance="secondary" icon={<BookOpenRegular />} onClick={() => setPlanUnidadId(u.id)}>Ver planificación</Button>
+                  )}
+                  <Button appearance="primary" icon={unidadBusy ? <Spinner size="tiny" /> : <SparkleRegular />} disabled={unidadBusy || !planesUnidad[u.id]} onClick={() => void crearUnidadIA(u)}>
                     Crear unidad con IA
                   </Button>
                 </div>
@@ -647,20 +654,20 @@ Incluye una introducción, al menos 3 recursos variando el tipo según la necesi
       </ModalForm>
 
       <ModalForm
-        open={!!planUnidad}
-        onOpenChange={(o) => { if (!o) setPlanUnidad(null) }}
+        open={!!planUnidadId}
+        onOpenChange={(o) => { if (!o) setPlanUnidadId(null) }}
         title="Planificación de la unidad de aprendizaje"
         subtitle="Inicio · Desarrollo (Recursos, Evaluación, Reflexión) · Cierre."
         width={900}
         actions={
           <>
-            <Button appearance="secondary" onClick={() => setPlanUnidad(null)} disabled={unidadBusy}>Cerrar</Button>
+            <Button appearance="secondary" onClick={() => setPlanUnidadId(null)} disabled={unidadBusy}>Cerrar</Button>
             <Button
               appearance="secondary"
               icon={<ArrowDownloadRegular />}
               onClick={() => {
                 const el = document.getElementById('plan-unidad-html')
-                const u = draft.units.find((x) => x.id === planUnidad?.unidadId)
+                const u = draft.units.find((x) => x.id === planUnidadId)
                 if (el) descargarPdf(el.innerHTML, u?.titulo ?? 'Unidad de aprendizaje')
               }}
             >
@@ -669,15 +676,15 @@ Incluye una introducción, al menos 3 recursos variando el tipo según la necesi
             <Button
               appearance="primary"
               icon={unidadBusy ? <Spinner size="tiny" /> : <SparkleRegular />}
-              disabled={unidadBusy}
-              onClick={() => { const u = draft.units.find((x) => x.id === planUnidad?.unidadId); if (u) void crearUnidadIA(u) }}
+              disabled={unidadBusy || !planUnidadId || !planesUnidad[planUnidadId]}
+              onClick={() => { const u = draft.units.find((x) => x.id === planUnidadId); if (u) void crearUnidadIA(u) }}
             >
               {unidadBusy ? 'Creando…' : 'Crear unidad con IA'}
             </Button>
           </>
         }
       >
-        <div id="plan-unidad-html" style={{ maxHeight: '60vh', overflow: 'auto', border: '1px solid var(--borde)', borderRadius: '8px', padding: '16px' }} dangerouslySetInnerHTML={{ __html: planUnidad?.html ?? '' }} />
+        <div id="plan-unidad-html" style={{ maxHeight: '60vh', overflow: 'auto', border: '1px solid var(--borde)', borderRadius: '8px', padding: '16px' }} dangerouslySetInnerHTML={{ __html: (planUnidadId && planesUnidad[planUnidadId]) || '<p>Sin contenido.</p>' }} />
       </ModalForm>
     </div>
   )
