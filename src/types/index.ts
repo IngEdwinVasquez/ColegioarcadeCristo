@@ -1037,6 +1037,8 @@ export interface CursoUnidad {
   tema?: string
   /** Introducción de la unidad (generada o editada). */
   introduccion?: string
+  /** Indica que la unidad fue creada/actualizada con IA (cambia la acción a "Modificar"). */
+  aiCreated?: boolean
   desde?: string
   hasta?: string
   recursos: CursoRecurso[]

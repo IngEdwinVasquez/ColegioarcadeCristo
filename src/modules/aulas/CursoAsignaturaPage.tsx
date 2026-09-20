@@ -1,14 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { Button, Card, Input, Select, Spinner, Tab, TabList, Table, TableBody, TableCell, TableHeader, TableHeaderCell, TableRow, Text, Textarea, useToastController, makeStyles } from '@fluentui/react-components'
-import { AddRegular, DeleteRegular, ImageRegular, ArrowUploadRegular, SaveRegular, BookOpenRegular, SparkleRegular, ArrowDownloadRegular } from '@fluentui/react-icons'
+import { AddRegular, DeleteRegular, ImageRegular, ArrowUploadRegular, SaveRegular, BookOpenRegular, SparkleRegular, ArrowDownloadRegular, ArrowRightRegular, EditRegular } from '@fluentui/react-icons'
 import { PageHeader } from '../../components/shared/PageHeader'
 import { ModalForm } from '../../components/shared/ModalForm'
 import { FormField, FieldRow } from '../../components/shared/form'
 import { useApp } from '../../context/useApp'
 import { dataService } from '../../services/dataService'
 import { useCollection } from '../../hooks/useCollection'
-import { uploadFile, uploadAndShare, downloadFileAsDataUrl } from '../../services/onedrive'
+import { uploadFile, uploadAndShare, downloadFileAsDataUrl, getFileDownloadUrl } from '../../services/onedrive'
 import { aiChat } from '../../services/ai'
 import { createClassModule, addModuleFileResource } from '../../services/teamsEdu'
 import { graphErrorMessage } from '../../services/graph'
@@ -184,6 +184,7 @@ export function CursoAsignaturaPage() {
       }
       setDraft({ ...draft, entregas: [...draft.entregas, entrega] })
       toaster.dispatchToast('Entrega registrada. Recuerda guardar.', { intent: 'success' })
+      setEntregaTarget(null)
     } catch (e) { toaster.dispatchToast(graphErrorMessage(e), { intent: 'error' }) } finally { setBusy(false); if (entregaFileRef.current) entregaFileRef.current.value = '' }
   }
 
@@ -207,8 +208,24 @@ export function CursoAsignaturaPage() {
     if (!draft || !nuevoRecurso) return
     const u = draft.units.find((x) => x.id === nuevoRecurso.unidadId)
     if (!u) return
-    setUnidad(u.id, { recursos: [...u.recursos, { ...nuevoRecurso.recurso, id: genId('rec') }] })
+    const existe = u.recursos.some((r) => r.id === nuevoRecurso.recurso.id)
+    const recursos = existe
+      ? u.recursos.map((r) => (r.id === nuevoRecurso.recurso.id ? nuevoRecurso.recurso : r))
+      : [...u.recursos, { ...nuevoRecurso.recurso, id: genId('rec') }]
+    setUnidad(u.id, { recursos })
     setNuevoRecurso(null)
+  }
+
+  /** Abre un recurso: enlace en el navegador, o archivo desde OneDrive. */
+  const abrirRecurso = async (r: CursoRecurso) => {
+    try {
+      if (r.tipo === 'enlace' && r.url) { window.open(r.url, '_blank'); return }
+      if (r.ref) { const url = await getFileDownloadUrl(r.ref); window.open(url, '_blank'); return }
+      if (r.url) window.open(r.url, '_blank')
+      else toaster.dispatchToast('Este recurso no tiene archivo o enlace para abrir.', { intent: 'warning' })
+    } catch (error) {
+      toaster.dispatchToast(graphErrorMessage(error), { intent: 'error' })
+    }
   }
   const addActividad = () => {
     if (!draft || !nuevaActividad || !nuevaActividad.act.titulo.trim()) return
@@ -389,7 +406,7 @@ Incluye una introducción, al menos 3 recursos variando el tipo según la necesi
       const parsed = JSON.parse(json) as { introduccion?: string; recursos?: Array<Partial<CursoRecurso>>; actividades?: Array<Partial<CursoActividad>> }
       const recursos: CursoRecurso[] = (parsed.recursos ?? []).map((r) => ({ id: genId('rec'), tipo: (r.tipo as CursoRecursoTipo) ?? 'texto', titulo: r.titulo ?? 'Recurso', texto: r.texto, url: r.url }))
       const actividades: CursoActividad[] = (parsed.actividades ?? []).map((a) => ({ id: genId('act'), titulo: a.titulo ?? 'Actividad', tema: a.tema, instrucciones: a.instrucciones }))
-      setUnidad(u.id, { introduccion: parsed.introduccion ?? u.introduccion, recursos: [...u.recursos, ...recursos], actividades: [...u.actividades, ...actividades] })
+      setUnidad(u.id, { introduccion: parsed.introduccion ?? u.introduccion, recursos, actividades, aiCreated: true })
       toaster.dispatchToast('Unidad creada con IA. Puedes editar recursos y actividades.', { intent: 'success' })
       setPlanUnidadId(null)
     } catch (error) {
@@ -500,7 +517,7 @@ Incluye una introducción, al menos 3 recursos variando el tipo según la necesi
                     <Button appearance="secondary" icon={<BookOpenRegular />} onClick={() => setPlanUnidadId(u.id)}>Ver planificación</Button>
                   )}
                   <Button appearance="primary" icon={unidadBusy ? <Spinner size="tiny" /> : <SparkleRegular />} disabled={unidadBusy || !planesUnidad[u.id]} onClick={() => void crearUnidadIA(u)}>
-                    Crear unidad con IA
+                    {u.aiCreated ? 'Modificar unidad de aprendizaje con IA' : 'Crear unidad con IA'}
                   </Button>
                 </div>
               )}
@@ -518,7 +535,11 @@ Incluye una introducción, al menos 3 recursos variando el tipo según la necesi
                   {r.tipo === 'enlace' && r.url && <a href={r.url} target="_blank" rel="noopener noreferrer">{r.url}</a>}
                   {TIPOS_ARCHIVO.includes(r.tipo) && r.ref && <RefImage fileRef={r.tipo === 'imagen' ? r.ref : undefined} />}
                   {TIPOS_ARCHIVO.includes(r.tipo) && <Text size={200} block>{r.nombre ?? 'Archivo'}</Text>}
-                  {editable && <div className={styles.actions} style={{ marginTop: '4px' }}><Button size="small" appearance="subtle" icon={<DeleteRegular />} onClick={() => setUnidad(u.id, { recursos: u.recursos.filter((x) => x.id !== r.id) })}>Eliminar</Button></div>}
+                  <div className={styles.actions} style={{ marginTop: '6px' }}>
+                    <Button size="small" appearance="secondary" icon={<ArrowRightRegular />} onClick={() => void abrirRecurso(r)}>Abrir</Button>
+                    {editable && <Button size="small" appearance="secondary" icon={<EditRegular />} onClick={() => setNuevoRecurso({ unidadId: u.id, recurso: r })}>Modificar</Button>}
+                    {editable && <Button size="small" appearance="subtle" icon={<DeleteRegular />} onClick={() => setUnidad(u.id, { recursos: u.recursos.filter((x) => x.id !== r.id) })}>Eliminar</Button>}
+                  </div>
                 </div>
               ))}
               {editable && (nuevoRecurso?.unidadId === u.id ? (
@@ -590,8 +611,6 @@ Incluye una introducción, al menos 3 recursos variando el tipo según la necesi
               ) : <Button icon={<AddRegular />} onClick={() => setNuevaActividad({ unidadId: u.id, act: { id: '', titulo: '' } })}>Asignar actividad</Button>)}
             </Card>
           ))}
-
-          <input ref={entregaFileRef} type="file" style={{ display: 'none' }} onChange={(e) => void subirEntrega(e.target.files?.[0])} />
         </>
       )}
 
@@ -769,6 +788,26 @@ Incluye una introducción, al menos 3 recursos variando el tipo según la necesi
         }
       >
         <div id="plan-unidad-html" style={{ maxHeight: '60vh', overflow: 'auto', border: '1px solid var(--borde)', borderRadius: '8px', padding: '16px' }} dangerouslySetInnerHTML={{ __html: (planUnidadId && planesUnidad[planUnidadId]) || '<p>Sin contenido.</p>' }} />
+      </ModalForm>
+
+      <ModalForm
+        open={!!entregaTarget}
+        onOpenChange={(o) => { if (!o) setEntregaTarget(null) }}
+        title="Registrar entrega de la actividad"
+        subtitle="Selecciona el estudiante y el archivo entregado."
+        width={560}
+        actions={<Button appearance="secondary" onClick={() => setEntregaTarget(null)} disabled={busy}>Cerrar</Button>}
+      >
+        <input ref={entregaFileRef} type="file" style={{ display: 'none' }} onChange={(e) => void subirEntrega(e.target.files?.[0])} />
+        <FormField label="Estudiante" required>
+          <Select value={entregaEstudiante} onChange={(_, d) => setEntregaEstudiante(d.value)}>
+            <option value="">— Selecciona un estudiante —</option>
+            {estudiantesCurso.map((s) => <option key={s.id} value={s.id}>{s.fullName}</option>)}
+          </Select>
+        </FormField>
+        <Button appearance="primary" icon={busy ? <Spinner size="tiny" /> : <ArrowUploadRegular />} disabled={busy || !entregaEstudiante} onClick={() => entregaFileRef.current?.click()}>
+          {busy ? 'Subiendo…' : 'Seleccionar archivo y registrar'}
+        </Button>
       </ModalForm>
     </div>
   )
