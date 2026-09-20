@@ -328,12 +328,18 @@ Basa el contenido en el tema del formulario. Devuelve ÚNICAMENTE el HTML comple
       const modelo = courseRecs.find((g) => g.planTemplateName)
       const template = (modelo?.planTemplateText ?? '').slice(0, 12000)
       const regInfo = `Centro: ${reg?.centro?.nombre ?? ''} | Nivel: ${reg?.nivel} | Curso: ${reg?.curso} | Estudiantes: ${reg?.estudiantes.length}`
+      const esp = reg?.especificaciones?.[subjectName]
+      const areas = esp ? [esp.p1, esp.p2, esp.p3, esp.p4].filter(Boolean).join(' | ') : ''
+      const areasInfo = `Áreas/especificaciones de ${subjectName} en el registro de grado: ${areas || '(sin registrar)'}`
       const prompt = `Eres un docente de República Dominicana (MINERD). Redacta la PLANIFICACIÓN DE LA UNIDAD DE APRENDIZAJE en HTML.
 - Unidad: ${u.titulo}
 - Tema de la unidad: ${tema}
 - Curso: ${draft.curso}
+- Asignatura: ${subjectName}
 - Descripción del curso: ${descripcion}
 - Registro de grado: ${regInfo}
+- ${areasInfo}
+Usa la información de la asignatura ${subjectName} del registro de grado como referencia.
 Estructura obligatoria con estos encabezados: <h2>Inicio</h2>, <h2>Desarrollo</h2> y <h2>Cierre</h2>. Dentro de Desarrollo incluye obligatoriamente las subsecciones <h3>Recursos</h3>, <h3>Evaluación</h3> y <h3>Reflexión</h3>.
 Usa como modelo la estructura del siguiente documento:
 """${template}"""
@@ -705,9 +711,12 @@ Incluye una introducción, al menos 3 recursos variando el tipo según la necesi
               if (!registrosCol.items.some((r) => r.curso === draft.curso)) faltan.push('el registro de grado')
               if (!courseRecs.some((g) => g.planTemplateName)) faltan.push('el documento modelo de planificación')
               return faltan.length ? (
-                <Text size={200} block style={{ color: '#B42318' }}>
-                  Falta subir {faltan.join(' y ')} del curso (en el aula del curso) para poder generar.
-                </Text>
+                <div style={{ background: '#FDE7E9', border: '1px solid #B42318', borderRadius: '8px', padding: '10px 12px' }}>
+                  <Text weight="semibold" size={300} block style={{ color: '#B42318' }}>Falta información para generar</Text>
+                  <Text size={200} block style={{ color: '#B42318' }}>
+                    Sube {faltan.join(' y ')} del curso (en el aula del curso, antes de abrir la asignatura) para poder generar la planificación.
+                  </Text>
+                </div>
               ) : null
             })()}
           </>
