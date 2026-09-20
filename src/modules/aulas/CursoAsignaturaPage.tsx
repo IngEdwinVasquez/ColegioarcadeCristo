@@ -219,7 +219,11 @@ export function CursoAsignaturaPage() {
   /** Abre un recurso: enlace en el navegador, o archivo desde OneDrive. */
   const abrirRecurso = async (r: CursoRecurso) => {
     try {
-      if (r.tipo === 'enlace' && r.url) { window.open(r.url, '_blank'); return }
+      if (r.tipo === 'enlace' && r.url) {
+        const bad = /ejemplo|example\.|dominio/i.test(r.url)
+        window.open(bad ? `https://www.google.com/search?q=${encodeURIComponent(r.titulo || '')}` : r.url, '_blank')
+        return
+      }
       if (r.ref) { const url = await getFileDownloadUrl(r.ref); window.open(url, '_blank'); return }
       if (r.url) window.open(r.url, '_blank')
       else toaster.dispatchToast('Este recurso no tiene archivo o enlace para abrir.', { intent: 'warning' })
@@ -397,14 +401,21 @@ Basa el contenido en el tema de la unidad. Devuelve ÚNICAMENTE el HTML del docu
       const prompt = `Genera en JSON la estructura de la unidad de aprendizaje "${u.titulo}" (tema: ${u.tema}) para el curso ${draft.curso} (${draft.descripcion}). Nivel/contexto: ${reg?.nivel ?? ''}.
 Devuelve EXACTAMENTE este JSON:
 {"introduccion":"texto de introducción a la unidad","recursos":[{"tipo":"texto|enlace|documento|audio|imagen|video","titulo":"...","texto":"...","url":"..."}],"actividades":[{"titulo":"...","tema":"...","instrucciones":"..."}]}
-Incluye una introducción, al menos 3 recursos variando el tipo según la necesidad de aprendizaje, y al menos 1 actividad. Responde SOLO el JSON.`
+Incluye una introducción, al menos 3 recursos variando el tipo según la necesidad de aprendizaje, y al menos 1 actividad. NO inventes dominios ni enlaces ficticios; para los recursos de tipo "enlace" usa una búsqueda real, por ejemplo "https://www.google.com/search?q=<consulta>" o "https://www.youtube.com/results?search_query=<consulta>". Responde SOLO el JSON.`
       const res = await aiChat([
         { role: 'system', content: 'Asistente educativo MINERD. Responde solo JSON válido.' },
         { role: 'user', content: prompt },
       ], { temperature: 0.5, jsonMode: true, maxTokens: 3000 })
       const json = res.match(/\{[\s\S]*\}/)?.[0] ?? res
       const parsed = JSON.parse(json) as { introduccion?: string; recursos?: Array<Partial<CursoRecurso>>; actividades?: Array<Partial<CursoActividad>> }
-      const recursos: CursoRecurso[] = (parsed.recursos ?? []).map((r) => ({ id: genId('rec'), tipo: (r.tipo as CursoRecursoTipo) ?? 'texto', titulo: r.titulo ?? 'Recurso', texto: r.texto, url: r.url }))
+      const recursos: CursoRecurso[] = (parsed.recursos ?? []).map((r) => {
+        const tipo = (r.tipo as CursoRecursoTipo) ?? 'texto'
+        let url = r.url
+        if (tipo === 'enlace' && (!url || /ejemplo|example\.|dominio|\.edu\//i.test(url))) {
+          url = `https://www.google.com/search?q=${encodeURIComponent(`${r.titulo ?? ''} ${u.tema ?? ''}`.trim())}`
+        }
+        return { id: genId('rec'), tipo, titulo: r.titulo ?? 'Recurso', texto: r.texto, url }
+      })
       const actividades: CursoActividad[] = (parsed.actividades ?? []).map((a) => ({ id: genId('act'), titulo: a.titulo ?? 'Actividad', tema: a.tema, instrucciones: a.instrucciones }))
       setUnidad(u.id, { introduccion: parsed.introduccion ?? u.introduccion, recursos, actividades, aiCreated: true })
       toaster.dispatchToast('Unidad creada con IA. Puedes editar recursos y actividades.', { intent: 'success' })
