@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
-  Button, Card, Dialog, DialogActions, DialogBody, DialogContent, DialogSurface, DialogTitle,
+  Button, Card, Checkbox, Dialog, DialogActions, DialogBody, DialogContent, DialogSurface, DialogTitle,
   Input, Select, Spinner, Text, Textarea, useToastController, makeStyles, tokens,
 } from '@fluentui/react-components'
 import {
@@ -110,6 +110,9 @@ async function guardarImagenCurso(records: GradeSection[], patch: { imageUrl?: s
 }
 
 const PREVIEW_STYLE: CSSProperties = { width: '100%', height: '360px', border: '1px solid var(--borde)', borderRadius: '10px', background: '#fff' }
+
+/** Colores para asignaturas nuevas del catálogo. */
+const COLORES_ASIGNATURA = ['#0082AD', '#2AA9D8', '#0A7C66', '#B45309', '#7C3AED', '#BE123C', '#15803D', '#4338CA']
 
 const useStyles = makeStyles({
   grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 260px), 1fr))', gap: '18px' },
@@ -279,9 +282,16 @@ export function AulaSubjectsPanel({ subjects, canManage, onOpenSubject, onPlanif
 }) {
   const styles = useStyles()
   const toaster = useToastController()
+  const { subjects: catsSubjects, refreshCatalogs } = useApp()
   const [teamRecord, setTeamRecord] = useState<GradeSection | null>(null)
   const [teamOpen, setTeamOpen] = useState(false)
   const [creando, setCreando] = useState<string | null>(null)
+  const [addOpen, setAddOpen] = useState(false)
+  const [modoNueva, setModoNueva] = useState(false)
+  const [asigSel, setAsigSel] = useState('')
+  const [nuevaNombre, setNuevaNombre] = useState('')
+  const [nuevaCorta, setNuevaCorta] = useState('')
+  const [agregando, setAgregando] = useState(false)
 
   const quitar = async (g: GradeSection) => {
     try {
@@ -306,8 +316,67 @@ export function AulaSubjectsPanel({ subjects, canManage, onOpenSubject, onPlanif
     }
   }
 
+  /** Asignaturas del catálogo que aún no están en este curso. */
+  const yaEnCurso = new Set(subjects.map((g) => asignaturaDe(g).trim().toLowerCase()))
+  const disponibles = catsSubjects.filter((s) => !yaEnCurso.has(s.name.trim().toLowerCase()))
+
+  const abrirAdd = () => {
+    setModoNueva(false)
+    setAsigSel(disponibles[0]?.id ?? '')
+    setNuevaNombre('')
+    setNuevaCorta('')
+    setAddOpen(true)
+  }
+
+  /** Agrega una asignatura (existente o nueva) al curso, creando el registro del curso. */
+  const confirmarAdd = async () => {
+    const base = subjects.find((g) => isRealSubject(asignaturaDe(g))) ?? subjects[0]
+    if (!base) { toaster.dispatchToast('No se pudo determinar el curso.', { intent: 'error' }); return }
+    setAgregando(true)
+    try {
+      let nombre = ''
+      if (modoNueva) {
+        nombre = nuevaNombre.trim()
+        if (!nombre) { toaster.dispatchToast('Escribe el nombre de la nueva asignatura.', { intent: 'error' }); return }
+        if (!catsSubjects.some((s) => s.name.trim().toLowerCase() === nombre.toLowerCase())) {
+          await dataService.saveSubject({ id: genId('sub'), name: nombre, shortName: (nuevaCorta.trim() || nombre).slice(0, 14), color: COLORES_ASIGNATURA[catsSubjects.length % COLORES_ASIGNATURA.length] })
+        }
+      } else {
+        const s = catsSubjects.find((x) => x.id === asigSel)
+        if (!s) { toaster.dispatchToast('Selecciona una asignatura.', { intent: 'error' }); return }
+        nombre = s.name
+      }
+      if (subjects.some((g) => asignaturaDe(g).trim().toLowerCase() === nombre.toLowerCase())) {
+        toaster.dispatchToast('Esa asignatura ya está en el curso.', { intent: 'error' }); return
+      }
+      await dataService.saveGrade({
+        id: genId('g'),
+        name: base.name,
+        grado: base.grado ?? gradoDe(base),
+        section: base.section ?? seccionDe(base),
+        level: base.level,
+        nivel: base.nivel ?? nivelShort(base.level),
+        ciclo: base.ciclo,
+        asignatura: nombre,
+      })
+      await Promise.all([refreshCatalogs(), Promise.resolve(onChanged())])
+      toaster.dispatchToast(`Asignatura "${nombre}" agregada al curso.`, { intent: 'success' })
+      setAddOpen(false)
+    } catch (e) {
+      toaster.dispatchToast(graphErrorMessage(e), { intent: 'error' })
+    } finally {
+      setAgregando(false)
+    }
+  }
+
   return (
     <>
+      {canManage && (
+        <div className={styles.actions} style={{ marginBottom: '10px' }}>
+          <Button appearance="primary" icon={<AddRegular />} onClick={abrirAdd}>Agregar asignatura al curso</Button>
+          <Text size={200} style={{ color: 'var(--texto-suave)' }}>{subjects.length} asignatura(s)</Text>
+        </div>
+      )}
       <div className={styles.subjGrid}>
         {subjects.map((g) => (
           <Card key={g.id} className={styles.subjCard}>
@@ -338,6 +407,40 @@ export function AulaSubjectsPanel({ subjects, canManage, onOpenSubject, onPlanif
         ))}
       </div>
       <TeamModal record={teamRecord} open={teamOpen} onClose={() => setTeamOpen(false)} onSaved={onChanged} />
+
+      <ModalForm
+        open={addOpen}
+        onOpenChange={(o) => { if (!o) setAddOpen(false) }}
+        title="Agregar asignatura al curso"
+        subtitle="Selecciona una asignatura del catálogo o crea una nueva si no existe."
+        width={520}
+        actions={
+          <>
+            <Button appearance="secondary" onClick={() => setAddOpen(false)} disabled={agregando}>Cancelar</Button>
+            <Button appearance="primary" icon={agregando ? <Spinner size="tiny" /> : <AddRegular />} disabled={agregando} onClick={() => void confirmarAdd()}>
+              {agregando ? 'Agregando…' : 'Agregar asignatura'}
+            </Button>
+          </>
+        }
+      >
+        <FormField label="Asignatura del catálogo">
+          <Select value={asigSel} disabled={modoNueva || disponibles.length === 0} onChange={(_, d) => setAsigSel(d.value)}>
+            {disponibles.length === 0 && <option value="">Todas las asignaturas ya están en el curso</option>}
+            {disponibles.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+          </Select>
+        </FormField>
+        <Checkbox checked={modoNueva} label="La asignatura no existe: crear una nueva" onChange={(_, d) => setModoNueva(!!d.checked)} />
+        {modoNueva && (
+          <FieldRow>
+            <FormField label="Nombre de la nueva asignatura" required>
+              <Input value={nuevaNombre} onChange={(_, d) => setNuevaNombre(d.value)} placeholder="Ej.: Educación Artística" />
+            </FormField>
+            <FormField label="Nombre corto (opcional)">
+              <Input value={nuevaCorta} onChange={(_, d) => setNuevaCorta(d.value)} />
+            </FormField>
+          </FieldRow>
+        )}
+      </ModalForm>
     </>
   )
 }
