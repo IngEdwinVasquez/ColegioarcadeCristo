@@ -71,6 +71,9 @@ export function CursoAsignaturaPage() {
   const [planDoc, setPlanDoc] = useState<{ url: string; modulo: string } | null>(null)
   const [planEditId, setPlanEditId] = useState<string | null>(null)
   const [planEditUrl, setPlanEditUrl] = useState<string | null>(null)
+  const [planEditing, setPlanEditing] = useState(false)
+  const [planPreview, setPlanPreview] = useState('')
+  const [planPreviewUrl, setPlanPreviewUrl] = useState('')
   const [creandoModulo, setCreandoModulo] = useState(false)
   const [planesUnidad, setPlanesUnidad] = useState<Record<string, string>>({})
   const [planUnidadId, setPlanUnidadId] = useState<string | null>(null)
@@ -365,7 +368,11 @@ export function CursoAsignaturaPage() {
     setPlanDoc(null)
     setPlanEditId(existente?.id ?? null)
     setPlanEditUrl(existente?.url ?? null)
+    setPlanEditing(!!existente)
+    setPlanPreview('')
+    setPlanPreviewUrl('')
     if (existente) setPlanForm((f) => ({ ...f, titulo: existente.titulo, tema: existente.tema ?? f.tema }))
+    if (existente?.ref) downloadFileAsDataUrl(existente.ref).then(setPlanPreviewUrl).catch(() => { /* sin vista previa */ })
     setPlanOpen(true)
   }
 
@@ -420,6 +427,7 @@ Basa el contenido en el tema del formulario. Devuelve ÚNICAMENTE el HTML comple
         titulo: planForm.titulo,
         tema: planForm.tema,
         url: ref.webUrl,
+        ref: ref.id,
         source: 'ia',
         fecha: new Date().toISOString(),
       }
@@ -430,6 +438,9 @@ Basa el contenido en el tema del formulario. Devuelve ÚNICAMENTE el HTML comple
       }
       setPlanEditId(planRec.id)
       setPlanEditUrl(ref.webUrl)
+      setPlanEditing(true)
+      setPlanPreview(limpio)
+      setPlanPreviewUrl('')
       setPlanDoc({ url: ref.webUrl, modulo })
       toaster.dispatchToast('Planificación generada con IA.', { intent: 'success' })
     } catch (error) {
@@ -851,14 +862,15 @@ Incluye una introducción, al menos 3 recursos variando el tipo según la necesi
       <ModalForm
         open={planOpen}
         onOpenChange={(o) => { if (!o) setPlanOpen(false) }}
-        title={planEditId ? 'Editar planificación de clase' : 'Crear planificación de clase'}
+        title={planEditing ? 'Editar planificación de clase' : 'Crear planificación de clase'}
         subtitle="Completa las opciones y usa la IA (se basa en el tema, el registro de grado del curso y el documento modelo)."
         width={760}
         actions={
           <>
             <Button appearance="secondary" onClick={() => setPlanOpen(false)} disabled={planBusy}>Cerrar</Button>
+            {planEditUrl && <Button appearance="secondary" as="a" href={planEditUrl} target="_blank" rel="noopener noreferrer" disabled={planBusy}>Abrir planificación</Button>}
             <Button appearance="primary" icon={planBusy ? <Spinner size="tiny" /> : <SparkleRegular />} disabled={planBusy} onClick={() => void planificarConIA()}>
-              {planBusy ? 'Generando…' : planEditId ? 'Guardar planificación' : 'Planificar con IA'}
+              {planBusy ? 'Generando…' : (planPreview || planPreviewUrl || planEditUrl) ? 'Regenerar con IA' : 'Planificar con IA'}
             </Button>
           </>
         }
@@ -876,6 +888,14 @@ Incluye una introducción, al menos 3 recursos variando el tipo según la necesi
           <FormField label="Recursos"><Input value={planForm.recursos} onChange={(_, d) => setPlanForm({ ...planForm, recursos: d.value })} /></FormField>
           <FormField label="Evaluación"><Input value={planForm.evaluacion} onChange={(_, d) => setPlanForm({ ...planForm, evaluacion: d.value })} /></FormField>
         </FieldRow>
+        {(planPreview || planPreviewUrl) && (
+          <div>
+            <Text weight="semibold" size={300} block style={{ marginBottom: '6px' }}>Planificación creada</Text>
+            {planPreviewUrl
+              ? <iframe title="Planificación" sandbox="" src={planPreviewUrl} style={{ width: '100%', height: '360px', border: '1px solid var(--borde)', borderRadius: '10px', background: '#fff' }} />
+              : <iframe title="Planificación" sandbox="" srcDoc={planPreview} style={{ width: '100%', height: '360px', border: '1px solid var(--borde)', borderRadius: '10px', background: '#fff' }} />}
+          </div>
+        )}
         {planEditUrl && (
           <Card style={{ padding: '12px' }}>
             <Text size={200} block><strong>Planificación actual:</strong> guardada en OneDrive.</Text>
