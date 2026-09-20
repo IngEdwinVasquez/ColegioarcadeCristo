@@ -19,6 +19,7 @@ import { createClassTeam, listTenantTeams, resolveTeamUrl, createClassModule, ad
 import { graphErrorMessage } from '../../services/graph'
 import { uploadFile, uploadAndShare, downloadFileAsDataUrl } from '../../services/onedrive'
 import { renderPdfFirstPageToBlob, extractPdfText } from '../../services/pdf'
+import { htmlToPdfBlob } from '../../services/planPdf'
 import { aiChat } from '../../services/ai'
 import { genId } from '../../utils/helpers'
 import type { Enrollment, GradeRegister, GradeSection, RegistroStudent, SubjectPlan, TeacherAssignment } from '../../types'
@@ -516,7 +517,7 @@ Devuelve ÚNICAMENTE el HTML completo del documento.`
         { role: 'system', content: 'Asistente de planificación docente MINERD. Devuelve HTML.' },
         { role: 'user', content: prompt },
       ], { temperature: 0.4, maxTokens: 3200 })).replace(/```html?/gi, '').replace(/```/g, '').trim()
-      const file = new File([new Blob([html], { type: 'text/html' })], `${planForm.modulo.replace(/[^\w.-]+/g, '_')}.html`, { type: 'text/html' })
+      const file = new File([await htmlToPdfBlob(html, planForm.modulo)], `${planForm.modulo.replace(/[^\w.-]+/g, '_')}.pdf`, { type: 'application/pdf' })
       const ref = await uploadAndShare('Planificaciones', file)
       let teamMsg = ''
       const teamId = subjRecord?.teamId
