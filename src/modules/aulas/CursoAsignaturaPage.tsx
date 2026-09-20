@@ -84,6 +84,8 @@ export function CursoAsignaturaPage() {
   const labelImgRef = useRef<HTMLInputElement>(null)
   const recursoFileRef = useRef<HTMLInputElement>(null)
   const entregaFileRef = useRef<HTMLInputElement>(null)
+  const studentFileRef = useRef<HTMLInputElement>(null)
+  const [studentActividad, setStudentActividad] = useState<string | null>(null)
   const loadedRef = useRef(false)
   const savedRef = useRef('')
   const [nuevoLabel, setNuevoLabel] = useState<CursoLabel | null>(null)
@@ -125,6 +127,8 @@ export function CursoAsignaturaPage() {
   }, [allStudents, enrollmentsCol.items, gradeId])
 
   const editable = user?.roles.some((r) => ['docente', 'admin', 'tecnologia', 'coordinacion'].includes(r)) ?? false
+  const studentId = user?.studentId ?? ''
+  const isStudent = !!studentId
 
   // Autoguardado: persiste los cambios (recursos, actividades, etiquetas, etc.) poco después de editarlos.
   useEffect(() => {
@@ -204,6 +208,32 @@ export function CursoAsignaturaPage() {
       toaster.dispatchToast('Entrega registrada. Recuerda guardar.', { intent: 'success' })
       setEntregaTarget(null)
     } catch (e) { toaster.dispatchToast(graphErrorMessage(e), { intent: 'error' }) } finally { setBusy(false); if (entregaFileRef.current) entregaFileRef.current.value = '' }
+  }
+
+  /** El estudiante entrega su propia actividad (se asigna automáticamente a su cuenta). */
+  const subirEntregaEstudiante = async (file: File | undefined, actividadId: string) => {
+    if (!file || !draft || !studentId) return
+    setBusy(true)
+    try {
+      const ref = await uploadFile('AulasVirtuales/Entregas', file.name, file)
+      const entrega: CursoEntrega = {
+        id: genId('ent'),
+        actividadId,
+        studentId,
+        archivos: [{ name: file.name, url: ref.webUrl }],
+        fecha: new Date().toISOString(),
+      }
+      const next = { ...draft, entregas: [...draft.entregas, entrega] }
+      setDraft(next)
+      savedRef.current = JSON.stringify({ ...next, updatedAt: '' })
+      await pagesCol.save(next)
+      toaster.dispatchToast('Actividad entregada.', { intent: 'success' })
+    } catch (e) {
+      toaster.dispatchToast(graphErrorMessage(e), { intent: 'error' })
+    } finally {
+      setBusy(false)
+      if (studentFileRef.current) studentFileRef.current.value = ''
+    }
   }
 
   const addLabel = () => {
@@ -463,7 +493,7 @@ Incluye una introducción, al menos 3 recursos variando el tipo según la necesi
 
       <TabList selectedValue={tab} onTabSelect={(_, d) => setTab(String(d.value))} style={{ marginBottom: '14px' }}>
         <Tab value="curso">Contenido del curso</Tab>
-        <Tab value="calificaciones">Registro de calificaciones</Tab>
+        {!isStudent && <Tab value="calificaciones">Registro de calificaciones</Tab>}
       </TabList>
 
       {tab === 'curso' && (
@@ -611,18 +641,28 @@ Incluye una introducción, al menos 3 recursos variando el tipo según la necesi
                   <div className={styles.actions} style={{ marginTop: '6px' }}>
                     {editable && <Button size="small" appearance="secondary" onClick={() => { setEntregaTarget({ unidadId: u.id, actividadId: a.id }); setEntregaEstudiante(estudiantesCurso[0]?.id ?? '') }}>Subir entrega</Button>}
                     {editable && <Button size="small" appearance="subtle" icon={<DeleteRegular />} onClick={() => setUnidad(u.id, { actividades: u.actividades.filter((x) => x.id !== a.id) })}>Eliminar actividad</Button>}
+                    {isStudent && <Button size="small" appearance="primary" icon={busy ? <Spinner size="tiny" /> : <ArrowUploadRegular />} disabled={busy} onClick={() => { setStudentActividad(a.id); studentFileRef.current?.click() }}>Subir y entregar actividad</Button>}
                   </div>
                   {/* Entregas y calificación */}
-                  {draft.entregas.filter((e) => e.actividadId === a.id).map((e) => (
-                    <div key={e.id} style={{ marginTop: '8px', paddingTop: '8px', borderTop: '1px dashed var(--borde)' }}>
-                      <Text size={200} block><strong>{students.find((s) => s.id === e.studentId)?.fullName ?? e.studentId}</strong> · {e.archivos.map((f) => f.name).join(', ')}</Text>
-                      <div className={styles.actions} style={{ marginTop: '4px' }}>
-                        <Input placeholder="Calificación" value={e.calificacion ?? ''} disabled={!editable} onChange={(_, d) => setEntregaCal(e.id, { calificacion: d.value })} style={{ maxWidth: '120px' }} />
-                        <Input placeholder="Comentario" value={e.comentario ?? ''} disabled={!editable} onChange={(_, d) => setEntregaCal(e.id, { comentario: d.value })} />
-                        {editable && <Button size="small" appearance="subtle" icon={<DeleteRegular />} onClick={() => setDraft({ ...draft, entregas: draft.entregas.filter((x) => x.id !== e.id) })}>Eliminar</Button>}
+                  {isStudent ? (
+                    draft.entregas.filter((e) => e.actividadId === a.id && e.studentId === studentId).map((e) => (
+                      <div key={e.id} style={{ marginTop: '8px', paddingTop: '8px', borderTop: '1px dashed var(--borde)' }}>
+                        <Text size={200} block><strong>Mi entrega:</strong> {e.archivos.map((f) => f.name).join(', ')}</Text>
+                        <Text size={200} block><strong>Nota:</strong> {e.calificacion || 'pendiente'}{e.comentario ? ` · ${e.comentario}` : ''}</Text>
                       </div>
-                    </div>
-                  ))}
+                    ))
+                  ) : (
+                    draft.entregas.filter((e) => e.actividadId === a.id).map((e) => (
+                      <div key={e.id} style={{ marginTop: '8px', paddingTop: '8px', borderTop: '1px dashed var(--borde)' }}>
+                        <Text size={200} block><strong>{students.find((s) => s.id === e.studentId)?.fullName ?? e.studentId}</strong> · {e.archivos.map((f) => f.name).join(', ')}</Text>
+                        <div className={styles.actions} style={{ marginTop: '4px' }}>
+                          <Input placeholder="Calificación" value={e.calificacion ?? ''} disabled={!editable} onChange={(_, d) => setEntregaCal(e.id, { calificacion: d.value })} style={{ maxWidth: '120px' }} />
+                          <Input placeholder="Comentario" value={e.comentario ?? ''} disabled={!editable} onChange={(_, d) => setEntregaCal(e.id, { comentario: d.value })} />
+                          {editable && <Button size="small" appearance="subtle" icon={<DeleteRegular />} onClick={() => setDraft({ ...draft, entregas: draft.entregas.filter((x) => x.id !== e.id) })}>Eliminar</Button>}
+                        </div>
+                      </div>
+                    ))
+                  )}
                 </div>
               ))}
               {editable && (nuevaActividad?.unidadId === u.id ? (
@@ -642,10 +682,11 @@ Incluye una introducción, al menos 3 recursos variando el tipo según la necesi
               ) : <Button icon={<AddRegular />} onClick={() => setNuevaActividad({ unidadId: u.id, act: { id: '', titulo: '' } })}>Asignar actividad</Button>)}
             </Card>
           ))}
+          <input ref={studentFileRef} type="file" style={{ display: 'none' }} onChange={(e) => { const id = studentActividad; if (id) void subirEntregaEstudiante(e.target.files?.[0], id) }} />
         </>
       )}
 
-      {tab === 'calificaciones' && (
+      {!isStudent && tab === 'calificaciones' && (
         <Card className={styles.card}>
           <div className={styles.actions}>
             <Text weight="semibold" size={400}>Registro de calificaciones</Text>

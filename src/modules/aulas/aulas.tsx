@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
   Button, Card, Dialog, DialogActions, DialogBody, DialogContent, DialogSurface, DialogTitle,
   Input, Select, Spinner, Text, Textarea, useToastController, makeStyles, tokens,
@@ -722,7 +723,16 @@ Devuelve ÚNICAMENTE el HTML completo del documento.`
   )
 }
 
-/** Vista de aulas para el portal de estudiantes (solo lectura de asignaturas y Teams). */
+/** Vista de aulas para el portal de estudiantes: sus cursos y asignaturas matriculadas. */
 export function StudentAulasView({ studentId }: { studentId: string }) {
-  return <AulasView scope={{ kind: 'estudiante', studentId }} pageTitle="Mis Aulas" subtitle="Aulas y asignaturas en las que estás matriculado." />
+  const navigate = useNavigate()
+  const { subjects } = useApp()
+  return (
+    <AulasView
+      scope={{ kind: 'estudiante', studentId }}
+      pageTitle="Aulas por curso"
+      subtitle="Cursos y asignaturas en los que estás matriculado."
+      onOpenSubject={(g) => navigate(`/estudiantes/aulas/${g.id}/${encodeURIComponent(seccionDe(g))}/${subjectIdOf(g, subjects)}`)}
+    />
+  )
 }
