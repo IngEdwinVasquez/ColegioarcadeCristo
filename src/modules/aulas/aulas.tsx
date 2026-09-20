@@ -254,10 +254,11 @@ function TeamModal({ record, open, onClose, onSaved }: { record: GradeSection | 
 }
 
 /** Panel de asignaturas de un aula, con acceso y gestión del aula de Teams. */
-export function AulaSubjectsPanel({ subjects, canManage, onOpenSubject, onChanged }: {
+export function AulaSubjectsPanel({ subjects, canManage, onOpenSubject, onPlanificarIA, onChanged }: {
   subjects: GradeSection[]
   canManage: boolean
   onOpenSubject?: (g: GradeSection) => void
+  onPlanificarIA?: (g: GradeSection) => void
   onChanged: () => void
 }) {
   const styles = useStyles()
@@ -314,6 +315,7 @@ export function AulaSubjectsPanel({ subjects, canManage, onOpenSubject, onChange
               ) : (
                 <Text size={200} style={{ color: 'var(--texto-suave)' }}>Sin aula de Teams relacionada.</Text>
               )}
+              {onPlanificarIA && <Button size="small" appearance="secondary" icon={<SparkleRegular />} onClick={() => onPlanificarIA(g)}>Planificación IA</Button>}
               {onOpenSubject && <Button size="small" appearance="outline" icon={<ArrowRightRegular />} onClick={() => onOpenSubject(g)}>Abrir</Button>}
             </div>
           </Card>
@@ -475,7 +477,7 @@ export function AulasView({ scope, subtitle, pageTitle = 'Aulas', onOpenSubject 
   // Habilitado solo cuando el curso tiene registro de grado y documento ejemplo cargados.
   const registroCurso = seleccion ? registrosCol.items.find((r) => r.curso === seleccion.curso) : undefined
   const modeloPlan = seleccion?.records.find((r) => r.planTemplateName)
-  const puedePlanificar = !!registroCurso && !!modeloPlan
+  const puedePlanificarIA = !!registroCurso && !!modeloPlan
 
   /** Crea la planificación de clase con IA: busca en el registro de grado y usa el documento ejemplo como diseño. */
   const planificarIA = async () => {
@@ -531,9 +533,13 @@ Devuelve ÚNICAMENTE el HTML completo del documento.`
   }
 
   /** Abre el formulario de planificación con los datos disponibles en la plataforma. */
-  const abrirPlanIA = () => {
+  const abrirPlanIA = (subject?: GradeSection) => {
     if (!seleccion) return
-    const asignatura = asignaturaDe(seleccion.records[0])
+    if (!registroCurso || !modeloPlan) {
+      toaster.dispatchToast('Sube el registro de grado y el documento ejemplo del curso para usar la planificación con IA.', { intent: 'error' })
+      return
+    }
+    const asignatura = subject ? asignaturaDe(subject) : asignaturaDe(seleccion.records[0])
     const esp = registroCurso?.especificaciones?.[asignatura]
     const contenidos = esp ? [esp.p1, esp.p2, esp.p3, esp.p4].filter(Boolean).join('\n') : ''
     const tema = (contenidos.split('\n')[0] ?? '').slice(0, 140) || asignatura
@@ -600,6 +606,7 @@ Devuelve ÚNICAMENTE el HTML completo del documento.`
                     subjects={seleccion.records}
                     canManage={canManage}
                     onOpenSubject={onOpenSubject}
+                    onPlanificarIA={(g) => abrirPlanIA(g)}
                     onChanged={() => { void gradesCol.refresh() }}
                   />
 
@@ -648,28 +655,11 @@ Devuelve ÚNICAMENTE el HTML completo del documento.`
                     </Text>
                   </div>
 
-                  <div style={{ marginTop: '18px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', flexWrap: 'wrap' }}>
-                      <div>
-                        <Text weight="semibold" size={400}>Planificación de clase con IA</Text>
-                        <Text size={200} block style={{ color: puedePlanificar ? 'var(--texto-suave)' : '#B42318' }}>
-                          {puedePlanificar
-                            ? 'Listo: registro de grado y documento ejemplo cargados.'
-                            : 'Sube el registro de grado y el documento ejemplo para habilitar esta opción.'}
-                        </Text>
-                      </div>
-                      {canManage && (
-                        <Button
-                          appearance="primary"
-                          icon={<SparkleRegular />}
-                          disabled={!puedePlanificar}
-                          onClick={abrirPlanIA}
-                        >
-                          Crear planificación con IA
-                        </Button>
-                      )}
-                    </div>
-                  </div>
+                  {!puedePlanificarIA && (
+                    <Text size={200} block style={{ color: '#B42318', marginTop: '8px' }}>
+                      Para usar «Planificación IA» en una asignatura, sube primero el registro de grado y el documento ejemplo del curso.
+                    </Text>
+                  )}
                 </>
               )}
             </DialogContent>
