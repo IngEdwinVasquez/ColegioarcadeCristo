@@ -410,7 +410,7 @@ export function PersonasPage() {
   return (
     <div>
       <PageHeader
-        title="Datos institucionales"
+        title="Función desempeñada"
         subtitle="Mantenimiento de estudiantes, docentes, familias y personal institucional. Use la columna 'Tipo' para cambiar la categoría del personal."
         actions={
           <>
