@@ -9,6 +9,7 @@ import { useApp } from '../../context/useApp'
 import { dataService } from '../../services/dataService'
 import { useCollection } from '../../hooks/useCollection'
 import { uploadFile, uploadAndShare, downloadFileAsDataUrl, getFileDownloadUrl } from '../../services/onedrive'
+import { htmlToPdfBlob } from '../../services/planPdf'
 import { aiChat } from '../../services/ai'
 import { createClassModule, addModuleFileResource } from '../../services/teamsEdu'
 import { graphErrorMessage } from '../../services/graph'
@@ -407,8 +408,7 @@ Basa el contenido en el tema del formulario. Devuelve ÚNICAMENTE el HTML comple
         { role: 'user', content: prompt },
       ], { temperature: 0.4, maxTokens: 3200 })
       const limpio = html.replace(/```html?/gi, '').replace(/```/g, '').trim()
-      const blob = new Blob([limpio], { type: 'text/html' })
-      const file = new File([blob], `${planForm.titulo.replace(/[^\w.-]+/g, '_')}.html`, { type: 'text/html' })
+      const file = new File([await htmlToPdfBlob(limpio, planForm.titulo)], `${planForm.titulo.replace(/[^\w.-]+/g, '_')}.pdf`, { type: 'application/pdf' })
       const ref = await uploadAndShare('Planificaciones', file)
       let modulo = ''
       if (teamId) {
