@@ -1019,6 +1019,8 @@ export interface CursoActividad {
   /** Id. del documento guía subido a OneDrive. */
   guiaRef?: string
   guiaNombre?: string
+  /** Id. de la imagen relacionada con la actividad. */
+  imageRef?: string
   puntos?: number
   desde?: string
   hasta?: string
@@ -1044,6 +1046,8 @@ export interface CursoUnidad {
   introduccion?: string
   /** Indica que la unidad fue creada/actualizada con IA (cambia la acción a "Modificar"). */
   aiCreated?: boolean
+  /** Id. de la imagen relacionada con el tema de la unidad. */
+  imageRef?: string
   desde?: string
   hasta?: string
   recursos: CursoRecurso[]
