@@ -84,6 +84,7 @@ export function CursoAsignaturaPage() {
   const labelImgRef = useRef<HTMLInputElement>(null)
   const recursoFileRef = useRef<HTMLInputElement>(null)
   const entregaFileRef = useRef<HTMLInputElement>(null)
+  const guiaActFileRef = useRef<HTMLInputElement>(null)
   const studentFileRef = useRef<HTMLInputElement>(null)
   const [studentActividad, setStudentActividad] = useState<string | null>(null)
   const loadedRef = useRef(false)
@@ -128,7 +129,7 @@ export function CursoAsignaturaPage() {
 
   const editable = user?.roles.some((r) => ['docente', 'admin', 'tecnologia', 'coordinacion'].includes(r)) ?? false
   const studentId = user?.studentId ?? ''
-  const isStudent = !!studentId
+  const isStudent = !!studentId && !editable
 
   // Autoguardado: persiste los cambios (recursos, actividades, etiquetas, etc.) poco después de editarlos.
   useEffect(() => {
@@ -190,6 +191,16 @@ export function CursoAsignaturaPage() {
       const ref = await uploadFile('AulasVirtuales/Recursos', file.name, file)
       setNuevoRecurso({ ...nuevoRecurso, recurso: { ...nuevoRecurso.recurso, ref: ref.id, nombre: file.name } })
     } catch (e) { toaster.dispatchToast(graphErrorMessage(e), { intent: 'error' }) } finally { setBusy(false); if (recursoFileRef.current) recursoFileRef.current.value = '' }
+  }
+
+  /** Sube el documento guía de la actividad que se está creando/editando. */
+  const subirGuia = async (file: File | undefined) => {
+    if (!file || !nuevaActividad) return
+    setBusy(true)
+    try {
+      const ref = await uploadFile('AulasVirtuales/Guias', file.name, file)
+      setNuevaActividad({ ...nuevaActividad, act: { ...nuevaActividad.act, guiaRef: ref.id, guiaNombre: file.name } })
+    } catch (e) { toaster.dispatchToast(graphErrorMessage(e), { intent: 'error' }) } finally { setBusy(false); if (guiaActFileRef.current) guiaActFileRef.current.value = '' }
   }
 
   const subirEntrega = async (file: File | undefined) => {
@@ -280,6 +291,12 @@ export function CursoAsignaturaPage() {
       toaster.dispatchToast(graphErrorMessage(error), { intent: 'error' })
     }
   }
+  /** Abre el documento guía de una actividad. */
+  const abrirGuia = async (ref: string) => {
+    try { const url = await getFileDownloadUrl(ref); window.open(url, '_blank') }
+    catch (error) { toaster.dispatchToast(graphErrorMessage(error), { intent: 'error' }) }
+  }
+
   const addActividad = () => {
     if (!draft || !nuevaActividad || !nuevaActividad.act.titulo.trim()) return
     const u = draft.units.find((x) => x.id === nuevaActividad.unidadId)
@@ -638,6 +655,12 @@ Incluye una introducción, al menos 3 recursos variando el tipo según la necesi
                   {a.tema && <Text size={200} block><strong>Tema:</strong> {a.tema}</Text>}
                   {a.instrucciones && <Text size={200} block style={{ whiteSpace: 'pre-wrap' }}><strong>Instrucciones:</strong> {a.instrucciones}</Text>}
                   {a.hasta && <Text size={200} block><strong>Entrega hasta:</strong> {a.hasta}</Text>}
+                  {(a.enlace || a.guiaRef) && (
+                    <div className={styles.actions} style={{ marginTop: '6px' }}>
+                      {a.enlace && <Button size="small" appearance="secondary" icon={<ArrowRightRegular />} onClick={() => window.open(a.enlace, '_blank')}>Abrir enlace de la actividad</Button>}
+                      {a.guiaRef && <Button size="small" appearance="secondary" icon={<ArrowRightRegular />} onClick={() => void abrirGuia(a.guiaRef!)}>Ver documento guía{a.guiaNombre ? `: ${a.guiaNombre}` : ''}</Button>}
+                    </div>
+                  )}
                   <div className={styles.actions} style={{ marginTop: '6px' }}>
                     {editable && <Button size="small" appearance="secondary" onClick={() => { setEntregaTarget({ unidadId: u.id, actividadId: a.id }); setEntregaEstudiante(estudiantesCurso[0]?.id ?? '') }}>Subir entrega</Button>}
                     {editable && <Button size="small" appearance="subtle" icon={<DeleteRegular />} onClick={() => setUnidad(u.id, { actividades: u.actividades.filter((x) => x.id !== a.id) })}>Eliminar actividad</Button>}
@@ -670,6 +693,14 @@ Incluye una introducción, al menos 3 recursos variando el tipo según la necesi
                   <FormField label="Título de la actividad" required><Input value={nuevaActividad.act.titulo} onChange={(_, d) => setNuevaActividad({ ...nuevaActividad, act: { ...nuevaActividad.act, titulo: d.value } })} /></FormField>
                   <FormField label="Tema de la actividad"><Input value={nuevaActividad.act.tema ?? ''} onChange={(_, d) => setNuevaActividad({ ...nuevaActividad, act: { ...nuevaActividad.act, tema: d.value } })} /></FormField>
                   <FormField label="Instrucciones de la actividad"><Textarea value={nuevaActividad.act.instrucciones ?? ''} onChange={(_, d) => setNuevaActividad({ ...nuevaActividad, act: { ...nuevaActividad.act, instrucciones: d.value } })} /></FormField>
+                  <FormField label="Enlace del sitio web de la actividad" hint="Dirección web donde el estudiante realiza la actividad."><Input value={nuevaActividad.act.enlace ?? ''} placeholder="https://…" onChange={(_, d) => setNuevaActividad({ ...nuevaActividad, act: { ...nuevaActividad.act, enlace: d.value } })} /></FormField>
+                  <FormField label="Documento guía de la actividad" hint="Material de apoyo para realizar la actividad.">
+                    <div className={styles.actions}>
+                      <input ref={guiaActFileRef} type="file" style={{ display: 'none' }} onChange={(e) => void subirGuia(e.target.files?.[0])} />
+                      <Button size="small" icon={<ArrowUploadRegular />} onClick={() => guiaActFileRef.current?.click()}>Subir documento guía</Button>
+                      {nuevaActividad.act.guiaNombre && <Text size={200}>{nuevaActividad.act.guiaNombre}</Text>}
+                    </div>
+                  </FormField>
                   <FieldRow>
                     <FormField label="Puntos"><Input value={String(nuevaActividad.act.puntos ?? '')} onChange={(_, d) => setNuevaActividad({ ...nuevaActividad, act: { ...nuevaActividad.act, puntos: Number(d.value) || undefined } })} /></FormField>
                     <FormField label="Entrega hasta"><Input type="date" value={nuevaActividad.act.hasta ?? ''} onChange={(_, d) => setNuevaActividad({ ...nuevaActividad, act: { ...nuevaActividad.act, hasta: d.value } })} /></FormField>
