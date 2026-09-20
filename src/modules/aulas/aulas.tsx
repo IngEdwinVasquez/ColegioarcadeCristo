@@ -96,6 +96,8 @@ async function guardarImagenCurso(records: GradeSection[], patch: { imageUrl?: s
   }
 }
 
+const PREVIEW_STYLE: CSSProperties = { width: '100%', height: '360px', border: '1px solid var(--borde)', borderRadius: '10px', background: '#fff' }
+
 const useStyles = makeStyles({
   grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 260px), 1fr))', gap: '18px' },
   card: { padding: 0, overflow: 'hidden', cursor: 'pointer', display: 'flex', flexDirection: 'column', transition: 'transform .2s ease, box-shadow .2s ease', ':hover': { transform: 'translateY(-4px)', boxShadow: '0 12px 28px rgba(0,130,173,0.18)' } },
@@ -371,6 +373,9 @@ export function AulasView({ scope, subtitle, pageTitle = 'Aulas', onOpenSubject 
   const [planResult, setPlanResult] = useState<string | null>(null)
   const [planEditId, setPlanEditId] = useState<string | null>(null)
   const [planEditUrl, setPlanEditUrl] = useState<string | null>(null)
+  const [planEditing, setPlanEditing] = useState(false)
+  const [planPreview, setPlanPreview] = useState('')
+  const [planPreviewUrl, setPlanPreviewUrl] = useState('')
   const [planForm, setPlanForm] = useState({ asignatura: '', modulo: '', tema: '', tiempo: '45 minutos', proposito: '', contenidos: '', indicadores: '', actividades: '', recursos: '', evaluacion: '' })
 
   const notas: GradeSection[] = gradesCol.items.length ? gradesCol.items : grades
@@ -531,6 +536,7 @@ Devuelve ÚNICAMENTE el HTML completo del documento.`
         titulo: planForm.modulo,
         tema: planForm.tema,
         url: ref.webUrl,
+        ref: ref.id,
         source: 'ia',
         fecha: new Date().toISOString(),
       }
@@ -538,6 +544,9 @@ Devuelve ÚNICAMENTE el HTML completo del documento.`
       await dataService.saveGrade({ ...subjRecord, classPlans: [planRec, ...previos.filter((p) => p.id !== planRec.id)] })
       setPlanEditId(planRec.id)
       setPlanEditUrl(ref.webUrl)
+      setPlanEditing(true)
+      setPlanPreview(html)
+      setPlanPreviewUrl('')
       await gradesCol.refresh()
       setPlanResult(`Planificación guardada.${teamMsg}`)
       toaster.dispatchToast('Planificación generada con IA.', { intent: 'success' })
@@ -575,7 +584,11 @@ Devuelve ÚNICAMENTE el HTML completo del documento.`
     })
     setPlanEditId(existente?.id ?? null)
     setPlanEditUrl(existente?.url ?? null)
-    setPlanResult(null)
+    setPlanEditing(!!existente)
+    setPlanPreview('')
+    setPlanPreviewUrl('')
+    setPlanResult(existente ? 'Esta asignatura ya tiene una planificación. Puedes verla o regenerarla.' : null)
+    if (existente?.ref) downloadFileAsDataUrl(existente.ref).then(setPlanPreviewUrl).catch(() => { /* sin vista previa */ })
     setPlanOpen(true)
   }
 
@@ -698,14 +711,15 @@ Devuelve ÚNICAMENTE el HTML completo del documento.`
       <ModalForm
         open={planOpen}
         onOpenChange={(o) => { if (!o) setPlanOpen(false) }}
-        title={planEditId ? 'Editar planificación' : 'Crear planificación con IA'}
+        title={planEditing ? 'Editar planificación' : 'Crear planificación con IA'}
         subtitle="Completa las informaciones del módulo. La IA buscará en el registro de grado y usará el diseño del documento ejemplo."
         width={760}
         actions={
           <>
             <Button appearance="secondary" onClick={() => setPlanOpen(false)} disabled={planBusy}>Cerrar</Button>
+            {planEditUrl && <Button appearance="secondary" as="a" href={planEditUrl} target="_blank" rel="noopener noreferrer" disabled={planBusy}>Abrir planificación</Button>}
             <Button appearance="primary" icon={planBusy ? <Spinner size="tiny" /> : <SparkleRegular />} disabled={planBusy} onClick={() => void planificarIA()}>
-              {planBusy ? 'Generando…' : planEditId ? 'Guardar planificación' : 'Planificar con IA'}
+              {planBusy ? 'Generando…' : (planPreview || planPreviewUrl || planEditUrl) ? 'Regenerar con IA' : 'Planificar con IA'}
             </Button>
           </>
         }
@@ -734,9 +748,12 @@ Devuelve ÚNICAMENTE el HTML completo del documento.`
               <FormField label="Recursos"><Input value={planForm.recursos} onChange={(_, d) => setPlanForm({ ...planForm, recursos: d.value })} /></FormField>
               <FormField label="Evaluación"><Input value={planForm.evaluacion} onChange={(_, d) => setPlanForm({ ...planForm, evaluacion: d.value })} /></FormField>
             </FieldRow>
-            {planEditUrl && (
-              <div className={styles.actions}>
-                <Button size="small" appearance="secondary" as="a" href={planEditUrl} target="_blank" rel="noopener noreferrer">Abrir planificación actual</Button>
+            {(planPreview || planPreviewUrl) && (
+              <div>
+                <Text weight="semibold" size={300} block style={{ marginBottom: '6px' }}>Planificación creada</Text>
+                {planPreviewUrl
+                  ? <iframe title="Planificación" sandbox="" src={planPreviewUrl} style={PREVIEW_STYLE} />
+                  : <iframe title="Planificación" sandbox="" srcDoc={planPreview} style={PREVIEW_STYLE} />}
               </div>
             )}
             {planResult && <Text size={200} block style={{ color: 'var(--texto-suave)' }}>{planResult}</Text>}
