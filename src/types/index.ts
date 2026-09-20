@@ -46,6 +46,22 @@ export interface GradeSection {
   teamUrl?: string
   /** Docente encargado (titular) del curso */
   leadTeacherId?: string
+  /** Planificaciones de clase creadas para esta asignatura (con IA o manuales). */
+  classPlans?: SubjectPlan[]
+}
+
+/** Planificación de clase generada para una asignatura del curso. */
+export interface SubjectPlan {
+  id: string
+  titulo: string
+  tema?: string
+  /** URL del documento en OneDrive. */
+  url?: string
+  /** Referencia del archivo en OneDrive. */
+  ref?: string
+  /** Origen de la planificación. */
+  source: 'ia' | 'manual'
+  fecha: string
 }
 
 export interface Subject {
