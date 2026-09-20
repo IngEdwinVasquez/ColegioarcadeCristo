@@ -440,8 +440,12 @@ export function RegistroGradoPage({ scope, title = 'Registro de Grado', subtitle
     if (!draft) return
     setBusy(true)
     try {
-      const prompt = `Eres un docente del nivel ${draft.nivel} en República Dominicana (currículo MINERD). Para el curso ${draft.curso}${draft.ciclo ? ` (${draft.ciclo})` : ''}, redacta las especificaciones curriculares (contenidos y competencias trabajadas) por área/asignatura para los periodos I, II, III y IV.
-Devuelve un JSON válido con la forma {"Area 1":{"p1":"texto","p2":"texto","p3":"texto","p4":"texto"}, ...}, usando EXACTAMENTE estas áreas: ${areasCurso.join(', ')}.
+      const prompt = `Eres un docente del nivel ${draft.nivel} en República Dominicana (currículo MINERD). Para el curso ${draft.curso}${draft.ciclo ? ` (${draft.ciclo})` : ''}, redacta las especificaciones curriculares aplicadas por período (I, II, III y IV) por área/asignatura.
+Para cada área/asignatura y cada período, escribe exactamente estas tres partes en el texto:
+"Competencias Específicas (CE): <...>"
+"Indicadores de Logro (IL): <...>"
+"Contenidos Claves: <...>"
+Devuelve un JSON válido con la forma {"Area 1":{"p1":"Competencias Específicas (CE): ...\\nIndicadores de Logro (IL): ...\\nContenidos Claves: ...","p2":"...","p3":"...","p4":"..."}, ...}, usando EXACTAMENTE estas áreas: ${areasCurso.join(', ')}.
 Responde ÚNICAMENTE el JSON.`
       const res = await aiChat(
         [{ role: 'system', content: 'Asistente curricular MINERD. Responde solo JSON válido.' }, { role: 'user', content: prompt }],
