@@ -3,6 +3,7 @@ import { AppShell, type NavItem } from '../components/layout/AppShell'
 import { EstudianteDashboard } from '../modules/dashboard/EstudianteDashboard'
 import { StudentAulaView, StudentAsistenciaView, StudentClassesView } from '../modules/dashboard/StudentViews'
 import { StudentAulasView } from '../modules/aulas/aulas'
+import { CursoAsignaturaPage } from '../modules/aulas/CursoAsignaturaPage'
 import { Comunicados } from '../modules/dashboard/Comunicados'
 import { ChatPage } from '../modules/chat/ChatPage'
 import { CopilotPage } from '../modules/copilot/CopilotPage'
@@ -41,6 +42,7 @@ export function EstudiantesPortal() {
         <Route index element={<EstudianteDashboard />} />
         <Route path="clases" element={<StudentWrapper>{(id) => <StudentClassesView studentId={id} />}</StudentWrapper>} />
         <Route path="aulas" element={<StudentWrapper>{(id) => <StudentAulasView studentId={id} />}</StudentWrapper>} />
+        <Route path="aulas/:gradeId/:section/:subjectId" element={<CursoAsignaturaPage />} />
         <Route path="aula" element={<StudentWrapper>{(id) => <StudentAulaView studentId={id} />}</StudentWrapper>} />
         <Route path="asistencia" element={<StudentWrapper>{(id) => <StudentAsistenciaView studentId={id} />}</StudentWrapper>} />
         <Route path="comunicados" element={<Comunicados />} />
