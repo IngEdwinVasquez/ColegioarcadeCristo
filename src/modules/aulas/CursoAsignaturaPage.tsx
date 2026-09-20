@@ -14,7 +14,7 @@ import { createClassModule, addModuleFileResource } from '../../services/teamsEd
 import { graphErrorMessage } from '../../services/graph'
 import { genId } from '../../utils/helpers'
 import { cursoNombre, asignaturaDe } from '../../utils/academic'
-import type { CoursePage, CursoActividad, CursoEntrega, CursoLabel, CursoRecurso, CursoRecursoTipo, CursoUnidad, Enrollment, GradeRegister, GradeSection } from '../../types'
+import type { CoursePage, CursoActividad, CursoEntrega, CursoLabel, CursoRecurso, CursoRecursoTipo, CursoUnidad, Enrollment, GradeRegister, GradeSection, SubjectPlan } from '../../types'
 
 const RECURSO_TIPOS: Array<{ value: CursoRecursoTipo; label: string }> = [
   { value: 'texto', label: 'Texto / página' },
@@ -65,9 +65,12 @@ export function CursoAsignaturaPage() {
   const pagesCol = useCollection<CoursePage>(dataService.getCoursePages, dataService.saveCoursePage, dataService.deleteCoursePage)
   const enrollmentsCol = useCollection<Enrollment>(dataService.getEnrollments)
   const registrosCol = useCollection<GradeRegister>(dataService.getGradeRegisters)
+  const gradesCol = useCollection<GradeSection>(dataService.getGrades, dataService.saveGrade)
   const [planOpen, setPlanOpen] = useState(false)
   const [planBusy, setPlanBusy] = useState(false)
   const [planDoc, setPlanDoc] = useState<{ url: string; modulo: string } | null>(null)
+  const [planEditId, setPlanEditId] = useState<string | null>(null)
+  const [planEditUrl, setPlanEditUrl] = useState<string | null>(null)
   const [creandoModulo, setCreandoModulo] = useState(false)
   const [planesUnidad, setPlanesUnidad] = useState<Record<string, string>>({})
   const [planUnidadId, setPlanUnidadId] = useState<string | null>(null)
@@ -105,6 +108,9 @@ export function CursoAsignaturaPage() {
   const grade = gradeById(gradeId)
   const subject = subjectById(subjectId)
   const gradeRec: GradeSection | undefined = grade
+  const allGrades = gradesCol.items.length ? gradesCol.items : grades
+  const subjectRecord = allGrades.find((g) => g.id === gradeId) ?? gradeRec
+  const planesClase = subjectRecord?.classPlans ?? []
 
   // Crear/cargar la página del curso (solo una vez).
   useEffect(() => {
@@ -353,6 +359,16 @@ export function CursoAsignaturaPage() {
   const subjectName = subject?.name ?? (gradeRec ? asignaturaDe(gradeRec) : 'Asignatura')
   const teamId = gradeById(gradeId)?.teamId
 
+  /** Abre el formulario de planificación, precargando la planificación existente si la hay. */
+  const abrirPlanClase = () => {
+    const existente = planesClase[0]
+    setPlanDoc(null)
+    setPlanEditId(existente?.id ?? null)
+    setPlanEditUrl(existente?.url ?? null)
+    if (existente) setPlanForm((f) => ({ ...f, titulo: existente.titulo, tema: existente.tema ?? f.tema }))
+    setPlanOpen(true)
+  }
+
   /** Genera la planificación con IA (según el formulario, el registro de grado y el documento modelo) y crea el módulo en Teams. */
   const planificarConIA = async () => {
     if (!planForm.titulo.trim() || !planForm.tema.trim()) {
@@ -399,6 +415,21 @@ Basa el contenido en el tema del formulario. Devuelve ÚNICAMENTE el HTML comple
       } else {
         modulo = 'La asignatura no tiene un aula de Teams relacionada.'
       }
+      const planRec: SubjectPlan = {
+        id: planEditId ?? genId('plan'),
+        titulo: planForm.titulo,
+        tema: planForm.tema,
+        url: ref.webUrl,
+        source: 'ia',
+        fecha: new Date().toISOString(),
+      }
+      if (subjectRecord) {
+        const previos = subjectRecord.classPlans ?? []
+        await dataService.saveGrade({ ...subjectRecord, classPlans: [planRec, ...previos.filter((p) => p.id !== planRec.id)] })
+        await gradesCol.refresh()
+      }
+      setPlanEditId(planRec.id)
+      setPlanEditUrl(ref.webUrl)
       setPlanDoc({ url: ref.webUrl, modulo })
       toaster.dispatchToast('Planificación generada con IA.', { intent: 'success' })
     } catch (error) {
@@ -537,7 +568,7 @@ Incluye una introducción, al menos 3 recursos variando el tipo según la necesi
         subtitle={`Aula virtual · ${draft.curso} · recursos, actividades, entregas y calificaciones.`}
         actions={editable ? (
           <>
-            <Button appearance="secondary" icon={<SparkleRegular />} onClick={() => { setPlanDoc(null); setPlanOpen(true) }}>Crear planificación</Button>
+            <Button appearance="secondary" icon={<SparkleRegular />} onClick={abrirPlanClase}>{planesClase.length ? 'Editar planificación' : 'Crear planificación'}</Button>
             <Button appearance="secondary" icon={creandoModulo ? <Spinner size="tiny" /> : <AddRegular />} disabled={creandoModulo} onClick={() => void crearModuloAsignatura()}>{creandoModulo ? 'Creando…' : 'Crear módulo en Teams'}</Button>
             <Button appearance="primary" icon={busy ? <Spinner size="tiny" /> : <SaveRegular />} disabled={busy} onClick={() => void guardar()}>Guardar</Button>
           </>
@@ -820,14 +851,14 @@ Incluye una introducción, al menos 3 recursos variando el tipo según la necesi
       <ModalForm
         open={planOpen}
         onOpenChange={(o) => { if (!o) setPlanOpen(false) }}
-        title="Crear planificación de clase"
+        title={planEditId ? 'Editar planificación de clase' : 'Crear planificación de clase'}
         subtitle="Completa las opciones y usa la IA (se basa en el tema, el registro de grado del curso y el documento modelo)."
         width={760}
         actions={
           <>
             <Button appearance="secondary" onClick={() => setPlanOpen(false)} disabled={planBusy}>Cerrar</Button>
             <Button appearance="primary" icon={planBusy ? <Spinner size="tiny" /> : <SparkleRegular />} disabled={planBusy} onClick={() => void planificarConIA()}>
-              {planBusy ? 'Generando…' : 'Planificar con IA'}
+              {planBusy ? 'Generando…' : planEditId ? 'Guardar planificación' : 'Planificar con IA'}
             </Button>
           </>
         }
@@ -845,6 +876,14 @@ Incluye una introducción, al menos 3 recursos variando el tipo según la necesi
           <FormField label="Recursos"><Input value={planForm.recursos} onChange={(_, d) => setPlanForm({ ...planForm, recursos: d.value })} /></FormField>
           <FormField label="Evaluación"><Input value={planForm.evaluacion} onChange={(_, d) => setPlanForm({ ...planForm, evaluacion: d.value })} /></FormField>
         </FieldRow>
+        {planEditUrl && (
+          <Card style={{ padding: '12px' }}>
+            <Text size={200} block><strong>Planificación actual:</strong> guardada en OneDrive.</Text>
+            <div className={styles.actions}>
+              <Button size="small" appearance="secondary" as="a" href={planEditUrl} target="_blank" rel="noopener noreferrer">Abrir planificación actual</Button>
+            </div>
+          </Card>
+        )}
         {planDoc && (
           <Card style={{ padding: '12px' }}>
             <Text size={200} block><strong>Planificación generada:</strong> guardada en OneDrive.</Text>

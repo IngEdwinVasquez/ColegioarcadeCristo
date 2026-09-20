@@ -21,7 +21,7 @@ import { uploadFile, uploadAndShare, downloadFileAsDataUrl } from '../../service
 import { renderPdfFirstPageToBlob, extractPdfText } from '../../services/pdf'
 import { aiChat } from '../../services/ai'
 import { genId } from '../../utils/helpers'
-import type { Enrollment, GradeRegister, GradeSection, RegistroStudent, TeacherAssignment } from '../../types'
+import type { Enrollment, GradeRegister, GradeSection, RegistroStudent, SubjectPlan, TeacherAssignment } from '../../types'
 
 export const AULA_IMAGENES = [
   '/aulas/aula1.svg', '/aulas/aula2.svg', '/aulas/aula3.svg',
@@ -316,7 +316,7 @@ export function AulaSubjectsPanel({ subjects, canManage, onOpenSubject, onPlanif
               ) : (
                 <Text size={200} style={{ color: 'var(--texto-suave)' }}>Sin aula de Teams relacionada.</Text>
               )}
-              {onPlanificarIA && <Button size="small" appearance="secondary" icon={<SparkleRegular />} onClick={() => onPlanificarIA(g)}>Planificación IA</Button>}
+              {onPlanificarIA && <Button size="small" appearance="secondary" icon={<SparkleRegular />} onClick={() => onPlanificarIA(g)}>{g.classPlans?.length ? 'Editar planificación' : 'Planificación IA'}</Button>}
               {onOpenSubject && <Button size="small" appearance="outline" icon={<ArrowRightRegular />} onClick={() => onOpenSubject(g)}>Abrir</Button>}
             </div>
           </Card>
@@ -369,6 +369,8 @@ export function AulasView({ scope, subtitle, pageTitle = 'Aulas', onOpenSubject 
   const [planOpen, setPlanOpen] = useState(false)
   const [planBusy, setPlanBusy] = useState(false)
   const [planResult, setPlanResult] = useState<string | null>(null)
+  const [planEditId, setPlanEditId] = useState<string | null>(null)
+  const [planEditUrl, setPlanEditUrl] = useState<string | null>(null)
   const [planForm, setPlanForm] = useState({ asignatura: '', modulo: '', tema: '', tiempo: '45 minutos', proposito: '', contenidos: '', indicadores: '', actividades: '', recursos: '', evaluacion: '' })
 
   const notas: GradeSection[] = gradesCol.items.length ? gradesCol.items : grades
@@ -524,6 +526,19 @@ Devuelve ÚNICAMENTE el HTML completo del documento.`
       } else {
         teamMsg = ' La asignatura no tiene aula de Teams relacionada.'
       }
+      const planRec: SubjectPlan = {
+        id: planEditId ?? genId('plan'),
+        titulo: planForm.modulo,
+        tema: planForm.tema,
+        url: ref.webUrl,
+        source: 'ia',
+        fecha: new Date().toISOString(),
+      }
+      const previos = subjRecord.classPlans ?? []
+      await dataService.saveGrade({ ...subjRecord, classPlans: [planRec, ...previos.filter((p) => p.id !== planRec.id)] })
+      setPlanEditId(planRec.id)
+      setPlanEditUrl(ref.webUrl)
+      await gradesCol.refresh()
       setPlanResult(`Planificación guardada.${teamMsg}`)
       toaster.dispatchToast('Planificación generada con IA.', { intent: 'success' })
     } catch (error) {
@@ -541,13 +556,15 @@ Devuelve ÚNICAMENTE el HTML completo del documento.`
       return
     }
     const asignatura = subject ? asignaturaDe(subject) : asignaturaDe(seleccion.records[0])
+    const record = subject ?? seleccion.records.find((r) => asignaturaDe(r) === asignatura)
+    const existente = (record?.classPlans ?? [])[0]
     const esp = registroCurso?.especificaciones?.[asignatura]
     const contenidos = esp ? [esp.p1, esp.p2, esp.p3, esp.p4].filter(Boolean).join('\n') : ''
     const tema = (contenidos.split('\n')[0] ?? '').slice(0, 140) || asignatura
     setPlanForm({
       asignatura,
-      modulo: asignatura,
-      tema,
+      modulo: existente?.titulo ?? asignatura,
+      tema: existente?.tema ?? tema,
       tiempo: '45 minutos',
       proposito: `Desarrollar las competencias de ${asignatura} en los estudiantes de ${seleccion.curso}.`,
       contenidos,
@@ -556,6 +573,8 @@ Devuelve ÚNICAMENTE el HTML completo del documento.`
       recursos: 'Pizarra, cuaderno, recursos del aula virtual, proyector.',
       evaluacion: 'Observación directa, participación, ejercicios y la actividad asignada en el módulo.',
     })
+    setPlanEditId(existente?.id ?? null)
+    setPlanEditUrl(existente?.url ?? null)
     setPlanResult(null)
     setPlanOpen(true)
   }
@@ -679,14 +698,14 @@ Devuelve ÚNICAMENTE el HTML completo del documento.`
       <ModalForm
         open={planOpen}
         onOpenChange={(o) => { if (!o) setPlanOpen(false) }}
-        title="Crear planificación con IA"
+        title={planEditId ? 'Editar planificación' : 'Crear planificación con IA'}
         subtitle="Completa las informaciones del módulo. La IA buscará en el registro de grado y usará el diseño del documento ejemplo."
         width={760}
         actions={
           <>
             <Button appearance="secondary" onClick={() => setPlanOpen(false)} disabled={planBusy}>Cerrar</Button>
             <Button appearance="primary" icon={planBusy ? <Spinner size="tiny" /> : <SparkleRegular />} disabled={planBusy} onClick={() => void planificarIA()}>
-              {planBusy ? 'Generando…' : 'Planificar con IA'}
+              {planBusy ? 'Generando…' : planEditId ? 'Guardar planificación' : 'Planificar con IA'}
             </Button>
           </>
         }
@@ -715,6 +734,11 @@ Devuelve ÚNICAMENTE el HTML completo del documento.`
               <FormField label="Recursos"><Input value={planForm.recursos} onChange={(_, d) => setPlanForm({ ...planForm, recursos: d.value })} /></FormField>
               <FormField label="Evaluación"><Input value={planForm.evaluacion} onChange={(_, d) => setPlanForm({ ...planForm, evaluacion: d.value })} /></FormField>
             </FieldRow>
+            {planEditUrl && (
+              <div className={styles.actions}>
+                <Button size="small" appearance="secondary" as="a" href={planEditUrl} target="_blank" rel="noopener noreferrer">Abrir planificación actual</Button>
+              </div>
+            )}
             {planResult && <Text size={200} block style={{ color: 'var(--texto-suave)' }}>{planResult}</Text>}
           </>
         )}
