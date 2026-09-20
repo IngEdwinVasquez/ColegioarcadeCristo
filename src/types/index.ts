@@ -59,6 +59,8 @@ export interface SubjectPlan {
   url?: string
   /** Referencia del archivo en OneDrive. */
   ref?: string
+  /** HTML de la planificación (para verla y generar el PDF en la plataforma). */
+  html?: string
   /** Origen de la planificación. */
   source: 'ia' | 'manual'
   fecha: string

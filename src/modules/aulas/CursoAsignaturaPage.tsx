@@ -8,8 +8,8 @@ import { FormField, FieldRow } from '../../components/shared/form'
 import { useApp } from '../../context/useApp'
 import { dataService } from '../../services/dataService'
 import { useCollection } from '../../hooks/useCollection'
-import { uploadFile, uploadAndShare, downloadFileAsDataUrl, getFileDownloadUrl } from '../../services/onedrive'
-import { htmlToPdfBlob } from '../../services/planPdf'
+import { uploadFile, uploadAndShare, downloadFileAsDataUrl, getFileDownloadUrl, listFilesInFolder } from '../../services/onedrive'
+import { htmlToPdfBlob, downloadPlanPdf } from '../../services/planPdf'
 import { aiChat } from '../../services/ai'
 import { createClassModule, addModuleFileResource } from '../../services/teamsEdu'
 import { graphErrorMessage } from '../../services/graph'
@@ -26,6 +26,18 @@ const RECURSO_TIPOS: Array<{ value: CursoRecursoTipo; label: string }> = [
   { value: 'video', label: 'Video' },
 ]
 const TIPOS_ARCHIVO: CursoRecursoTipo[] = ['documento', 'audio', 'imagen', 'video']
+
+/** Busca el archivo de una planificación antigua por su nombre en la carpeta. */
+async function resolverRefPlan(titulo: string): Promise<string | null> {
+  try {
+    const base = titulo.replace(/[^\w.-]+/g, '_').toLowerCase()
+    const files = await listFilesInFolder('Planificaciones')
+    const f = files.find((x) => x.name.toLowerCase() === `${base}.html`) ?? files.find((x) => x.name.toLowerCase().replace(/\.[^.]+$/, '') === base)
+    return f?.id ?? null
+  } catch {
+    return null
+  }
+}
 
 const fileCache = new Map<string, string>()
 function RefImage({ fileRef, style, className, alt }: { fileRef?: string; style?: React.CSSProperties; className?: string; alt?: string }) {
@@ -366,15 +378,43 @@ export function CursoAsignaturaPage() {
   /** Abre el formulario de planificación, precargando la planificación existente si la hay. */
   const abrirPlanClase = () => {
     const existente = planesClase[0]
+    const legacy = !!existente?.url && /\.html?(\?|$)/i.test(existente.url) && !existente.html
     setPlanDoc(null)
     setPlanEditId(existente?.id ?? null)
-    setPlanEditUrl(existente?.url ?? null)
+    setPlanEditUrl(legacy ? null : (existente?.url ?? null))
     setPlanEditing(!!existente)
-    setPlanPreview('')
+    setPlanPreview(existente?.html ?? '')
     setPlanPreviewUrl('')
     if (existente) setPlanForm((f) => ({ ...f, titulo: existente.titulo, tema: existente.tema ?? f.tema }))
-    if (existente?.ref) downloadFileAsDataUrl(existente.ref).then(setPlanPreviewUrl).catch(() => { /* sin vista previa */ })
+    if (legacy && existente?.ref) void migrarPlanLegacy(existente)
+    else if (!existente?.html && existente?.ref) downloadFileAsDataUrl(existente.ref).then(setPlanPreviewUrl).catch(() => { /* sin vista previa */ })
     setPlanOpen(true)
+  }
+
+  /** Convierte una planificación antigua (HTML) a PDF y actualiza el registro. */
+  const migrarPlanLegacy = async (p: SubjectPlan) => {
+    setPlanBusy(true)
+    try {
+      const refId = p.ref ?? await resolverRefPlan(p.titulo)
+      if (!refId) { toaster.dispatchToast('No se encontró el archivo anterior. Pulsa Regenerar con IA.', { intent: 'error' }); return }
+      const dataUrl = await downloadFileAsDataUrl(refId)
+      const text = await (await fetch(dataUrl)).text()
+      if (!text.trim().startsWith('<')) return
+      const file = new File([await htmlToPdfBlob(text, p.titulo)], `${p.titulo.replace(/[^\w.-]+/g, '_')}.pdf`, { type: 'application/pdf' })
+      const ref2 = await uploadAndShare('Planificaciones', file)
+      if (subjectRecord) {
+        const plans = (subjectRecord.classPlans ?? []).map((x) => (x.id === p.id ? { ...x, url: ref2.webUrl, ref: ref2.id, html: text } : x))
+        await dataService.saveGrade({ ...subjectRecord, classPlans: plans })
+        await gradesCol.refresh()
+      }
+      setPlanPreview(text)
+      setPlanEditUrl(ref2.webUrl)
+      setPlanDoc({ url: ref2.webUrl, modulo: 'Planificación actualizada al nuevo formato (PDF).' })
+    } catch {
+      toaster.dispatchToast('No se pudo convertir la planificación anterior. Pulsa Regenerar con IA.', { intent: 'error' })
+    } finally {
+      setPlanBusy(false)
+    }
   }
 
   /** Genera la planificación con IA (según el formulario, el registro de grado y el documento modelo) y crea el módulo en Teams. */
@@ -428,6 +468,7 @@ Basa el contenido en el tema del formulario. Devuelve ÚNICAMENTE el HTML comple
         tema: planForm.tema,
         url: ref.webUrl,
         ref: ref.id,
+        html: limpio,
         source: 'ia',
         fecha: new Date().toISOString(),
       }
@@ -868,7 +909,8 @@ Incluye una introducción, al menos 3 recursos variando el tipo según la necesi
         actions={
           <>
             <Button appearance="secondary" onClick={() => setPlanOpen(false)} disabled={planBusy}>Cerrar</Button>
-            {planEditUrl && <Button appearance="secondary" as="a" href={planEditUrl} target="_blank" rel="noopener noreferrer" disabled={planBusy}>Abrir planificación</Button>}
+            {planPreview && <Button appearance="secondary" icon={<ArrowDownloadRegular />} disabled={planBusy} onClick={() => void downloadPlanPdf(planPreview, planForm.titulo)}>Descargar PDF</Button>}
+            {planEditUrl && <Button appearance="secondary" as="a" href={planEditUrl} target="_blank" rel="noopener noreferrer" disabled={planBusy}>Abrir en OneDrive</Button>}
             <Button appearance="primary" icon={planBusy ? <Spinner size="tiny" /> : <SparkleRegular />} disabled={planBusy} onClick={() => void planificarConIA()}>
               {planBusy ? 'Generando…' : (planPreview || planPreviewUrl || planEditUrl) ? 'Regenerar con IA' : 'Planificar con IA'}
             </Button>
