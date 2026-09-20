@@ -282,7 +282,7 @@ export function AulaSubjectsPanel({ subjects, canManage, onOpenSubject, onPlanif
 }) {
   const styles = useStyles()
   const toaster = useToastController()
-  const { subjects: catsSubjects, refreshCatalogs } = useApp()
+  const { subjects: catsSubjects, grades: todasLasNotas, refreshCatalogs } = useApp()
   const [teamRecord, setTeamRecord] = useState<GradeSection | null>(null)
   const [teamOpen, setTeamOpen] = useState(false)
   const [creando, setCreando] = useState<string | null>(null)
@@ -318,11 +318,16 @@ export function AulaSubjectsPanel({ subjects, canManage, onOpenSubject, onPlanif
 
   /** Asignaturas del catálogo que aún no están en este curso. */
   const yaEnCurso = new Set(subjects.map((g) => asignaturaDe(g).trim().toLowerCase()))
-  const disponibles = catsSubjects.filter((s) => !yaEnCurso.has(s.name.trim().toLowerCase()))
+  const disponibles = useMemo(() => {
+    const nombres = new Map<string, string>()
+    for (const s of catsSubjects) { const n = s.name.trim(); if (n) nombres.set(n.toLowerCase(), n) }
+    for (const g of todasLasNotas) { const n = asignaturaDe(g).trim(); if (n && isRealSubject(n)) nombres.set(n.toLowerCase(), n) }
+    return [...nombres.entries()].filter(([k]) => !yaEnCurso.has(k)).map(([, v]) => v).sort((a, b) => a.localeCompare(b))
+  }, [catsSubjects, todasLasNotas, yaEnCurso])
 
   const abrirAdd = () => {
     setModoNueva(false)
-    setAsigSel(disponibles[0]?.id ?? '')
+    setAsigSel(disponibles[0] ?? '')
     setNuevaNombre('')
     setNuevaCorta('')
     setAddOpen(true)
@@ -338,13 +343,12 @@ export function AulaSubjectsPanel({ subjects, canManage, onOpenSubject, onPlanif
       if (modoNueva) {
         nombre = nuevaNombre.trim()
         if (!nombre) { toaster.dispatchToast('Escribe el nombre de la nueva asignatura.', { intent: 'error' }); return }
-        if (!catsSubjects.some((s) => s.name.trim().toLowerCase() === nombre.toLowerCase())) {
-          await dataService.saveSubject({ id: genId('sub'), name: nombre, shortName: (nuevaCorta.trim() || nombre).slice(0, 14), color: COLORES_ASIGNATURA[catsSubjects.length % COLORES_ASIGNATURA.length] })
-        }
       } else {
-        const s = catsSubjects.find((x) => x.id === asigSel)
-        if (!s) { toaster.dispatchToast('Selecciona una asignatura.', { intent: 'error' }); return }
-        nombre = s.name
+        nombre = asigSel.trim()
+        if (!nombre) { toaster.dispatchToast('Selecciona una asignatura.', { intent: 'error' }); return }
+      }
+      if (!catsSubjects.some((s) => s.name.trim().toLowerCase() === nombre.toLowerCase())) {
+        await dataService.saveSubject({ id: genId('sub'), name: nombre, shortName: (modoNueva ? nuevaCorta.trim() : '') || nombre.slice(0, 14), color: COLORES_ASIGNATURA[catsSubjects.length % COLORES_ASIGNATURA.length] })
       }
       if (subjects.some((g) => asignaturaDe(g).trim().toLowerCase() === nombre.toLowerCase())) {
         toaster.dispatchToast('Esa asignatura ya está en el curso.', { intent: 'error' }); return
@@ -426,7 +430,7 @@ export function AulaSubjectsPanel({ subjects, canManage, onOpenSubject, onPlanif
         <FormField label="Asignatura del catálogo">
           <Select value={asigSel} disabled={modoNueva || disponibles.length === 0} onChange={(_, d) => setAsigSel(d.value)}>
             {disponibles.length === 0 && <option value="">Todas las asignaturas ya están en el curso</option>}
-            {disponibles.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+            {disponibles.map((n) => <option key={n} value={n}>{n}</option>)}
           </Select>
         </FormField>
         <Checkbox checked={modoNueva} label="La asignatura no existe: crear una nueva" onChange={(_, d) => setModoNueva(!!d.checked)} />
