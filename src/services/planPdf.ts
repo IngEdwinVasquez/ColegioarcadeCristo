@@ -99,3 +99,16 @@ export async function htmlToPdfBlob(html: string, title: string): Promise<Blob> 
 
   return doc.output('blob')
 }
+
+/** Genera el PDF de la planificación y lo descarga directamente en el navegador. */
+export async function downloadPlanPdf(html: string, title: string): Promise<void> {
+  const blob = await htmlToPdfBlob(html, title)
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `${(title || 'Planificacion').replace(/[^\w.-]+/g, '_')}.pdf`
+  document.body.appendChild(a)
+  a.click()
+  a.remove()
+  setTimeout(() => URL.revokeObjectURL(url), 2000)
+}
