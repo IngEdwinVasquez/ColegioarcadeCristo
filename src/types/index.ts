@@ -1014,6 +1014,11 @@ export interface CursoActividad {
   titulo: string
   tema?: string
   instrucciones?: string
+  /** Enlace del sitio web donde se realiza la actividad. */
+  enlace?: string
+  /** Id. del documento guía subido a OneDrive. */
+  guiaRef?: string
+  guiaNombre?: string
   puntos?: number
   desde?: string
   hasta?: string
