@@ -433,27 +433,41 @@ Incluye una introducción, al menos 3 recursos variando el tipo según la necesi
 
           {/* Etiquetas */}
           <Card className={styles.card}>
-            <Text weight="semibold" size={400}>Etiquetas</Text>
+            <Text weight="semibold" size={500}>Etiquetas del curso</Text>
+            {draft.labels.length === 0 && (
+              <Text size={200} style={{ color: 'var(--texto-suave)' }}>Agrega etiquetas con texto e imágenes para dar formato y contenido visual al curso (como en Moodle).</Text>
+            )}
             {draft.labels.map((l) => (
-              <div key={l.id} className={styles.label}>
-                {l.imageRef && <RefImage fileRef={l.imageRef} style={{ maxWidth: '100%', borderRadius: '8px', marginBottom: '8px' }} />}
-                <Text size={300} block style={{ whiteSpace: 'pre-wrap' }}>{l.texto}</Text>
-                {editable && <div className={styles.actions} style={{ marginTop: '6px' }}><Button size="small" appearance="subtle" icon={<DeleteRegular />} onClick={() => setDraft({ ...draft, labels: draft.labels.filter((x) => x.id !== l.id) })}>Eliminar</Button></div>}
+              <div key={l.id} style={{ border: '1px solid var(--borde)', borderRadius: '12px', overflow: 'hidden' }}>
+                {(l.imageRef || l.imageUrl) && (
+                  l.imageUrl
+                    ? <img src={l.imageUrl} alt="" style={{ width: '100%', maxHeight: '300px', objectFit: 'cover', display: 'block' }} />
+                    : <RefImage fileRef={l.imageRef} style={{ width: '100%', maxHeight: '300px', objectFit: 'cover', display: 'block' }} />
+                )}
+                <div style={{ padding: '16px 18px' }}>
+                  <Text size={400} block style={{ whiteSpace: 'pre-wrap', lineHeight: 1.6, textAlign: (l.imageRef || l.imageUrl) ? 'center' : 'left' }}>{l.texto}</Text>
+                  {editable && <div className={styles.actions} style={{ marginTop: '10px' }}><Button size="small" appearance="subtle" icon={<DeleteRegular />} onClick={() => setDraft({ ...draft, labels: draft.labels.filter((x) => x.id !== l.id) })}>Eliminar</Button></div>}
+                </div>
               </div>
             ))}
             {editable && (nuevoLabel ? (
-              <FieldRow>
-                <FormField label="Texto de la etiqueta"><Textarea value={nuevoLabel.texto} onChange={(_, d) => setNuevoLabel({ ...nuevoLabel, texto: d.value })} /></FormField>
-                <FormField label="Imagen (opcional)">
-                  <div className={styles.actions}>
-                    <input ref={labelImgRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => void subirLabelImg(e.target.files?.[0])} />
-                    <Button size="small" icon={<ImageRegular />} onClick={() => labelImgRef.current?.click()}>Subir imagen</Button>
-                    {nuevoLabel.imageRef && <Text size={200}>Imagen cargada</Text>}
-                    <Button size="small" appearance="primary" onClick={addLabel}>Agregar etiqueta</Button>
-                    <Button size="small" appearance="secondary" onClick={() => setNuevoLabel(null)}>Cancelar</Button>
-                  </div>
-                </FormField>
-              </FieldRow>
+              <div style={{ border: '1px dashed var(--borde)', borderRadius: '12px', padding: '14px' }}>
+                <FormField label="Texto de la etiqueta"><Textarea value={nuevoLabel.texto} resize="vertical" onChange={(_, d) => setNuevoLabel({ ...nuevoLabel, texto: d.value })} /></FormField>
+                <FieldRow>
+                  <FormField label="Imagen (opcional)">
+                    <div className={styles.actions}>
+                      <input ref={labelImgRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => void subirLabelImg(e.target.files?.[0])} />
+                      <Button size="small" icon={<ImageRegular />} onClick={() => labelImgRef.current?.click()}>Subir imagen</Button>
+                      {nuevoLabel.imageRef && <Text size={200}>Imagen cargada</Text>}
+                    </div>
+                  </FormField>
+                  <FormField label="o URL de la imagen"><Input value={nuevoLabel.imageUrl ?? ''} onChange={(_, d) => setNuevoLabel({ ...nuevoLabel, imageUrl: d.value })} /></FormField>
+                </FieldRow>
+                <div className={styles.actions} style={{ marginTop: '8px' }}>
+                  <Button size="small" appearance="primary" onClick={addLabel}>Agregar etiqueta</Button>
+                  <Button size="small" appearance="secondary" onClick={() => setNuevoLabel(null)}>Cancelar</Button>
+                </div>
+              </div>
             ) : <Button icon={<AddRegular />} onClick={() => setNuevoLabel({ id: '', texto: '' })}>Agregar etiqueta</Button>)}
           </Card>
 
