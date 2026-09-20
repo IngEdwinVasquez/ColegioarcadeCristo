@@ -13,7 +13,7 @@ import { aiChat } from '../../services/ai'
 import { createClassModule, addModuleFileResource } from '../../services/teamsEdu'
 import { graphErrorMessage } from '../../services/graph'
 import { genId } from '../../utils/helpers'
-import { cursoNombre } from '../../utils/academic'
+import { cursoNombre, asignaturaDe } from '../../utils/academic'
 import type { CoursePage, CursoActividad, CursoEntrega, CursoLabel, CursoRecurso, CursoRecursoTipo, CursoUnidad, Enrollment, GradeRegister, GradeSection } from '../../types'
 
 const RECURSO_TIPOS: Array<{ value: CursoRecursoTipo; label: string }> = [
@@ -223,6 +223,7 @@ export function CursoAsignaturaPage() {
   if (pagesCol.loading || !draft) return <Spinner label="Cargando aula virtual…" />
 
   const courseRecs = grades.filter((g) => cursoNombre(g) === draft.curso)
+  const subjectName = subject?.name ?? (gradeRec ? asignaturaDe(gradeRec) : 'Asignatura')
   const teamId = gradeById(gradeId)?.teamId
 
   /** Genera la planificación con IA (según el formulario, el registro de grado y el documento modelo) y crea el módulo en Teams. */
@@ -301,8 +302,8 @@ Basa el contenido en el tema del formulario. Devuelve ÚNICAMENTE el HTML comple
   return (
     <div>
       <PageHeader
-        title={`${subject?.name ?? 'Asignatura'} · ${draft.curso}`}
-        subtitle="Aula virtual de la asignatura: recursos, actividades, entregas y calificaciones."
+        title={subjectName}
+        subtitle={`Aula virtual · ${draft.curso} · recursos, actividades, entregas y calificaciones.`}
         actions={editable ? (
           <>
             <Button appearance="secondary" icon={<SparkleRegular />} onClick={() => { setPlanDoc(null); setPlanOpen(true) }}>Crear planificación</Button>
