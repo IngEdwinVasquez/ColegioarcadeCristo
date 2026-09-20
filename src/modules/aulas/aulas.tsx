@@ -15,7 +15,7 @@ import { useApp } from '../../context/useApp'
 import { dataService } from '../../services/dataService'
 import { useCollection } from '../../hooks/useCollection'
 import { cursoNombre, nivelShort, ordenarCursos, asignaturaDe, isRealSubject, gradoDe, seccionDe } from '../../utils/academic'
-import { createClassTeam, listTenantTeams, resolveTeamUrl, createClassModule, addModuleFileResource } from '../../services/teamsEdu'
+import { createClassTeam, listTenantTeams, resolveTeamUrl } from '../../services/teamsEdu'
 import { graphErrorMessage } from '../../services/graph'
 import { uploadFile, uploadAndShare, downloadFileAsDataUrl, listFilesInFolder } from '../../services/onedrive'
 import { renderPdfFirstPageToBlob, extractPdfText } from '../../services/pdf'
@@ -331,7 +331,7 @@ export function AulaSubjectsPanel({ subjects, canManage, onOpenSubject, onPlanif
               ) : (
                 <Text size={200} style={{ color: 'var(--texto-suave)' }}>Sin aula de Teams relacionada.</Text>
               )}
-              {onPlanificarIA && <Button size="small" appearance="secondary" icon={<SparkleRegular />} onClick={() => onPlanificarIA(g)}>{g.classPlans?.length ? 'Editar planificación' : 'Planificación IA'}</Button>}
+              {onPlanificarIA && <Button size="small" appearance="secondary" icon={<SparkleRegular />} onClick={() => onPlanificarIA(g)} title={g.classPlans?.length ? 'Planificación del curso creada. Ver, editar o regenerar.' : 'Crear la planificación del curso de esta asignatura'}>{g.classPlans?.length ? 'Ver planificación del curso' : 'Planificación del curso'}</Button>}
               {onOpenSubject && <Button size="small" appearance="outline" icon={<ArrowRightRegular />} onClick={() => onOpenSubject(g)}>Abrir</Button>}
             </div>
           </Card>
@@ -389,7 +389,7 @@ export function AulasView({ scope, subtitle, pageTitle = 'Aulas', onOpenSubject 
   const [planEditing, setPlanEditing] = useState(false)
   const [planPreview, setPlanPreview] = useState('')
   const [planPreviewUrl, setPlanPreviewUrl] = useState('')
-  const [planForm, setPlanForm] = useState({ asignatura: '', modulo: '', tema: '', tiempo: '45 minutos', proposito: '', contenidos: '', indicadores: '', actividades: '', recursos: '', evaluacion: '' })
+  const [planForm, setPlanForm] = useState({ asignatura: '', periodo: 'Año escolar completo (Períodos I, II, III y IV)', observaciones: '' })
 
   const notas: GradeSection[] = gradesCol.items.length ? gradesCol.items : grades
 
@@ -495,75 +495,87 @@ export function AulasView({ scope, subtitle, pageTitle = 'Aulas', onOpenSubject 
     }
   }
 
-  // Habilitado solo cuando el curso tiene registro de grado y documento ejemplo cargados.
+  // Habilitado cuando el curso tiene registro de grado cargado.
   const registroCurso = seleccion ? registrosCol.items.find((r) => r.curso === seleccion.curso) : undefined
-  const modeloPlan = seleccion?.records.find((r) => r.planTemplateName)
-  const puedePlanificarIA = !!registroCurso && !!modeloPlan
+  const puedePlanificarIA = !!registroCurso
 
-  /** Crea la planificación de clase con IA: busca en el registro de grado y usa el documento ejemplo como diseño. */
+  /** Crea la planificación general del curso (asignatura) con IA a partir del Registro de Grado. */
   const planificarIA = async () => {
-    if (!seleccion || !registroCurso || !modeloPlan) return
-    if (!planForm.modulo.trim()) { toaster.dispatchToast('Indica el nombre del módulo.', { intent: 'error' }); return }
+    if (!seleccion || !registroCurso) return
+    const asignatura = planForm.asignatura || asignaturaDe(seleccion.records[0])
+    const subjRecord = seleccion.records.find((r) => asignaturaDe(r) === asignatura)
     setPlanBusy(true)
     try {
-      const subjRecord = seleccion.records.find((r) => asignaturaDe(r) === planForm.asignatura) ?? modeloPlan
-      const template = (modeloPlan.planTemplateText ?? '').slice(0, 12000)
       const reg = registroCurso
-      const regInfo = `Centro: ${reg.centro?.nombre ?? ''} | Nivel: ${reg.nivel} | Curso: ${reg.curso} | Estudiantes: ${reg.estudiantes.length}`
-      const prompt = `Eres un docente de República Dominicana (MINERD). Crea la PLANIFICACIÓN DE CLASE en HTML para el módulo "${planForm.modulo}" de la asignatura ${planForm.asignatura || asignaturaDe(subjRecord)} del curso ${seleccion.curso}.
-Busca en el registro de grado la información relacionada con el módulo "${planForm.modulo}" y úsala como contexto.
-Datos del formulario:
-- Tema: ${planForm.tema}
-- Tiempo: ${planForm.tiempo}
-- Propósito: ${planForm.proposito}
-- Contenidos: ${planForm.contenidos}
-- Indicadores de logro: ${planForm.indicadores}
-- Actividades/estrategias: ${planForm.actividades}
-- Recursos: ${planForm.recursos}
-- Evaluación: ${planForm.evaluacion}
-Registro de grado: ${regInfo}
-Usa EXACTAMENTE la estructura, secciones y encabezados del siguiente documento modelo:
-"""${template || 'Estructura estándar: Encabezado, Tema, Propósito, Contenidos, Indicadores, Actividades (inicio, desarrollo, cierre), Recursos, Evaluación.'}"""
-Devuelve ÚNICAMENTE el HTML completo del documento.`
+      const esp = reg.especificaciones?.[asignatura] ?? {}
+      const centro = reg.centro
+      const regInfo = [
+        centro?.nombre ? `Centro: ${centro.nombre}` : '',
+        centro?.regional ? `Regional: ${centro.regional}` : '',
+        centro?.distrito ? `Distrito: ${centro.distrito}` : '',
+        reg.nivel ? `Nivel: ${reg.nivel}` : '',
+        reg.ciclo ? `Ciclo: ${reg.ciclo}` : '',
+        `Curso: ${seleccion.curso}`,
+        `Asignatura: ${asignatura}`,
+        `Estudiantes: ${reg.estudiantes.length}`,
+      ].filter(Boolean).join(' | ')
+      const espInfo = [
+        esp.p1 ? `Período I: ${esp.p1}` : '',
+        esp.p2 ? `Período II: ${esp.p2}` : '',
+        esp.p3 ? `Período III: ${esp.p3}` : '',
+        esp.p4 ? `Período IV: ${esp.p4}` : '',
+      ].filter(Boolean).join('\n') || '(La sección de especificaciones curriculares del registro de grado está vacía; complétala según el Diseño Curricular MINERD del grado y la asignatura.)'
+      const modelo = seleccion.records.find((r) => r.planTemplateName)
+      const template = (modelo?.planTemplateText ?? '').slice(0, 8000)
+      const prompt = `Eres un docente de República Dominicana (MINERD). Redacta la PLANIFICACIÓN GENERAL DEL CURSO de la asignatura "${asignatura}" para el curso ${seleccion.curso}, correspondiente a ${planForm.periodo}. Es la planificación de TODO EL CURSO (del período académico completo), NO de una clase.
+${planForm.observaciones ? `Indicaciones del docente: ${planForm.observaciones}` : ''}
+
+Debe contener, en este orden, los siguientes apartados:
+1. Encabezado: centro educativo, regional, distrito, nivel, ciclo, grado/curso, asignatura, docente y período académico.
+2. Presentación / descripción de la asignatura.
+3. Competencias Fundamentales que se desarrollan.
+4. Propósito general del área/grado en esta asignatura.
+5. ESPECIFICACIÓN CURRICULAR APLICADA POR PERÍODO: una TABLA HTML (<table>) con encabezados "Período", "Competencias Específicas (CE)", "Indicadores de Logro (IL)" y "Contenidos Claves", con una fila por período (Período I, II, III y IV).
+6. Contenidos por período (conceptuales, procedimentales y actitudinales).
+7. Estrategias y técnicas de enseñanza-aprendizaje.
+8. Recursos y materiales.
+9. Evaluación (técnicas e instrumentos, criterios).
+10. Bibliografía / referencias.
+
+Información del Registro de Grado (úsala como base principal, especialmente las especificaciones curriculares de "${asignatura}"):
+${regInfo}
+Especificaciones curriculares registradas por período:
+${espInfo}
+${template ? `Estructura de referencia (documento modelo del curso):\n"""${template}"""` : ''}
+Si falta información, complétala según el Diseño Curricular del MINERD para ese grado y asignatura, integrándola coherentemente con lo registrado. Devuelve ÚNICAMENTE el HTML completo del documento (usa <h1>, <h2>, <h3>, <p>, <ul>/<li> y <table>).`
       const html = (await aiChat([
-        { role: 'system', content: 'Asistente de planificación docente MINERD. Devuelve HTML.' },
+        { role: 'system', content: 'Asistente curricular MINERD. Devuelve HTML completo.' },
         { role: 'user', content: prompt },
-      ], { temperature: 0.4, maxTokens: 3200 })).replace(/```html?/gi, '').replace(/```/g, '').trim()
-      const file = new File([await htmlToPdfBlob(html, planForm.modulo)], `${planForm.modulo.replace(/[^\w.-]+/g, '_')}.pdf`, { type: 'application/pdf' })
+      ], { temperature: 0.35, maxTokens: 4000 })).replace(/```html?/gi, '').replace(/```/g, '').trim()
+      if (!html) throw new Error('La IA no devolvió contenido. Revisa la configuración de IA.')
+      const titulo = `Planificación del curso · ${asignatura}`
+      const file = new File([await htmlToPdfBlob(html, titulo)], `${`Planificacion_${asignatura}_${seleccion.curso}`.replace(/[^\w.-]+/g, '_')}.pdf`, { type: 'application/pdf' })
       const ref = await uploadAndShare('Planificaciones', file)
-      let teamMsg = ''
-      const teamId = subjRecord?.teamId
-      if (teamId) {
-        try {
-          const mod = await createClassModule(teamId, planForm.modulo, planForm.tema)
-          try { await addModuleFileResource(teamId, mod.id, ref.webUrl) } catch { /* recurso opcional */ }
-          teamMsg = ' Módulo creado en el aula de Teams.'
-        } catch (e) {
-          teamMsg = ` No se pudo crear el módulo en Teams: ${graphErrorMessage(e)}`
-        }
-      } else {
-        teamMsg = ' La asignatura no tiene aula de Teams relacionada.'
-      }
       const planRec: SubjectPlan = {
         id: planEditId ?? genId('plan'),
-        titulo: planForm.modulo,
-        tema: planForm.tema,
+        titulo,
         url: ref.webUrl,
         ref: ref.id,
         html,
         source: 'ia',
         fecha: new Date().toISOString(),
       }
-      const previos = subjRecord.classPlans ?? []
-      await dataService.saveGrade({ ...subjRecord, classPlans: [planRec, ...previos.filter((p) => p.id !== planRec.id)] })
+      const base = subjRecord ?? seleccion.records[0]
+      const previos = base.classPlans ?? []
+      await dataService.saveGrade({ ...base, classPlans: [planRec, ...previos.filter((p) => p.id !== planRec.id)] })
       setPlanEditId(planRec.id)
       setPlanEditUrl(ref.webUrl)
       setPlanEditing(true)
       setPlanPreview(html)
       setPlanPreviewUrl('')
       await gradesCol.refresh()
-      setPlanResult(`Planificación guardada.${teamMsg}`)
-      toaster.dispatchToast('Planificación generada con IA.', { intent: 'success' })
+      setPlanResult('Planificación del curso guardada. Ya está disponible para ver y descargar.')
+      toaster.dispatchToast('Planificación del curso generada.', { intent: 'success' })
     } catch (error) {
       toaster.dispatchToast(graphErrorMessage(error), { intent: 'error' })
     } finally {
@@ -574,28 +586,14 @@ Devuelve ÚNICAMENTE el HTML completo del documento.`
   /** Abre el formulario de planificación con los datos disponibles en la plataforma. */
   const abrirPlanIA = (subject?: GradeSection) => {
     if (!seleccion) return
-    if (!registroCurso || !modeloPlan) {
-      toaster.dispatchToast('Sube el registro de grado y el documento ejemplo del curso para usar la planificación con IA.', { intent: 'error' })
+    if (!registroCurso) {
+      toaster.dispatchToast('Sube el registro de grado del curso para generar la planificación del curso.', { intent: 'error' })
       return
     }
     const asignatura = subject ? asignaturaDe(subject) : asignaturaDe(seleccion.records[0])
     const record = subject ?? seleccion.records.find((r) => asignaturaDe(r) === asignatura)
     const existente = (record?.classPlans ?? [])[0]
-    const esp = registroCurso?.especificaciones?.[asignatura]
-    const contenidos = esp ? [esp.p1, esp.p2, esp.p3, esp.p4].filter(Boolean).join('\n') : ''
-    const tema = (contenidos.split('\n')[0] ?? '').slice(0, 140) || asignatura
-    setPlanForm({
-      asignatura,
-      modulo: existente?.titulo ?? asignatura,
-      tema: existente?.tema ?? tema,
-      tiempo: '45 minutos',
-      proposito: `Desarrollar las competencias de ${asignatura} en los estudiantes de ${seleccion.curso}.`,
-      contenidos,
-      indicadores: `Reconoce y aplica los conceptos y procedimientos de ${asignatura} en situaciones de su entorno.`,
-      actividades: 'Inicio: motivación y saberes previos. Desarrollo: explicación, modelado y práctica guiada. Cierre: síntesis, preguntas de metacognición y evaluación.',
-      recursos: 'Pizarra, cuaderno, recursos del aula virtual, proyector.',
-      evaluacion: 'Observación directa, participación, ejercicios y la actividad asignada en el módulo.',
-    })
+    setPlanForm({ asignatura, periodo: 'Año escolar completo (Períodos I, II, III y IV)', observaciones: '' })
     const legacy = !!existente?.url && /\.html?(\?|$)/i.test(existente.url) && !existente.html
     setPlanEditId(existente?.id ?? null)
     setPlanEditUrl(legacy ? null : (existente?.url ?? null))
@@ -737,9 +735,9 @@ Devuelve ÚNICAMENTE el HTML completo del documento.`
 
                   {!puedePlanificarIA && (
                     <div style={{ background: '#FDE7E9', border: '1px solid #B42318', borderRadius: '8px', padding: '10px 12px', marginTop: '10px' }}>
-                      <Text weight="semibold" size={300} block style={{ color: '#B42318' }}>Falta información para la planificación IA</Text>
+                      <Text weight="semibold" size={300} block style={{ color: '#B42318' }}>Falta información para la planificación del curso</Text>
                       <Text size={200} block style={{ color: '#B42318' }}>
-                        Sube el <strong>Registro de Grado</strong> y el <strong>Documento ejemplo de planificación</strong> de este curso para habilitar la planificación con IA en cada asignatura.
+                        Sube el <strong>Registro de Grado</strong> de este curso para habilitar la planificación del curso por asignatura.
                       </Text>
                     </div>
                   )}
@@ -758,47 +756,42 @@ Devuelve ÚNICAMENTE el HTML completo del documento.`
       <ModalForm
         open={planOpen}
         onOpenChange={(o) => { if (!o) setPlanOpen(false) }}
-        title={planEditing ? 'Editar planificación' : 'Crear planificación con IA'}
-        subtitle="Completa las informaciones del módulo. La IA buscará en el registro de grado y usará el diseño del documento ejemplo."
-        width={760}
+        title={planEditing ? 'Planificación del curso' : 'Crear planificación del curso'}
+        subtitle="La IA la construye a partir del Registro de Grado (especificaciones curriculares) e incluye la ESPECIFICACIÓN CURRICULAR APLICADA POR PERÍODO (CE, Indicadores de Logro y Contenidos Claves)."
+        width={820}
         actions={
           <>
             <Button appearance="secondary" onClick={() => setPlanOpen(false)} disabled={planBusy}>Cerrar</Button>
-            {planPreview && <Button appearance="secondary" icon={<ArrowDownloadRegular />} disabled={planBusy} onClick={() => void downloadPlanPdf(planPreview, planForm.modulo)}>Descargar PDF</Button>}
+            {planPreview && <Button appearance="secondary" icon={<ArrowDownloadRegular />} disabled={planBusy} onClick={() => void downloadPlanPdf(planPreview, `Planificación del curso · ${planForm.asignatura}`)}>Descargar PDF</Button>}
             {planEditUrl && <Button appearance="secondary" as="a" href={planEditUrl} target="_blank" rel="noopener noreferrer" disabled={planBusy}>Abrir en OneDrive</Button>}
             <Button appearance="primary" icon={planBusy ? <Spinner size="tiny" /> : <SparkleRegular />} disabled={planBusy} onClick={() => void planificarIA()}>
-              {planBusy ? 'Generando…' : (planPreview || planPreviewUrl || planEditUrl) ? 'Regenerar con IA' : 'Planificar con IA'}
+              {planBusy ? 'Generando…' : planEditing ? 'Regenerar con IA' : 'Crear planificación con IA'}
             </Button>
           </>
         }
       >
         {seleccion && (
           <>
-            <FieldRow>
-              <FormField label="Asignatura">
-                <Select value={planForm.asignatura} onChange={(_, d) => setPlanForm({ ...planForm, asignatura: d.value })}>
-                  {seleccion.records.map((r) => <option key={r.id} value={asignaturaDe(r)}>{asignaturaDe(r)}</option>)}
-                </Select>
-              </FormField>
-              <FormField label="Nombre del módulo" required>
-                <Input value={planForm.modulo} onChange={(_, d) => setPlanForm({ ...planForm, modulo: d.value })} />
-              </FormField>
-            </FieldRow>
-            <FieldRow>
-              <FormField label="Tema"><Input value={planForm.tema} onChange={(_, d) => setPlanForm({ ...planForm, tema: d.value })} /></FormField>
-              <FormField label="Tiempo"><Input value={planForm.tiempo} onChange={(_, d) => setPlanForm({ ...planForm, tiempo: d.value })} /></FormField>
-            </FieldRow>
-            <FormField label="Propósito"><Textarea value={planForm.proposito} onChange={(_, d) => setPlanForm({ ...planForm, proposito: d.value })} /></FormField>
-            <FormField label="Contenidos"><Textarea value={planForm.contenidos} onChange={(_, d) => setPlanForm({ ...planForm, contenidos: d.value })} /></FormField>
-            <FormField label="Indicadores de logro"><Textarea value={planForm.indicadores} onChange={(_, d) => setPlanForm({ ...planForm, indicadores: d.value })} /></FormField>
-            <FormField label="Actividades / estrategias"><Textarea value={planForm.actividades} onChange={(_, d) => setPlanForm({ ...planForm, actividades: d.value })} /></FormField>
-            <FieldRow>
-              <FormField label="Recursos"><Input value={planForm.recursos} onChange={(_, d) => setPlanForm({ ...planForm, recursos: d.value })} /></FormField>
-              <FormField label="Evaluación"><Input value={planForm.evaluacion} onChange={(_, d) => setPlanForm({ ...planForm, evaluacion: d.value })} /></FormField>
-            </FieldRow>
+            {!planEditing && (
+              <>
+                <FieldRow>
+                  <FormField label="Asignatura">
+                    <Select value={planForm.asignatura} onChange={(_, d) => setPlanForm({ ...planForm, asignatura: d.value })}>
+                      {seleccion.records.map((r) => <option key={r.id} value={asignaturaDe(r)}>{asignaturaDe(r)}</option>)}
+                    </Select>
+                  </FormField>
+                  <FormField label="Período académico">
+                    <Input value={planForm.periodo} onChange={(_, d) => setPlanForm({ ...planForm, periodo: d.value })} />
+                  </FormField>
+                </FieldRow>
+                <FormField label="Indicaciones para la IA (opcional)">
+                  <Textarea value={planForm.observaciones} resize="vertical" onChange={(_, d) => setPlanForm({ ...planForm, observaciones: d.value })} />
+                </FormField>
+              </>
+            )}
             {(planPreview || planPreviewUrl) && (
               <div>
-                <Text weight="semibold" size={300} block style={{ marginBottom: '6px' }}>Planificación creada</Text>
+                <Text weight="semibold" size={300} block style={{ marginBottom: '6px' }}>Planificación del curso</Text>
                 {planPreviewUrl
                   ? <iframe title="Planificación" sandbox="" src={planPreviewUrl} style={PREVIEW_STYLE} />
                   : <iframe title="Planificación" sandbox="" srcDoc={planPreview} style={PREVIEW_STYLE} />}
