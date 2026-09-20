@@ -84,6 +84,8 @@ export function CursoAsignaturaPage() {
   const labelImgRef = useRef<HTMLInputElement>(null)
   const recursoFileRef = useRef<HTMLInputElement>(null)
   const entregaFileRef = useRef<HTMLInputElement>(null)
+  const loadedRef = useRef(false)
+  const savedRef = useRef('')
   const [nuevoLabel, setNuevoLabel] = useState<CursoLabel | null>(null)
   const [nuevoRecurso, setNuevoRecurso] = useState<{ unidadId: string; recurso: CursoRecurso } | null>(null)
   const [nuevaActividad, setNuevaActividad] = useState<{ unidadId: string; act: CursoActividad } | null>(null)
@@ -94,11 +96,12 @@ export function CursoAsignaturaPage() {
   const subject = subjectById(subjectId)
   const gradeRec: GradeSection | undefined = grade
 
-  // Crear/cargar la página del curso.
+  // Crear/cargar la página del curso (solo una vez).
   useEffect(() => {
-    if (pagesCol.loading) return
+    if (pagesCol.loading || loadedRef.current) return
+    loadedRef.current = true
     const existing = pagesCol.items.find((p) => p.id === pageId)
-    if (existing) { setDraft(existing); return }
+    if (existing) { setDraft(existing); savedRef.current = JSON.stringify({ ...existing, updatedAt: '' }); return }
     const nuevo: CoursePage = {
       id: pageId,
       gradeId,
@@ -110,7 +113,9 @@ export function CursoAsignaturaPage() {
       entregas: [],
       updatedAt: new Date().toISOString(),
     }
+    savedRef.current = JSON.stringify({ ...nuevo, updatedAt: '' })
     setDraft(nuevo)
+    void pagesCol.save(nuevo)
   }, [pagesCol.loading, pagesCol.items, pageId, gradeId, section, subjectId, gradeRec])
 
   const estudiantesCurso = useMemo(() => {
@@ -121,12 +126,25 @@ export function CursoAsignaturaPage() {
 
   const editable = user?.roles.some((r) => ['docente', 'admin', 'tecnologia', 'coordinacion'].includes(r)) ?? false
 
+  // Autoguardado: persiste los cambios (recursos, actividades, etiquetas, etc.) poco después de editarlos.
+  useEffect(() => {
+    if (!draft || !editable || !loadedRef.current) return
+    const key = JSON.stringify({ ...draft, updatedAt: '' })
+    if (key === savedRef.current) return
+    const t = setTimeout(() => {
+      savedRef.current = key
+      void pagesCol.save({ ...draft, updatedAt: new Date().toISOString() })
+    }, 1200)
+    return () => clearTimeout(t)
+  }, [draft, editable, pagesCol])
+
   const guardar = async () => {
     if (!draft) return
     setBusy(true)
     try {
       const next = { ...draft, updatedAt: new Date().toISOString() }
       await pagesCol.save(next)
+      savedRef.current = JSON.stringify({ ...next, updatedAt: '' })
       setDraft(next)
       toaster.dispatchToast('Aula virtual guardada.', { intent: 'success' })
     } catch (e) {
@@ -225,8 +243,9 @@ export function CursoAsignaturaPage() {
         return
       }
       if (r.ref) { const url = await getFileDownloadUrl(r.ref); window.open(url, '_blank'); return }
-      if (r.url) window.open(r.url, '_blank')
-      else toaster.dispatchToast('Este recurso no tiene archivo o enlace para abrir.', { intent: 'warning' })
+      if (r.url) { window.open(r.url, '_blank'); return }
+      const q = encodeURIComponent(r.titulo || 'recurso')
+      window.open(r.tipo === 'video' ? `https://www.youtube.com/results?search_query=${q}` : `https://www.google.com/search?q=${q}`, '_blank')
     } catch (error) {
       toaster.dispatchToast(graphErrorMessage(error), { intent: 'error' })
     }
@@ -411,8 +430,9 @@ Incluye una introducción, al menos 3 recursos variando el tipo según la necesi
       const recursos: CursoRecurso[] = (parsed.recursos ?? []).map((r) => {
         const tipo = (r.tipo as CursoRecursoTipo) ?? 'texto'
         let url = r.url
-        if (tipo === 'enlace' && (!url || /ejemplo|example\.|dominio|\.edu\//i.test(url))) {
-          url = `https://www.google.com/search?q=${encodeURIComponent(`${r.titulo ?? ''} ${u.tema ?? ''}`.trim())}`
+        if (tipo !== 'texto' && (!url || /ejemplo|example\.|dominio|\.edu\//i.test(url))) {
+          const q = encodeURIComponent(`${r.titulo ?? ''} ${u.tema ?? ''}`.trim())
+          url = tipo === 'video' ? `https://www.youtube.com/results?search_query=${q}` : `https://www.google.com/search?q=${q}`
         }
         return { id: genId('rec'), tipo, titulo: r.titulo ?? 'Recurso', texto: r.texto, url }
       })
