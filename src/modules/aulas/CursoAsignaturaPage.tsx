@@ -67,6 +67,7 @@ export function CursoAsignaturaPage() {
   const [creandoModulo, setCreandoModulo] = useState(false)
   const [planesUnidad, setPlanesUnidad] = useState<Record<string, string>>({})
   const [planUnidadId, setPlanUnidadId] = useState<string | null>(null)
+  const [datosUnidad, setDatosUnidad] = useState<{ unidadId: string; tema: string; descripcion: string } | null>(null)
   const [unidadBusy, setUnidadBusy] = useState(false)
   const [planForm, setPlanForm] = useState({ titulo: '', tema: '', tiempo: '45 minutos', proposito: '', contenidos: '', indicadores: '', actividades: '', recursos: '', evaluacion: '' })
 
@@ -312,11 +313,15 @@ Basa el contenido en el tema del formulario. Devuelve ÚNICAMENTE el HTML comple
     return faltan
   }
 
-  /** Genera la planificación de la unidad (Inicio, Desarrollo con recursos/evaluación/reflexión, Cierre). */
-  const planificarUnidad = async (u: CursoUnidad) => {
+  /** Abre el formulario para completar los datos necesarios antes de generar la planificación. */
+  const abrirPlanUnidad = (u: CursoUnidad) => {
     if (!draft) return
-    const faltan = requisitosUnidad(u)
-    if (faltan.length) { toaster.dispatchToast(`Antes de generar, completa: ${faltan.join(', ')}.`, { intent: 'error' }); return }
+    setDatosUnidad({ unidadId: u.id, tema: u.tema ?? '', descripcion: draft.descripcion ?? '' })
+  }
+
+  /** Genera la planificación de la unidad (Inicio, Desarrollo con recursos/evaluación/reflexión, Cierre). */
+  const generarPlanificacion = async (u: CursoUnidad, tema: string, descripcion: string) => {
+    if (!draft) return
     setUnidadBusy(true)
     try {
       const reg = registrosCol.items.find((r) => r.curso === draft.curso)
@@ -325,9 +330,9 @@ Basa el contenido en el tema del formulario. Devuelve ÚNICAMENTE el HTML comple
       const regInfo = `Centro: ${reg?.centro?.nombre ?? ''} | Nivel: ${reg?.nivel} | Curso: ${reg?.curso} | Estudiantes: ${reg?.estudiantes.length}`
       const prompt = `Eres un docente de República Dominicana (MINERD). Redacta la PLANIFICACIÓN DE LA UNIDAD DE APRENDIZAJE en HTML.
 - Unidad: ${u.titulo}
-- Tema de la unidad: ${u.tema}
+- Tema de la unidad: ${tema}
 - Curso: ${draft.curso}
-- Descripción del curso: ${draft.descripcion}
+- Descripción del curso: ${descripcion}
 - Registro de grado: ${regInfo}
 Estructura obligatoria con estos encabezados: <h2>Inicio</h2>, <h2>Desarrollo</h2> y <h2>Cierre</h2>. Dentro de Desarrollo incluye obligatoriamente las subsecciones <h3>Recursos</h3>, <h3>Evaluación</h3> y <h3>Reflexión</h3>.
 Usa como modelo la estructura del siguiente documento:
@@ -468,7 +473,7 @@ Incluye una introducción, al menos 3 recursos variando el tipo según la necesi
               </FieldRow>
               {editable && (
                 <div className={styles.actions}>
-                  <Button appearance="secondary" icon={unidadBusy ? <Spinner size="tiny" /> : <SparkleRegular />} disabled={unidadBusy} onClick={() => void planificarUnidad(u)}>
+                  <Button appearance="secondary" icon={unidadBusy ? <Spinner size="tiny" /> : <SparkleRegular />} disabled={unidadBusy} onClick={() => abrirPlanUnidad(u)}>
                     {planesUnidad[u.id] ? 'Regenerar planificación de unidad con IA' : 'Crear planificación de unidad con IA'}
                   </Button>
                   {planesUnidad[u.id] && (
@@ -650,6 +655,62 @@ Incluye una introducción, al menos 3 recursos variando el tipo según la necesi
               <Button size="small" appearance="secondary" as="a" href={planDoc.url} target="_blank" rel="noopener noreferrer">Abrir planificación</Button>
             </div>
           </Card>
+        )}
+      </ModalForm>
+
+      <ModalForm
+        open={!!datosUnidad}
+        onOpenChange={(o) => { if (!o) setDatosUnidad(null) }}
+        title="Datos para la planificación de la unidad"
+        subtitle="Completa la información necesaria. La IA usará el tema, la descripción, el registro de grado y el documento modelo del curso."
+        width={640}
+        actions={
+          <>
+            <Button appearance="secondary" onClick={() => setDatosUnidad(null)} disabled={unidadBusy}>Cancelar</Button>
+            <Button
+              appearance="primary"
+              icon={unidadBusy ? <Spinner size="tiny" /> : <SparkleRegular />}
+              disabled={unidadBusy}
+              onClick={() => {
+                if (!datosUnidad || !draft) return
+                const u = draft.units.find((x) => x.id === datosUnidad.unidadId)
+                if (!u) return
+                const tema = datosUnidad.tema.trim()
+                if (!tema) { toaster.dispatchToast('Indica el tema de la unidad.', { intent: 'error' }); return }
+                const faltan: string[] = []
+                if (!registrosCol.items.some((r) => r.curso === draft.curso)) faltan.push('el registro de grado')
+                if (!courseRecs.some((g) => g.planTemplateName)) faltan.push('el documento modelo de planificación')
+                if (faltan.length) { toaster.dispatchToast(`Falta subir ${faltan.join(' y ')} del curso.`, { intent: 'error' }); return }
+                setUnidad(u.id, { tema })
+                setDraft({ ...draft, descripcion: datosUnidad.descripcion })
+                setDatosUnidad(null)
+                void generarPlanificacion({ ...u, tema }, tema, datosUnidad.descripcion)
+              }}
+            >
+              {unidadBusy ? 'Generando…' : 'Generar planificación'}
+            </Button>
+          </>
+        }
+      >
+        {datosUnidad && (
+          <>
+            <FormField label="Tema de la unidad" required>
+              <Input value={datosUnidad.tema} onChange={(_, d) => setDatosUnidad({ ...datosUnidad, tema: d.value })} />
+            </FormField>
+            <FormField label="Descripción del curso">
+              <Textarea value={datosUnidad.descripcion} resize="vertical" onChange={(_, d) => setDatosUnidad({ ...datosUnidad, descripcion: d.value })} />
+            </FormField>
+            {(() => {
+              const faltan: string[] = []
+              if (!registrosCol.items.some((r) => r.curso === draft.curso)) faltan.push('el registro de grado')
+              if (!courseRecs.some((g) => g.planTemplateName)) faltan.push('el documento modelo de planificación')
+              return faltan.length ? (
+                <Text size={200} block style={{ color: '#B42318' }}>
+                  Falta subir {faltan.join(' y ')} del curso (en el aula del curso) para poder generar.
+                </Text>
+              ) : null
+            })()}
+          </>
         )}
       </ModalForm>
 
