@@ -301,7 +301,12 @@ export function CursoAsignaturaPage() {
     if (!draft || !nuevaActividad || !nuevaActividad.act.titulo.trim()) return
     const u = draft.units.find((x) => x.id === nuevaActividad.unidadId)
     if (!u) return
-    setUnidad(u.id, { actividades: [...u.actividades, { ...nuevaActividad.act, id: genId('act') }] })
+    const act = nuevaActividad.act
+    const existe = u.actividades.some((x) => x.id === act.id)
+    const actividades = existe
+      ? u.actividades.map((x) => (x.id === act.id ? act : x))
+      : [...u.actividades, { ...act, id: genId('act') }]
+    setUnidad(u.id, { actividades })
     setNuevaActividad(null)
   }
 
@@ -663,6 +668,7 @@ Incluye una introducción, al menos 3 recursos variando el tipo según la necesi
                   )}
                   <div className={styles.actions} style={{ marginTop: '6px' }}>
                     {editable && <Button size="small" appearance="secondary" onClick={() => { setEntregaTarget({ unidadId: u.id, actividadId: a.id }); setEntregaEstudiante(estudiantesCurso[0]?.id ?? '') }}>Subir entrega</Button>}
+                    {editable && <Button size="small" appearance="secondary" icon={<EditRegular />} onClick={() => setNuevaActividad({ unidadId: u.id, act: a })}>Editar actividad</Button>}
                     {editable && <Button size="small" appearance="subtle" icon={<DeleteRegular />} onClick={() => setUnidad(u.id, { actividades: u.actividades.filter((x) => x.id !== a.id) })}>Eliminar actividad</Button>}
                     {isStudent && <Button size="small" appearance="primary" icon={busy ? <Spinner size="tiny" /> : <ArrowUploadRegular />} disabled={busy} onClick={() => { setStudentActividad(a.id); studentFileRef.current?.click() }}>Subir y entregar actividad</Button>}
                   </div>
@@ -706,7 +712,7 @@ Incluye una introducción, al menos 3 recursos variando el tipo según la necesi
                     <FormField label="Entrega hasta"><Input type="date" value={nuevaActividad.act.hasta ?? ''} onChange={(_, d) => setNuevaActividad({ ...nuevaActividad, act: { ...nuevaActividad.act, hasta: d.value } })} /></FormField>
                   </FieldRow>
                   <div className={styles.actions}>
-                    <Button appearance="primary" onClick={addActividad}>Agregar actividad</Button>
+                    <Button appearance="primary" onClick={addActividad}>{nuevaActividad.act.id ? 'Guardar actividad' : 'Agregar actividad'}</Button>
                     <Button appearance="secondary" onClick={() => setNuevaActividad(null)}>Cancelar</Button>
                   </div>
                 </Card>
