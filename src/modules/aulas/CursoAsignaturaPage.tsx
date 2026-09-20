@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { Button, Card, Input, Select, Spinner, Tab, TabList, Table, TableBody, TableCell, TableHeader, TableHeaderCell, TableRow, Text, Textarea, useToastController, makeStyles } from '@fluentui/react-components'
-import { AddRegular, DeleteRegular, ImageRegular, ArrowUploadRegular, SaveRegular, BookOpenRegular, SparkleRegular } from '@fluentui/react-icons'
+import { AddRegular, DeleteRegular, ImageRegular, ArrowUploadRegular, SaveRegular, BookOpenRegular, SparkleRegular, ArrowDownloadRegular } from '@fluentui/react-icons'
 import { PageHeader } from '../../components/shared/PageHeader'
 import { ModalForm } from '../../components/shared/ModalForm'
 import { FormField, FieldRow } from '../../components/shared/form'
@@ -65,6 +65,8 @@ export function CursoAsignaturaPage() {
   const [planBusy, setPlanBusy] = useState(false)
   const [planDoc, setPlanDoc] = useState<{ url: string; modulo: string } | null>(null)
   const [creandoModulo, setCreandoModulo] = useState(false)
+  const [planUnidad, setPlanUnidad] = useState<{ unidadId: string; html: string } | null>(null)
+  const [unidadBusy, setUnidadBusy] = useState(false)
   const [planForm, setPlanForm] = useState({ titulo: '', tema: '', tiempo: '45 minutos', proposito: '', contenidos: '', indicadores: '', actividades: '', recursos: '', evaluacion: '' })
 
   const gradeId = params.gradeId ?? ''
@@ -299,6 +301,89 @@ Basa el contenido en el tema del formulario. Devuelve ÚNICAMENTE el HTML comple
     }
   }
 
+  /** Valida los datos necesarios (tema, descripción, registro de grado y modelo). */
+  const requisitosUnidad = (u: CursoUnidad): string[] => {
+    const faltan: string[] = []
+    if (!u.tema?.trim()) faltan.push('el tema de la unidad')
+    if (!draft?.descripcion?.trim()) faltan.push('la descripción del curso')
+    if (!registrosCol.items.some((r) => r.curso === draft?.curso)) faltan.push('el registro de grado del curso')
+    if (!courseRecs.some((g) => g.planTemplateName)) faltan.push('el documento modelo de planificación del curso')
+    return faltan
+  }
+
+  /** Genera la planificación de la unidad (Inicio, Desarrollo con recursos/evaluación/reflexión, Cierre). */
+  const planificarUnidad = async (u: CursoUnidad) => {
+    if (!draft) return
+    const faltan = requisitosUnidad(u)
+    if (faltan.length) { toaster.dispatchToast(`Antes de generar, completa: ${faltan.join(', ')}.`, { intent: 'error' }); return }
+    setUnidadBusy(true)
+    try {
+      const reg = registrosCol.items.find((r) => r.curso === draft.curso)
+      const modelo = courseRecs.find((g) => g.planTemplateName)
+      const template = (modelo?.planTemplateText ?? '').slice(0, 12000)
+      const regInfo = `Centro: ${reg?.centro?.nombre ?? ''} | Nivel: ${reg?.nivel} | Curso: ${reg?.curso} | Estudiantes: ${reg?.estudiantes.length}`
+      const prompt = `Eres un docente de República Dominicana (MINERD). Redacta la PLANIFICACIÓN DE LA UNIDAD DE APRENDIZAJE en HTML.
+- Unidad: ${u.titulo}
+- Tema de la unidad: ${u.tema}
+- Curso: ${draft.curso}
+- Descripción del curso: ${draft.descripcion}
+- Registro de grado: ${regInfo}
+Estructura obligatoria con estos encabezados: <h2>Inicio</h2>, <h2>Desarrollo</h2> y <h2>Cierre</h2>. Dentro de Desarrollo incluye obligatoriamente las subsecciones <h3>Recursos</h3>, <h3>Evaluación</h3> y <h3>Reflexión</h3>.
+Usa como modelo la estructura del siguiente documento:
+"""${template}"""
+Basa el contenido en el tema de la unidad. Devuelve ÚNICAMENTE el HTML del documento.`
+      const html = (await aiChat([
+        { role: 'system', content: 'Asistente de planificación docente MINERD. Devuelve HTML.' },
+        { role: 'user', content: prompt },
+      ], { temperature: 0.4, maxTokens: 3200 })).replace(/```html?/gi, '').replace(/```/g, '').trim()
+      setPlanUnidad({ unidadId: u.id, html })
+    } catch (error) {
+      toaster.dispatchToast(graphErrorMessage(error), { intent: 'error' })
+    } finally {
+      setUnidadBusy(false)
+    }
+  }
+
+  /** Descarga/Imprime como PDF el HTML generado. */
+  const descargarPdf = (html: string, titulo: string) => {
+    const win = window.open('', '_blank')
+    if (!win) { toaster.dispatchToast('Permite las ventanas emergentes para descargar el PDF.', { intent: 'error' }); return }
+    win.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${titulo}</title><style>body{font-family:Segoe UI,Arial,sans-serif;padding:28px;color:#161616;line-height:1.5} h1,h2,h3{color:#0A1F2B} h2{margin-top:22px;border-bottom:1px solid #ccc} h3{margin-top:14px}</style></head><body>${html}</body></html>`)
+    win.document.close()
+    win.focus()
+    setTimeout(() => win.print(), 400)
+  }
+
+  /** Crea con IA la unidad completa: introducción, recursos variados y al menos una actividad. */
+  const crearUnidadIA = async (u: CursoUnidad) => {
+    if (!draft) return
+    const faltan = requisitosUnidad(u)
+    if (faltan.length) { toaster.dispatchToast(`Antes de crear la unidad, completa: ${faltan.join(', ')}.`, { intent: 'error' }); return }
+    setUnidadBusy(true)
+    try {
+      const reg = registrosCol.items.find((r) => r.curso === draft.curso)
+      const prompt = `Genera en JSON la estructura de la unidad de aprendizaje "${u.titulo}" (tema: ${u.tema}) para el curso ${draft.curso} (${draft.descripcion}). Nivel/contexto: ${reg?.nivel ?? ''}.
+Devuelve EXACTAMENTE este JSON:
+{"introduccion":"texto de introducción a la unidad","recursos":[{"tipo":"texto|enlace|documento|audio|imagen|video","titulo":"...","texto":"...","url":"..."}],"actividades":[{"titulo":"...","tema":"...","instrucciones":"..."}]}
+Incluye una introducción, al menos 3 recursos variando el tipo según la necesidad de aprendizaje, y al menos 1 actividad. Responde SOLO el JSON.`
+      const res = await aiChat([
+        { role: 'system', content: 'Asistente educativo MINERD. Responde solo JSON válido.' },
+        { role: 'user', content: prompt },
+      ], { temperature: 0.5, jsonMode: true, maxTokens: 3000 })
+      const json = res.match(/\{[\s\S]*\}/)?.[0] ?? res
+      const parsed = JSON.parse(json) as { introduccion?: string; recursos?: Array<Partial<CursoRecurso>>; actividades?: Array<Partial<CursoActividad>> }
+      const recursos: CursoRecurso[] = (parsed.recursos ?? []).map((r) => ({ id: genId('rec'), tipo: (r.tipo as CursoRecursoTipo) ?? 'texto', titulo: r.titulo ?? 'Recurso', texto: r.texto, url: r.url }))
+      const actividades: CursoActividad[] = (parsed.actividades ?? []).map((a) => ({ id: genId('act'), titulo: a.titulo ?? 'Actividad', tema: a.tema, instrucciones: a.instrucciones }))
+      setUnidad(u.id, { introduccion: parsed.introduccion ?? u.introduccion, recursos: [...u.recursos, ...recursos], actividades: [...u.actividades, ...actividades] })
+      toaster.dispatchToast('Unidad creada con IA. Puedes editar recursos y actividades.', { intent: 'success' })
+      setPlanUnidad(null)
+    } catch (error) {
+      toaster.dispatchToast(graphErrorMessage(error), { intent: 'error' })
+    } finally {
+      setUnidadBusy(false)
+    }
+  }
+
   return (
     <div>
       <PageHeader
@@ -371,6 +456,27 @@ Basa el contenido en el tema del formulario. Devuelve ÚNICAMENTE el HTML comple
                 <FormField label="Hasta"><Input type="date" value={u.hasta ?? ''} disabled={!editable} onChange={(_, d) => setUnidad(u.id, { hasta: d.value })} /></FormField>
                 {editable && <Button appearance="subtle" icon={<DeleteRegular />} onClick={() => delUnidad(u.id)}>Eliminar unidad</Button>}
               </FieldRow>
+
+              <FieldRow>
+                <FormField label="Tema de la unidad" hint="Tema que se tratará en esta unidad de aprendizaje.">
+                  <Input value={u.tema ?? ''} disabled={!editable} onChange={(_, d) => setUnidad(u.id, { tema: d.value })} />
+                </FormField>
+              </FieldRow>
+              {editable && (
+                <div className={styles.actions}>
+                  <Button appearance="secondary" icon={unidadBusy ? <Spinner size="tiny" /> : <SparkleRegular />} disabled={unidadBusy} onClick={() => void planificarUnidad(u)}>
+                    Crear planificación de unidad con IA
+                  </Button>
+                  <Button appearance="secondary" icon={unidadBusy ? <Spinner size="tiny" /> : <SparkleRegular />} disabled={unidadBusy} onClick={() => void crearUnidadIA(u)}>
+                    Crear unidad con IA
+                  </Button>
+                </div>
+              )}
+              {u.introduccion !== undefined && (
+                <FormField label="Introducción de la unidad">
+                  <Textarea value={u.introduccion} disabled={!editable} resize="vertical" onChange={(_, d) => setUnidad(u.id, { introduccion: d.value })} />
+                </FormField>
+              )}
 
               <Text weight="semibold" size={300}>Recursos ({u.recursos.length})</Text>
               {u.recursos.map((r) => (
@@ -538,6 +644,40 @@ Basa el contenido en el tema del formulario. Devuelve ÚNICAMENTE el HTML comple
             </div>
           </Card>
         )}
+      </ModalForm>
+
+      <ModalForm
+        open={!!planUnidad}
+        onOpenChange={(o) => { if (!o) setPlanUnidad(null) }}
+        title="Planificación de la unidad de aprendizaje"
+        subtitle="Inicio · Desarrollo (Recursos, Evaluación, Reflexión) · Cierre."
+        width={900}
+        actions={
+          <>
+            <Button appearance="secondary" onClick={() => setPlanUnidad(null)} disabled={unidadBusy}>Cerrar</Button>
+            <Button
+              appearance="secondary"
+              icon={<ArrowDownloadRegular />}
+              onClick={() => {
+                const el = document.getElementById('plan-unidad-html')
+                const u = draft.units.find((x) => x.id === planUnidad?.unidadId)
+                if (el) descargarPdf(el.innerHTML, u?.titulo ?? 'Unidad de aprendizaje')
+              }}
+            >
+              Descargar PDF
+            </Button>
+            <Button
+              appearance="primary"
+              icon={unidadBusy ? <Spinner size="tiny" /> : <SparkleRegular />}
+              disabled={unidadBusy}
+              onClick={() => { const u = draft.units.find((x) => x.id === planUnidad?.unidadId); if (u) void crearUnidadIA(u) }}
+            >
+              {unidadBusy ? 'Creando…' : 'Crear unidad con IA'}
+            </Button>
+          </>
+        }
+      >
+        <div id="plan-unidad-html" style={{ maxHeight: '60vh', overflow: 'auto', border: '1px solid var(--borde)', borderRadius: '8px', padding: '16px' }} dangerouslySetInnerHTML={{ __html: planUnidad?.html ?? '' }} />
       </ModalForm>
     </div>
   )

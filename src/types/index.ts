@@ -1033,6 +1033,10 @@ export interface CursoEntrega {
 export interface CursoUnidad {
   id: string
   titulo: string
+  /** Tema que se tratará en la unidad de aprendizaje. */
+  tema?: string
+  /** Introducción de la unidad (generada o editada). */
+  introduccion?: string
   desde?: string
   hasta?: string
   recursos: CursoRecurso[]
