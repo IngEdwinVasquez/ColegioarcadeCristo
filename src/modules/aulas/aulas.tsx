@@ -114,6 +114,29 @@ const PREVIEW_STYLE: CSSProperties = { width: '100%', height: '360px', border: '
 /** Colores para asignaturas nuevas del catálogo. */
 const COLORES_ASIGNATURA = ['#0082AD', '#2AA9D8', '#0A7C66', '#B45309', '#7C3AED', '#BE123C', '#15803D', '#4338CA']
 
+/** Palabras y artefactos que se ignoran al comparar nombres de asignaturas. */
+const STOP_ASIGNATURA = new Set(['de', 'del', 'la', 'el', 'los', 'las', 'y', 'e', 'o', 'u', 'sec', 'seccion', 'grado', 'nivel', 'evangelico', 'evangelica', 'integral', 'religiosa', 'humana', 'para', 'con', 'en', 'al', 'on', 'b', 'basica'])
+
+/** Equivalencias entre nombres que designan la misma asignatura. */
+const SINONIMOS_ASIGNATURA: Record<string, string> = {
+  english: 'ingles',
+  ingles: 'ingles',
+  'educacion artistica': 'educacion artistica',
+  'artistica': 'educacion artistica',
+}
+
+/** Normaliza el nombre de una asignatura para detectar duplicados aunque cambien mayúsculas, acentos o palabras sobrantes. */
+export function normAsignatura(nombre: string): string {
+  const limpio = (nombre ?? '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, ' ')
+  const tokens = limpio.split(/\s+/).filter((t) => t.length > 1 && !STOP_ASIGNATURA.has(t))
+  const base = tokens.join(' ')
+  return SINONIMOS_ASIGNATURA[base] ?? base
+}
+
 const useStyles = makeStyles({
   grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 260px), 1fr))', gap: '18px' },
   card: { padding: 0, overflow: 'hidden', cursor: 'pointer', display: 'flex', flexDirection: 'column', transition: 'transform .2s ease, box-shadow .2s ease', ':hover': { transform: 'translateY(-4px)', boxShadow: '0 12px 28px rgba(0,130,173,0.18)' } },
@@ -317,13 +340,14 @@ export function AulaSubjectsPanel({ subjects, canManage, onOpenSubject, onPlanif
   }
 
   /** Asignaturas del catálogo que aún no están en este curso. */
-  const yaEnCurso = new Set(subjects.map((g) => asignaturaDe(g).trim().toLowerCase()))
+  const yaEnCurso = new Set(subjects.map((g) => normAsignatura(asignaturaDe(g))))
   const disponibles = useMemo(() => {
     const nombres = new Map<string, string>()
-    for (const s of catsSubjects) { const n = s.name.trim(); if (n) nombres.set(n.toLowerCase(), n) }
-    for (const g of todasLasNotas) { const n = asignaturaDe(g).trim(); if (n && isRealSubject(n)) nombres.set(n.toLowerCase(), n) }
+    const add = (n: string) => { const k = normAsignatura(n); if (k && !nombres.has(k)) nombres.set(k, n.trim()) }
+    for (const s of catsSubjects) add(s.name)
+    for (const g of todasLasNotas) { const n = asignaturaDe(g); if (n && isRealSubject(n)) add(n) }
     return [...nombres.entries()].filter(([k]) => !yaEnCurso.has(k)).map(([, v]) => v).sort((a, b) => a.localeCompare(b))
-  }, [catsSubjects, todasLasNotas, yaEnCurso])
+  }, [catsSubjects, todasLasNotas, subjects])
 
   const abrirAdd = () => {
     setModoNueva(false)
@@ -347,10 +371,10 @@ export function AulaSubjectsPanel({ subjects, canManage, onOpenSubject, onPlanif
         nombre = asigSel.trim()
         if (!nombre) { toaster.dispatchToast('Selecciona una asignatura.', { intent: 'error' }); return }
       }
-      if (!catsSubjects.some((s) => s.name.trim().toLowerCase() === nombre.toLowerCase())) {
+      if (!catsSubjects.some((s) => normAsignatura(s.name) === normAsignatura(nombre))) {
         await dataService.saveSubject({ id: genId('sub'), name: nombre, shortName: (modoNueva ? nuevaCorta.trim() : '') || nombre.slice(0, 14), color: COLORES_ASIGNATURA[catsSubjects.length % COLORES_ASIGNATURA.length] })
       }
-      if (subjects.some((g) => asignaturaDe(g).trim().toLowerCase() === nombre.toLowerCase())) {
+      if (subjects.some((g) => normAsignatura(asignaturaDe(g)) === normAsignatura(nombre))) {
         toaster.dispatchToast('Esa asignatura ya está en el curso.', { intent: 'error' }); return
       }
       await dataService.saveGrade({
