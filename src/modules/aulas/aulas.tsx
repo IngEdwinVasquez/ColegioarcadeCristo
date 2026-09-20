@@ -656,9 +656,12 @@ Devuelve ÚNICAMENTE el HTML completo del documento.`
                   </div>
 
                   {!puedePlanificarIA && (
-                    <Text size={200} block style={{ color: '#B42318', marginTop: '8px' }}>
-                      Para usar «Planificación IA» en una asignatura, sube primero el registro de grado y el documento ejemplo del curso.
-                    </Text>
+                    <div style={{ background: '#FDE7E9', border: '1px solid #B42318', borderRadius: '8px', padding: '10px 12px', marginTop: '10px' }}>
+                      <Text weight="semibold" size={300} block style={{ color: '#B42318' }}>Falta información para la planificación IA</Text>
+                      <Text size={200} block style={{ color: '#B42318' }}>
+                        Sube el <strong>Registro de Grado</strong> y el <strong>Documento ejemplo de planificación</strong> de este curso para habilitar la planificación con IA en cada asignatura.
+                      </Text>
+                    </div>
                   )}
                 </>
               )}
