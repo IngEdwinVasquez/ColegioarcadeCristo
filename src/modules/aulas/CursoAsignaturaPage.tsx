@@ -27,7 +27,7 @@ const RECURSO_TIPOS: Array<{ value: CursoRecursoTipo; label: string }> = [
 const TIPOS_ARCHIVO: CursoRecursoTipo[] = ['documento', 'audio', 'imagen', 'video']
 
 const fileCache = new Map<string, string>()
-function RefImage({ fileRef, style, alt }: { fileRef?: string; style?: React.CSSProperties; alt?: string }) {
+function RefImage({ fileRef, style, className, alt }: { fileRef?: string; style?: React.CSSProperties; className?: string; alt?: string }) {
   const [src, setSrc] = useState('')
   useEffect(() => {
     if (!fileRef) { setSrc(''); return }
@@ -37,8 +37,8 @@ function RefImage({ fileRef, style, alt }: { fileRef?: string; style?: React.CSS
     downloadFileAsDataUrl(fileRef).then((d) => { fileCache.set(fileRef, d); if (alive) setSrc(d) }).catch(() => { /* sin imagen */ })
     return () => { alive = false }
   }, [fileRef])
-  if (!src) return <div style={{ ...style, background: 'linear-gradient(135deg,#0082AD,#0A1F2B)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><BookOpenRegular /></div>
-  return <img src={src} alt={alt ?? ''} style={style} />
+  if (!src) return <div className={className} style={{ ...style, background: 'linear-gradient(135deg,#0082AD,#0A1F2B)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><BookOpenRegular /></div>
+  return <img className={className} src={src} alt={alt ?? ''} style={style} />
 }
 
 const useStyles = makeStyles({
@@ -47,6 +47,10 @@ const useStyles = makeStyles({
   head: { width: '100%', height: '180px', objectFit: 'cover', borderRadius: '12px', display: 'block' },
   label: { border: '1px solid var(--borde)', borderRadius: '10px', padding: '12px' },
   unit: { border: '1px solid var(--borde)', borderRadius: '12px', padding: '14px', marginBottom: '14px' },
+  unitImgWrap: { position: 'relative', borderRadius: '12px', overflow: 'hidden' },
+  unitImg: { width: '100%', height: '170px', objectFit: 'cover', display: 'block' },
+  imgBtn: { position: 'absolute', top: '8px', right: '8px' },
+  actThumb: { width: '100%', maxHeight: '150px', objectFit: 'cover', borderRadius: '10px', display: 'block', marginTop: '6px' },
 })
 
 /**
@@ -85,6 +89,9 @@ export function CursoAsignaturaPage() {
   const recursoFileRef = useRef<HTMLInputElement>(null)
   const entregaFileRef = useRef<HTMLInputElement>(null)
   const guiaActFileRef = useRef<HTMLInputElement>(null)
+  const unidadImgRef = useRef<HTMLInputElement>(null)
+  const actImgRef = useRef<HTMLInputElement>(null)
+  const [unidadImgTarget, setUnidadImgTarget] = useState<string | null>(null)
   const studentFileRef = useRef<HTMLInputElement>(null)
   const [studentActividad, setStudentActividad] = useState<string | null>(null)
   const loadedRef = useRef(false)
@@ -191,6 +198,30 @@ export function CursoAsignaturaPage() {
       const ref = await uploadFile('AulasVirtuales/Recursos', file.name, file)
       setNuevoRecurso({ ...nuevoRecurso, recurso: { ...nuevoRecurso.recurso, ref: ref.id, nombre: file.name } })
     } catch (e) { toaster.dispatchToast(graphErrorMessage(e), { intent: 'error' }) } finally { setBusy(false); if (recursoFileRef.current) recursoFileRef.current.value = '' }
+  }
+
+  /** Sube la imagen del tema de una unidad de aprendizaje. */
+  const subirImagenUnidad = async (file: File | undefined) => {
+    if (!file || !unidadImgTarget) return
+    const uid = unidadImgTarget
+    setBusy(true)
+    try {
+      const ref = await uploadFile('AulasVirtuales/Unidades', file.name, file)
+      fileCache.set(ref.id, await downloadFileAsDataUrl(ref.id).catch(() => ''))
+      setUnidad(uid, { imageRef: ref.id })
+      toaster.dispatchToast('Imagen de la unidad subida. Recuerda guardar.', { intent: 'success' })
+    } catch (e) { toaster.dispatchToast(graphErrorMessage(e), { intent: 'error' }) } finally { setBusy(false); if (unidadImgRef.current) unidadImgRef.current.value = ''; setUnidadImgTarget(null) }
+  }
+
+  /** Sube la imagen relacionada con la actividad que se está creando/editando. */
+  const subirImagenActividad = async (file: File | undefined) => {
+    if (!file || !nuevaActividad) return
+    setBusy(true)
+    try {
+      const ref = await uploadFile('AulasVirtuales/Actividades', file.name, file)
+      fileCache.set(ref.id, await downloadFileAsDataUrl(ref.id).catch(() => ''))
+      setNuevaActividad({ ...nuevaActividad, act: { ...nuevaActividad.act, imageRef: ref.id } })
+    } catch (e) { toaster.dispatchToast(graphErrorMessage(e), { intent: 'error' }) } finally { setBusy(false); if (actImgRef.current) actImgRef.current.value = '' }
   }
 
   /** Sube el documento guía de la actividad que se está creando/editando. */
@@ -579,6 +610,16 @@ Incluye una introducción, al menos 3 recursos variando el tipo según la necesi
 
           {draft.units.map((u) => (
             <Card key={u.id} className={styles.card}>
+              {(editable || u.imageRef) && (
+                <div className={styles.unitImgWrap}>
+                  <RefImage fileRef={u.imageRef} className={styles.unitImg} alt={u.tema || u.titulo} />
+                  {editable && (
+                    <Button className={styles.imgBtn} size="small" appearance="secondary" icon={<ImageRegular />} onClick={() => { setUnidadImgTarget(u.id); unidadImgRef.current?.click() }} disabled={busy}>
+                      {u.imageRef ? 'Cambiar imagen del tema' : 'Subir imagen del tema'}
+                    </Button>
+                  )}
+                </div>
+              )}
               <FieldRow>
                 <FormField label="Unidad"><Input value={u.titulo} disabled={!editable} onChange={(_, d) => setUnidad(u.id, { titulo: d.value })} /></FormField>
                 <FormField label="Desde"><Input type="date" value={u.desde ?? ''} disabled={!editable} onChange={(_, d) => setUnidad(u.id, { desde: d.value })} /></FormField>
@@ -616,7 +657,7 @@ Incluye una introducción, al menos 3 recursos variando el tipo según la necesi
                   <Text size={200} weight="semibold">{r.tipo.toUpperCase()} · {r.titulo}</Text>
                   {r.tipo === 'texto' && <Text size={300} block style={{ whiteSpace: 'pre-wrap' }}>{r.texto}</Text>}
                   {r.tipo === 'enlace' && r.url && <a href={r.url} target="_blank" rel="noopener noreferrer">{r.url}</a>}
-                  {TIPOS_ARCHIVO.includes(r.tipo) && r.ref && <RefImage fileRef={r.tipo === 'imagen' ? r.ref : undefined} />}
+                  {TIPOS_ARCHIVO.includes(r.tipo) && r.ref && <RefImage fileRef={r.tipo === 'imagen' ? r.ref : undefined} className={r.tipo === 'imagen' ? styles.actThumb : undefined} alt={r.titulo} />}
                   {TIPOS_ARCHIVO.includes(r.tipo) && <Text size={200} block>{r.nombre ?? 'Archivo'}</Text>}
                   <div className={styles.actions} style={{ marginTop: '6px' }}>
                     <Button size="small" appearance="secondary" icon={<ArrowRightRegular />} onClick={() => void abrirRecurso(r)}>Abrir</Button>
@@ -657,6 +698,7 @@ Incluye una introducción, al menos 3 recursos variando el tipo según la necesi
               {u.actividades.map((a) => (
                 <div key={a.id} className={styles.label}>
                   <Text weight="semibold" size={300}>{a.titulo}</Text>
+                  {a.imageRef && <RefImage fileRef={a.imageRef} className={styles.actThumb} alt={a.titulo} />}
                   {a.tema && <Text size={200} block><strong>Tema:</strong> {a.tema}</Text>}
                   {a.instrucciones && <Text size={200} block style={{ whiteSpace: 'pre-wrap' }}><strong>Instrucciones:</strong> {a.instrucciones}</Text>}
                   {a.hasta && <Text size={200} block><strong>Entrega hasta:</strong> {a.hasta}</Text>}
@@ -707,6 +749,13 @@ Incluye una introducción, al menos 3 recursos variando el tipo según la necesi
                       {nuevaActividad.act.guiaNombre && <Text size={200}>{nuevaActividad.act.guiaNombre}</Text>}
                     </div>
                   </FormField>
+                  <FormField label="Imagen de la actividad" hint="Imagen relacionada con la actividad.">
+                    <div className={styles.actions}>
+                      <input ref={actImgRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => void subirImagenActividad(e.target.files?.[0])} />
+                      <Button size="small" icon={<ImageRegular />} onClick={() => actImgRef.current?.click()} disabled={busy}>Subir imagen</Button>
+                      {nuevaActividad.act.imageRef && <Text size={200}>Imagen cargada</Text>}
+                    </div>
+                  </FormField>
                   <FieldRow>
                     <FormField label="Puntos"><Input value={String(nuevaActividad.act.puntos ?? '')} onChange={(_, d) => setNuevaActividad({ ...nuevaActividad, act: { ...nuevaActividad.act, puntos: Number(d.value) || undefined } })} /></FormField>
                     <FormField label="Entrega hasta"><Input type="date" value={nuevaActividad.act.hasta ?? ''} onChange={(_, d) => setNuevaActividad({ ...nuevaActividad, act: { ...nuevaActividad.act, hasta: d.value } })} /></FormField>
@@ -720,6 +769,7 @@ Incluye una introducción, al menos 3 recursos variando el tipo según la necesi
             </Card>
           ))}
           <input ref={studentFileRef} type="file" style={{ display: 'none' }} onChange={(e) => { const id = studentActividad; if (id) void subirEntregaEstudiante(e.target.files?.[0], id) }} />
+          <input ref={unidadImgRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => void subirImagenUnidad(e.target.files?.[0])} />
         </>
       )}
 
