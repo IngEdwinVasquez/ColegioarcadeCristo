@@ -11,7 +11,7 @@ import { useApp } from '../../context/useApp'
 import { dataService } from '../../services/dataService'
 import { useCollection } from '../../hooks/useCollection'
 import { genId } from '../../utils/helpers'
-import { asignaturaDe, cursoNombre, ordenarCursos, isRealSubject, nivelShort, gradoDe, seccionDe, cicloFromGrade } from '../../utils/academic'
+import { asignaturaDe, cursoNombre, ordenarCursos, isRealSubject, nivelShort, gradoDe, seccionDe, cicloFromGrade, INICIAL_GRADOS } from '../../utils/academic'
 import { expandPortalRoles } from '../../types/roles'
 import type { Enrollment, GradeSection, Student, TeacherAssignment } from '../../types'
 
@@ -123,6 +123,47 @@ export function AsignacionesPage() {
       .map((nivel) => ({ nivel, cursos: cursosConAsignaturas.filter((c) => (nivel === 'Otros' ? !['Primaria', 'Secundaria', 'Inicial'].includes(c.nivel) : c.nivel === nivel)) }))
       .filter((g) => g.cursos.length > 0)
   }, [cursosConAsignaturas])
+
+  // Un curso es válido si su nombre sigue el patrón: "Grado.Sección" (Primaria/Secundaria) o el grado de Inicial.
+  const esNombreValido = (g: GradeSection): boolean => {
+    const nivel = nivelShort(g.level)
+    const nombre = (g.name || '').trim()
+    if (nivel === 'Inicial') {
+      return INICIAL_GRADOS.some((gi) => gi.nombre.toLowerCase() === nombre.toLowerCase()) || /^(pre\s*-?\s*kinder|kinder|pre\s*-?\s*primaria)(\.[a-g])?$/i.test(nombre)
+    }
+    const grado = gradoDe(g)
+    const sec = (g.section || seccionDe(g) || '').trim().toUpperCase()
+    if (!grado || !/^[A-G]$/.test(sec)) return false
+    return nombre.replace(/\s+/g, '').toUpperCase() === `${grado}.${sec}`.toUpperCase()
+  }
+
+  /** Elimina los cursos con nombre fuera de formato y asegura los de Inicial estándar. */
+  const limpiarCursos = async () => {
+    const invalidos = grades.filter((g) => !esNombreValido(g))
+    if (invalidos.length === 0) {
+      toaster.dispatchToast('No hay cursos con formato inválido.', { intent: 'info' })
+      return
+    }
+    if (!window.confirm(`¿Eliminar ${invalidos.length} curso(s) con nombre fuera del formato (p. ej. ${invalidos.slice(0, 3).map((x) => x.name).join(', ')})?`)) return
+    setImportingSubjects(true)
+    try {
+      for (const g of invalidos) await dataService.deleteGrade(g.id)
+      const existentes = new Set((gradesCol.items.length ? gradesCol.items : grades).map((g) => cursoNombre(g)))
+      let creadosIni = 0
+      for (const gi of INICIAL_GRADOS) {
+        const objetivo = `${gi.nombre} · Inicial`
+        if (existentes.has(objetivo)) continue
+        await dataService.saveGrade({ id: genId('g'), name: gi.nombre, grado: gi.nombre, level: 'Nivel Inicial', nivel: 'Inicial', asignatura: 'Asignaturas Generales', edad: gi.edad })
+        creadosIni += 1
+      }
+      await Promise.all([gradesCol.refresh(), refreshCatalogs()])
+      toaster.dispatchToast(`Se eliminaron ${invalidos.length} curso(s) inválido(s)${creadosIni ? ` y se crearon ${creadosIni} curso(s) de Inicial` : ''}.`, { intent: 'success' })
+    } catch (error) {
+      toaster.dispatchToast(error instanceof Error ? error.message : 'No se pudieron limpiar los cursos.', { intent: 'error' })
+    } finally {
+      setImportingSubjects(false)
+    }
+  }
   // Cursos con docente encargado, filtrados por el curso y/o docente seleccionados.
   const cursosEncargado = useMemo(
     () => cursosCatalogo.filter((c) => {
@@ -911,6 +952,9 @@ export function AsignacionesPage() {
               </Button>
               <Button appearance="secondary" icon={importingSubjects ? <Spinner size="tiny" /> : <ArrowUploadRegular />} disabled={importingSubjects} onClick={() => subjectExcelRef.current?.click()}>
                 {importingSubjects ? 'Procesando…' : 'Cargar Excel actualizado'}
+              </Button>
+              <Button appearance="secondary" icon={<DeleteRegular />} disabled={importingSubjects} onClick={() => void limpiarCursos()}>
+                Limpiar cursos con formato inválido
               </Button>
             </div>
             <Text size={200} block style={{ color: 'var(--texto-suave)' }}>
