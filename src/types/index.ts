@@ -1020,8 +1020,32 @@ export interface CargaHorariaRegistro {
   portadaRef?: string
   periodoId?: string
   notas?: string
+  /** Información generada al procesar la carga horaria (emparejamiento y asignación). */
+  resultado?: CargaResultado
   createdAt: string
   updatedAt: string
+}
+
+export interface CargaResultadoItem {
+  asignatura: string
+  cursos: string[]
+}
+
+export interface CargaResultadoDocente {
+  docente: string
+  docenteNombre?: string
+  grado: string
+  items: CargaResultadoItem[]
+}
+
+export interface CargaResultado {
+  aplicadoEn: string
+  docentesEmparejados: number
+  asignacionesCreadas: number
+  asignacionesEliminadas: number
+  cursosCreados: number
+  asignaturasCreadas: number
+  detalle: CargaResultadoDocente[]
 }
 
 // ------------------------------ Aula virtual por asignatura (estilo Moodle) ------------------------------
