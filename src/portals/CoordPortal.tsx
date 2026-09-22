@@ -8,6 +8,7 @@ import { CumplimientoPage } from '../modules/coordinacion/CumplimientoPage'
 import { PlanificacionNivel } from '../modules/coordinacion/PlanificacionNivel'
 import { AulasNivelPage } from '../modules/coordinacion/AulasNivelPage'
 import { RegistroGradoPage } from '../modules/registro/RegistroGradoPage'
+import { CargaHorariaPage } from '../modules/administrativo/CargaHorariaPage'
 import { GestionTicPage } from '../modules/tecnologia/GestionTicPage'
 import { AcademicaTecPage } from '../modules/tecnologia/AcademicaTecPage'
 import { AsignacionesPage } from '../modules/administrativo/AsignacionesPage'
@@ -26,6 +27,7 @@ import {
   LinkSquareRegular,
   BookRegular,
   VideoRegular,
+  DocumentPdfRegular,
 } from '@fluentui/react-icons'
 
 const NAV: NavItem[] = [
@@ -40,6 +42,7 @@ const NAV: NavItem[] = [
   { to: '/coordinacion/gestion-academica', label: 'Gestión académica', icon: <BookRegular />, group: 'Académico' },
   { to: '/coordinacion/aulas', label: 'Aulas por curso', icon: <VideoRegular />, group: 'Académico' },
   { to: '/coordinacion/registro-grado', label: 'Registro de Grado', icon: <BookRegular />, group: 'Académico' },
+  { to: '/coordinacion/carga-horaria', label: 'Carga horaria', icon: <DocumentPdfRegular />, group: 'Académico' },
   { to: '/coordinacion/gestion-tic', label: 'Gestión de Coordinación Pedagógica', icon: <ClipboardTaskRegular />, group: 'Gestión' },
   { to: '/coordinacion/copilot', label: 'Copilot', icon: <SparkleRegular />, group: 'Herramientas' },
 ]
@@ -59,6 +62,7 @@ export function CoordPortal() {
         <Route path="gestion-academica" element={<AcademicaTecPage />} />
         <Route path="aulas" element={<AulasNivelPage />} />
         <Route path="registro-grado" element={<RegistroGradoPage scope={{ kind: 'coordinacion' }} />} />
+        <Route path="carga-horaria" element={<CargaHorariaPage />} />
         <Route path="gestion-tic" element={<GestionTicPage title="Gestión de Coordinación Pedagógica" />} />
         <Route path="copilot" element={<CopilotPage />} />
       </Route>

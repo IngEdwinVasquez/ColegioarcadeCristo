@@ -17,6 +17,7 @@ import { RolesPage } from '../modules/administrativo/RolesPage'
 import { AulasPage } from '../modules/aulas/AulasPage'
 import { AulasView } from '../modules/aulas/aulas'
 import { RegistroGradoPage } from '../modules/registro/RegistroGradoPage'
+import { CargaHorariaPage } from '../modules/administrativo/CargaHorariaPage'
 import { EncuentrosPage } from '../modules/encuentros/EncuentrosPage'
 import { EncuentroDetail } from '../modules/encuentros/EncuentroDetail'
 import { Comunicados } from '../modules/dashboard/Comunicados'
@@ -41,6 +42,7 @@ import {
   BookOpenRegular,
   ShieldPersonRegular,
   ShieldCheckmarkRegular,
+  DocumentPdfRegular,
 } from '@fluentui/react-icons'
 
 const NAV: NavItem[] = [
@@ -51,6 +53,7 @@ const NAV: NavItem[] = [
   { to: '/administrativo/asignaciones', label: 'Asignaciones', icon: <LinkSquareRegular />, group: 'Académico' },
   { to: '/administrativo/gestion-academica', label: 'Gestión académica', icon: <BookRegular />, group: 'Académico' },
   { to: '/administrativo/registro-grado', label: 'Registro de Grado', icon: <BookRegular />, group: 'Académico' },
+  { to: '/administrativo/carga-horaria', label: 'Carga horaria', icon: <DocumentPdfRegular />, group: 'Académico' },
   { to: '/administrativo/planificacion', label: 'Planificación Anual', icon: <CalendarTodayRegular />, group: 'Académico' },
   { to: '/administrativo/clases', label: 'Clases Impartidas', icon: <NotebookRegular />, group: 'Académico' },
   { to: '/administrativo/asistencia', label: 'Asistencia', icon: <CalendarCheckmarkRegular />, group: 'Académico' },
@@ -77,6 +80,7 @@ export function AdminPortal() {
         <Route path="asignaciones" element={<AsignacionesPage />} />
         <Route path="gestion-academica" element={<AcademicaTecPage />} />
         <Route path="registro-grado" element={<RegistroGradoPage scope={{ kind: 'todos' }} />} />
+        <Route path="carga-horaria" element={<CargaHorariaPage />} />
         <Route path="planificacion" element={<AnualPlanPage />} />
         <Route path="clases" element={<ClasesPage />} />
         <Route path="clases/:id" element={<ClaseDetail />} />
