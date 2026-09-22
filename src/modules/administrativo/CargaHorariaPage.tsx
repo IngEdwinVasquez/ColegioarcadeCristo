@@ -159,6 +159,7 @@ export function CargaHorariaPage() {
         asignacionesEliminadas: r.asignacionesEliminadas,
         cursosCreados: r.cursosCreados,
         asignaturasCreadas: r.asignaturasCreadas,
+        titularesAsignados: r.titularesAsignados,
         detalle: plan.docentes.map((d) => ({
           docente: d.nombreCarga,
           docenteNombre: d.docenteNombre,
@@ -170,7 +171,7 @@ export function CargaHorariaPage() {
       if (reg) await col.save({ ...reg, resultado, updatedAt: new Date().toISOString() })
       await Promise.all([refreshCatalogs(), col.refresh()])
       toaster.dispatchToast(
-        `Carga horaria aplicada: ${r.asignacionesCreadas} asignación(es) creada(s), ${r.asignacionesEliminadas} retirada(s), ${r.cursosCreados} curso(s)/asignatura(s) nuevo(s).`,
+        `Carga horaria aplicada: ${r.asignacionesCreadas} asignación(es) creada(s), ${r.asignacionesEliminadas} retirada(s), ${r.titularesAsignados} titular(es) de aula, ${r.cursosCreados} curso(s)/asignatura(s) nuevo(s).`,
         { intent: 'success' },
       )
       setPlan(null)
@@ -240,7 +241,7 @@ export function CargaHorariaPage() {
                     <div style={{ borderTop: '1px solid var(--borde)', paddingTop: '8px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
                       <Text weight="semibold" size={300} block>Información generada</Text>
                       <Text size={200} block style={{ color: 'var(--texto-suave)' }}>
-                        Aplicado: {reg.resultado.aplicadoEn.slice(0, 10)} · {reg.resultado.docentesEmparejados} docente(s) · {reg.resultado.asignacionesCreadas} asignación(es) creada(s) · {reg.resultado.asignacionesEliminadas} retirada(s) · {reg.resultado.cursosCreados} curso/asignatura nuevo(s)
+                        Aplicado: {reg.resultado.aplicadoEn.slice(0, 10)} · {reg.resultado.docentesEmparejados} docente(s) · {reg.resultado.asignacionesCreadas} asignación(es) creada(s) · {reg.resultado.asignacionesEliminadas} retirada(s) · {reg.resultado.titularesAsignados} titular(es) de aula · {reg.resultado.cursosCreados} curso/asignatura nuevo(s)
                       </Text>
                       <Text size={200} block style={{ color: '#B45309' }}>Asignación aplicada. Para volver a procesar, reemplaza el PDF.</Text>
                       <div style={{ maxHeight: '240px', overflowY: 'auto' }}>
@@ -291,7 +292,7 @@ export function CargaHorariaPage() {
           <>
             <Text size={300} block>
               <strong>{plan.docentes.filter((d) => d.docenteId).length}</strong> docente(s) emparejado(s) ·{' '}
-              <strong>{plan.totalAsignaciones}</strong> asignación(es) · <strong>{plan.cursosNuevos}</strong> curso(s)/asignatura(s) nuevo(s)
+              <strong>{plan.totalAsignaciones}</strong> asignación(es) · <strong>{plan.totalTitulares}</strong> titular(es) de aula · <strong>{plan.cursosNuevos}</strong> curso(s)/asignatura(s) nuevo(s)
               {plan.asignaturasNuevas.length > 0 ? ` · nuevas asignaturas: ${plan.asignaturasNuevas.join(', ')}` : ''}
             </Text>
             {plan.advertencias.length > 0 && (
