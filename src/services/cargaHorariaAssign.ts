@@ -273,7 +273,22 @@ export async function aplicarPlan(
     for (const item of fila.items) {
       // Inicial: el docente es titular del aula (se marca como docente titular del curso).
       if (item.titular) {
-        const objetivo = grades.filter((g) => nivelShort(g.level) === 'Inicial' && gradoDe(g) === item.gradoInicial && seccionDe(g) === item.seccionInicial)
+        let objetivo = grades.filter((g) => nivelShort(g.level) === 'Inicial' && gradoDe(g) === item.gradoInicial && seccionDe(g) === item.seccionInicial)
+        if (objetivo.length === 0 && item.gradoInicial) {
+          const nuevo: GradeSection = {
+            id: genId('g'),
+            name: item.gradoInicial,
+            grado: item.gradoInicial,
+            section: item.seccionInicial,
+            level: 'Nivel Inicial',
+            nivel: 'Inicial',
+            asignatura: 'Asignaturas Generales',
+          }
+          await dataServiceSaveGrade(nuevo)
+          grades.push(nuevo)
+          objetivo = [nuevo]
+          cursosCreados++
+        }
         for (const g of objetivo) {
           if (g.leadTeacherId !== fila.docenteId) { await dataServiceSaveGrade({ ...g, leadTeacherId: fila.docenteId }); titularesAsignados++ }
         }
