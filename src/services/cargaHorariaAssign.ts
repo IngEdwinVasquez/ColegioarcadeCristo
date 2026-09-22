@@ -30,6 +30,7 @@ export interface DocentePlan {
   nombreCarga: string
   docenteId?: string
   docenteNombre?: string
+  gradoTexto: string
   score: number
   combinaciones: number
   ambiguo: boolean
@@ -202,6 +203,7 @@ export function construirPlan(nivel: string, filas: CargaDocente[], ctx: CargaCo
       nombreCarga: fila.docente,
       docenteId: teacher?.id,
       docenteNombre: teacher?.fullName,
+      gradoTexto: fila.grado,
       score,
       combinaciones: pares.size,
       ambiguo,

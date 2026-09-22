@@ -12,7 +12,7 @@ import { renderPdfFirstPageToBlob, extractPdfText } from '../../services/pdf'
 import { extraerCargaHoraria, construirPlan, aplicarPlan, type PlanCarga } from '../../services/cargaHorariaAssign'
 import { graphErrorMessage } from '../../services/graph'
 import { genId } from '../../utils/helpers'
-import type { CargaHorariaRegistro } from '../../types'
+import type { CargaHorariaRegistro, CargaResultado } from '../../types'
 
 const NIVELES = ['Inicial', 'Primaria', 'Secundaria']
 
@@ -151,6 +151,22 @@ export function CargaHorariaPage() {
     setAplicando(true)
     try {
       const r = await aplicarPlan(plan, { grades, subjects, teachers, periods })
+      const resultado: CargaResultado = {
+        aplicadoEn: new Date().toISOString(),
+        docentesEmparejados: plan.docentes.filter((d) => d.docenteId).length,
+        asignacionesCreadas: r.asignacionesCreadas,
+        asignacionesEliminadas: r.asignacionesEliminadas,
+        cursosCreados: r.cursosCreados,
+        asignaturasCreadas: r.asignaturasCreadas,
+        detalle: plan.docentes.map((d) => ({
+          docente: d.nombreCarga,
+          docenteNombre: d.docenteNombre,
+          grado: d.gradoTexto,
+          items: d.items.map((it) => ({ asignatura: it.asignatura, cursos: it.cursos })),
+        })),
+      }
+      const reg = registroDe(plan.nivel)
+      if (reg) await col.save({ ...reg, resultado, updatedAt: new Date().toISOString() })
       await Promise.all([refreshCatalogs(), col.refresh()])
       toaster.dispatchToast(
         `Carga horaria aplicada: ${r.asignacionesCreadas} asignación(es) creada(s), ${r.asignacionesEliminadas} retirada(s), ${r.cursosCreados} curso(s)/asignatura(s) nuevo(s).`,
@@ -218,6 +234,25 @@ export function CargaHorariaPage() {
                     )}
                     {reg && <Button size="small" appearance="subtle" icon={<DeleteRegular />} disabled={busy === nivel} onClick={() => void eliminar(nivel)}>Eliminar</Button>}
                   </div>
+
+                  {reg?.resultado && (
+                    <div style={{ borderTop: '1px solid var(--borde)', paddingTop: '8px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                      <Text weight="semibold" size={300} block>Información generada</Text>
+                      <Text size={200} block style={{ color: 'var(--texto-suave)' }}>
+                        Aplicado: {reg.resultado.aplicadoEn.slice(0, 10)} · {reg.resultado.docentesEmparejados} docente(s) · {reg.resultado.asignacionesCreadas} asignación(es) creada(s) · {reg.resultado.asignacionesEliminadas} retirada(s) · {reg.resultado.cursosCreados} curso/asignatura nuevo(s)
+                      </Text>
+                      <div style={{ maxHeight: '240px', overflowY: 'auto' }}>
+                        {reg.resultado.detalle.map((d, i) => (
+                          <div key={i} style={{ marginBottom: '6px' }}>
+                            <Text size={200} block><strong>{d.docenteNombre ?? d.docente}</strong>{d.grado ? ` — ${d.grado}` : ''}</Text>
+                            {d.items.length === 0
+                              ? <Text size={200} block style={{ color: 'var(--texto-suave)' }}>Docente de aula (sin asignaturas).</Text>
+                              : d.items.map((it, j) => <Text key={j} size={200} block>• {it.asignatura}: {it.cursos.join(', ') || '—'}</Text>)}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </Card>
             )
