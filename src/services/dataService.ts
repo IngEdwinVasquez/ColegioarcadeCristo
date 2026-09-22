@@ -6,6 +6,7 @@ import type {
   AdmissionRequest,
   Announcement,
   AttendanceRecord,
+  CargaHorariaRegistro,
   ChatMessage,
   ClassPlan,
   ClassSchedule,
@@ -103,6 +104,7 @@ export const collections = {
     sigerdReports: collection<SigerdReport>(SPO_LISTS.sigerdReports),
     gradeRegisters: collection<GradeRegister>(SPO_LISTS.gradeRegisters),
     coursePages: collection<CoursePage>(SPO_LISTS.coursePages),
+    cargaHoraria: collection<CargaHorariaRegistro>(SPO_LISTS.cargaHoraria),
 }
 
 export const dataService = {
@@ -251,6 +253,10 @@ export const dataService = {
   getCoursePages: collections.coursePages.getAll,
   saveCoursePage: collections.coursePages.save,
   deleteCoursePage: collections.coursePages.remove,
+  // Distribución de la carga horaria por nivel
+  getCargaHoraria: collections.cargaHoraria.getAll,
+  saveCargaHoraria: collections.cargaHoraria.save,
+  deleteCargaHoraria: collections.cargaHoraria.remove,
 }
 
 export type DataService = typeof dataService

@@ -1005,6 +1005,25 @@ export interface GradeRegister {
   updatedAt: string
 }
 
+/** Registro de la distribución de la carga horaria por nivel (PDF subido a OneDrive). */
+export interface CargaHorariaRegistro {
+  id: string
+  /** Nivel: Inicial | Primaria | Secundaria */
+  nivel: string
+  titulo: string
+  archivoNombre?: string
+  /** Id. del archivo en OneDrive. */
+  archivoRef?: string
+  /** Enlace compartido del PDF. */
+  archivoUrl?: string
+  /** Id. de la portada (primera página del PDF) en OneDrive. */
+  portadaRef?: string
+  periodoId?: string
+  notas?: string
+  createdAt: string
+  updatedAt: string
+}
+
 // ------------------------------ Aula virtual por asignatura (estilo Moodle) ------------------------------
 
 export interface CursoLabel {
