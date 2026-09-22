@@ -138,13 +138,12 @@ function seccionesDe(grado: string, grades: GradeSection[]): string[] {
 /** Resuelve el aula de Inicial (Pre-Kínder/Kínder/Pre-Primaria) a partir del texto del grado. */
 function resolverCursoInicial(gradoTexto: string, grades: GradeSection[]): { grado: string; seccion: string } | null {
   const delNivel = grades.filter((g) => nivelShort(g.level) === 'Inicial')
-  if (delNivel.length === 0) return null
   const secMatch = norm(gradoTexto).match(/\b([a-g])\b/)
   const seccion = secMatch ? secMatch[1].toUpperCase() : 'A'
   const gi = gradoInicialDe(gradoTexto)
   if (!gi) {
     const directo = delNivel.find((g) => norm(gradoTexto).includes(norm(g.name)) || norm(g.name).includes(norm(gradoTexto)))
-    return directo ? { grado: gradoDe(directo), seccion: seccionDe(directo) } : { grado: gradoDe(delNivel[0]), seccion }
+    return directo ? { grado: gradoDe(directo), seccion: seccionDe(directo) } : null
   }
   const candidatos = delNivel.filter((g) => gradoDe(g) === gi.nombre)
   const match = candidatos.find((g) => seccionDe(g) === seccion) ?? candidatos[0]
@@ -193,7 +192,7 @@ export async function extraerCargaHoraria(textoPdf: string, nivel: string): Prom
 export function construirPlan(nivel: string, filas: CargaDocente[], ctx: CargaContexto): PlanCarga {
   const docentes: DocentePlan[] = []
   const asignaturasNuevas = new Set<string>()
-  let cursosNuevos = 0
+  const nuevasAulas = new Set<string>()
   let totalAsignaciones = 0
   let totalTitulares = 0
 
@@ -212,6 +211,8 @@ export function construirPlan(nivel: string, filas: CargaDocente[], ctx: CargaCo
       if (curso) {
         itemsResueltos.push({ asignatura: 'Docente titular del aula', nuevaAsignatura: false, cursos: [`${curso.grado}.${curso.seccion}`], titular: true, gradoInicial: curso.grado, seccionInicial: curso.seccion })
         titulares++
+        const existe = ctx.grades.some((g) => nivelShort(g.level) === 'Inicial' && gradoDe(g) === curso.grado && seccionDe(g) === curso.seccion)
+        if (!existe) nuevasAulas.add(`Inicial|${curso.grado}.${curso.seccion}`)
       } else {
         advertencias.push(`No se pudo determinar el aula de Inicial para "${fila.grado}".`)
       }
@@ -223,7 +224,7 @@ export function construirPlan(nivel: string, filas: CargaDocente[], ctx: CargaCo
       const cursos: string[] = []
       for (const o of objetivos) {
         const existente = ctx.grades.some((g) => gradoDe(g) === o.grado && seccionDe(g) === o.seccion && nivelShort(g.level) === nivelShort(o.level))
-        if (!existente) cursosNuevos++
+        if (!existente) nuevasAulas.add(`${o.grado}.${o.seccion}`)
         cursos.push(`${o.grado}.${o.seccion}`)
         pares.add(`${o.grado}.${o.seccion}|${norm(asign.nombre)}`)
       }
@@ -246,7 +247,7 @@ export function construirPlan(nivel: string, filas: CargaDocente[], ctx: CargaCo
   }
 
   const advertencias = docentes.flatMap((d) => d.advertencias)
-  return { nivel, docentes, totalAsignaciones, totalTitulares, cursosNuevos, asignaturasNuevas: [...asignaturasNuevas], advertencias }
+  return { nivel, docentes, totalAsignaciones, totalTitulares, cursosNuevos: nuevasAulas.size, asignaturasNuevas: [...asignaturasNuevas], advertencias }
 }
 
 /**
