@@ -52,7 +52,7 @@ export const INICIAL_GRADOS: GradoInicial[] = [
 
 /** Reconoce el grado de Inicial a partir de un texto (SIGERD u otro). */
 export function gradoInicialDe(texto?: string): GradoInicial | null {
-  const t = (texto ?? '').toLowerCase()
+  const t = (texto ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
   if (/pre\s*-?\s*kinder|prekinder|maternal|nido|3\s*a[nñ]os/.test(t)) return INICIAL_GRADOS[0]
   if (/pre\s*-?\s*primar|5\s*a[nñ]os/.test(t)) return INICIAL_GRADOS[2]
   if (/kinder|4\s*a[nñ]os/.test(t)) return INICIAL_GRADOS[1]
