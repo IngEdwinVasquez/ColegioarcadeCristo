@@ -1045,6 +1045,7 @@ export interface CargaResultado {
   asignacionesEliminadas: number
   cursosCreados: number
   asignaturasCreadas: number
+  titularesAsignados: number
   detalle: CargaResultadoDocente[]
 }
 
