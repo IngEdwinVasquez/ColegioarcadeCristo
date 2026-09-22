@@ -96,6 +96,7 @@ export function CargaHorariaPage() {
         archivoUrl: ref.webUrl,
         portadaRef: portadaRef ?? prev?.portadaRef,
         notas: notas.trim() || undefined,
+        resultado: undefined,
         createdAt: prev?.createdAt ?? ahora,
         updatedAt: ahora,
       }
@@ -221,7 +222,7 @@ export function CargaHorariaPage() {
                     {reg?.archivoUrl && (
                       <Button size="small" appearance="secondary" icon={<ArrowRightRegular />} as="a" href={reg.archivoUrl} target="_blank" rel="noopener noreferrer">Ver / Descargar</Button>
                     )}
-                    {reg && (
+                    {reg && !reg.resultado && (
                       <Button
                         size="small"
                         appearance="primary"
@@ -241,6 +242,7 @@ export function CargaHorariaPage() {
                       <Text size={200} block style={{ color: 'var(--texto-suave)' }}>
                         Aplicado: {reg.resultado.aplicadoEn.slice(0, 10)} · {reg.resultado.docentesEmparejados} docente(s) · {reg.resultado.asignacionesCreadas} asignación(es) creada(s) · {reg.resultado.asignacionesEliminadas} retirada(s) · {reg.resultado.cursosCreados} curso/asignatura nuevo(s)
                       </Text>
+                      <Text size={200} block style={{ color: '#B45309' }}>Asignación aplicada. Para volver a procesar, reemplaza el PDF.</Text>
                       <div style={{ maxHeight: '240px', overflowY: 'auto' }}>
                         {reg.resultado.detalle.map((d, i) => (
                           <div key={i} style={{ marginBottom: '6px' }}>
