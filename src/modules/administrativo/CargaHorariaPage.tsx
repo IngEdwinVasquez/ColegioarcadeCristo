@@ -1,12 +1,15 @@
 import { useEffect, useRef, useState } from 'react'
 import { Button, Card, Spinner, Text, Textarea, useToastController, makeStyles } from '@fluentui/react-components'
-import { ArrowUploadRegular, DeleteRegular, ArrowRightRegular, DocumentPdfRegular } from '@fluentui/react-icons'
+import { ArrowUploadRegular, DeleteRegular, ArrowRightRegular, DocumentPdfRegular, PeopleTeamRegular } from '@fluentui/react-icons'
 import { PageHeader } from '../../components/shared/PageHeader'
 import { FormField } from '../../components/shared/form'
+import { ModalForm } from '../../components/shared/ModalForm'
+import { useApp } from '../../context/useApp'
 import { dataService } from '../../services/dataService'
 import { useCollection } from '../../hooks/useCollection'
 import { uploadFile, uploadAndShare, downloadFileAsDataUrl } from '../../services/onedrive'
-import { renderPdfFirstPageToBlob } from '../../services/pdf'
+import { renderPdfFirstPageToBlob, extractPdfText } from '../../services/pdf'
+import { extraerCargaHoraria, construirPlan, aplicarPlan, type PlanCarga } from '../../services/cargaHorariaAssign'
 import { graphErrorMessage } from '../../services/graph'
 import { genId } from '../../utils/helpers'
 import type { CargaHorariaRegistro } from '../../types'
@@ -42,16 +45,21 @@ const useStyles = makeStyles({
 
 /**
  * Distribución de la carga horaria por nivel: permite subir el PDF de cada nivel
- * (Inicial, Primaria, Secundaria), creando un registro en la plataforma.
+ * (Inicial, Primaria, Secundaria), crear el registro y asignar docentes/asignaturas.
  */
 export function CargaHorariaPage() {
   const styles = useStyles()
   const toaster = useToastController()
+  const { grades, subjects, teachers, periods, refreshCatalogs } = useApp()
   const col = useCollection<CargaHorariaRegistro>(dataService.getCargaHoraria, dataService.saveCargaHoraria, dataService.deleteCargaHoraria)
   const [busy, setBusy] = useState<string | null>(null)
   const [notas, setNotas] = useState('')
   const fileRef = useRef<HTMLInputElement>(null)
   const [target, setTarget] = useState<string | null>(null)
+  const [procesando, setProcesando] = useState<string | null>(null)
+  const [plan, setPlan] = useState<PlanCarga | null>(null)
+  const [planNivel, setPlanNivel] = useState('')
+  const [aplicando, setAplicando] = useState(false)
 
   const registroDe = (nivel: string) => col.items.find((r) => r.nivel === nivel)
 
@@ -115,11 +123,52 @@ export function CargaHorariaPage() {
     }
   }
 
+  /** Analiza el PDF del nivel y construye un plan de asignación (sin aplicar). */
+  const procesar = async (nivel: string) => {
+    const reg = registroDe(nivel)
+    if (!reg?.archivoRef) { toaster.dispatchToast(`Sube primero el PDF del Nivel ${nivel}.`, { intent: 'error' }); return }
+    setProcesando(nivel)
+    try {
+      const dataUrl = await downloadFileAsDataUrl(reg.archivoRef)
+      const blob = await (await fetch(dataUrl)).blob()
+      const file = new File([blob], reg.archivoNombre ?? `${nivel}.pdf`, { type: 'application/pdf' })
+      const texto = await extractPdfText(file)
+      const filas = await extraerCargaHoraria(texto, nivel)
+      if (filas.length === 0) { toaster.dispatchToast('No se detectaron docentes en el PDF.', { intent: 'error' }); return }
+      const nuevoPlan = construirPlan(nivel, filas, { grades, subjects, teachers, periods })
+      setPlan(nuevoPlan)
+      setPlanNivel(nivel)
+    } catch (e) {
+      toaster.dispatchToast(graphErrorMessage(e), { intent: 'error' })
+    } finally {
+      setProcesando(null)
+    }
+  }
+
+  /** Aplica el plan: crea cursos/asignaturas y reasigna docentes. */
+  const aplicar = async () => {
+    if (!plan) return
+    setAplicando(true)
+    try {
+      const r = await aplicarPlan(plan, { grades, subjects, teachers, periods })
+      await Promise.all([refreshCatalogs(), col.refresh()])
+      toaster.dispatchToast(
+        `Carga horaria aplicada: ${r.asignacionesCreadas} asignación(es) creada(s), ${r.asignacionesEliminadas} retirada(s), ${r.cursosCreados} curso(s)/asignatura(s) nuevo(s).`,
+        { intent: 'success' },
+      )
+      setPlan(null)
+    } catch (e) {
+      toaster.dispatchToast(graphErrorMessage(e), { intent: 'error' })
+    } finally {
+      setAplicando(false)
+    }
+  }
+
   return (
     <div>
       <PageHeader
         title="Carga horaria"
-        subtitle="Distribución de la carga horaria por nivel (Inicial, Primaria y Secundaria). Sube el PDF de cada nivel para registrarlo en la plataforma."
+        subtitle="Distribución de la carga horaria por nivel (Inicial, Primaria y Secundaria). Sube el PDF de cada nivel y asígnalo a los docentes y aulas correspondientes."
       />
 
       <input ref={fileRef} type="file" accept="application/pdf" style={{ display: 'none' }} onChange={(e) => void subir(e.target.files?.[0])} />
@@ -156,6 +205,17 @@ export function CargaHorariaPage() {
                     {reg?.archivoUrl && (
                       <Button size="small" appearance="secondary" icon={<ArrowRightRegular />} as="a" href={reg.archivoUrl} target="_blank" rel="noopener noreferrer">Ver / Descargar</Button>
                     )}
+                    {reg && (
+                      <Button
+                        size="small"
+                        appearance="primary"
+                        icon={procesando === nivel ? <Spinner size="tiny" /> : <PeopleTeamRegular />}
+                        disabled={procesando === nivel}
+                        onClick={() => void procesar(nivel)}
+                      >
+                        {procesando === nivel ? 'Analizando…' : 'Asignar docentes y asignaturas'}
+                      </Button>
+                    )}
                     {reg && <Button size="small" appearance="subtle" icon={<DeleteRegular />} disabled={busy === nivel} onClick={() => void eliminar(nivel)}>Eliminar</Button>}
                   </div>
                 </div>
@@ -174,6 +234,51 @@ export function CargaHorariaPage() {
           <Text size={200} style={{ color: 'var(--texto-suave)' }}>Se guardará junto al registro cuando subas el PDF.</Text>
         </Card>
       )}
+
+      <ModalForm
+        open={!!plan}
+        onOpenChange={(o) => { if (!o && !aplicando) setPlan(null) }}
+        title={`Asignar docentes y asignaturas · Nivel ${planNivel}`}
+        subtitle="Revisa el resultado antes de aplicarlo. Se crearán los cursos/asignaturas que falten en Aulas por curso y cada docente quedará con las asignaturas de la carga horaria."
+        width={860}
+        actions={
+          <>
+            <Button appearance="secondary" onClick={() => setPlan(null)} disabled={aplicando}>Cancelar</Button>
+            <Button appearance="primary" icon={aplicando ? <Spinner size="tiny" /> : <PeopleTeamRegular />} disabled={aplicando} onClick={() => void aplicar()}>
+              {aplicando ? 'Aplicando…' : 'Aplicar'}
+            </Button>
+          </>
+        }
+      >
+        {plan && (
+          <>
+            <Text size={300} block>
+              <strong>{plan.docentes.filter((d) => d.docenteId).length}</strong> docente(s) emparejado(s) ·{' '}
+              <strong>{plan.totalAsignaciones}</strong> asignación(es) · <strong>{plan.cursosNuevos}</strong> curso(s)/asignatura(s) nuevo(s)
+              {plan.asignaturasNuevas.length > 0 ? ` · nuevas asignaturas: ${plan.asignaturasNuevas.join(', ')}` : ''}
+            </Text>
+            {plan.advertencias.length > 0 && (
+              <div style={{ background: '#FFF4CE', border: '1px solid #B45309', borderRadius: '8px', padding: '10px 12px' }}>
+                <Text weight="semibold" size={200} block>Advertencias</Text>
+                {plan.advertencias.map((w, i) => <Text key={i} size={200} block>• {w}</Text>)}
+              </div>
+            )}
+            <div style={{ maxHeight: '420px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              {plan.docentes.map((d, i) => (
+                <div key={i} style={{ border: '1px solid var(--borde)', borderRadius: '10px', padding: '10px 12px' }}>
+                  <Text weight="semibold" size={300} block>
+                    {d.docenteNombre ?? d.nombreCarga}{d.docenteId ? '' : ' (no encontrado)'}{d.ambiguo ? ' · ambiguo' : ''}
+                  </Text>
+                  {!d.docenteId && <Text size={200} block style={{ color: '#B42318' }}>En la carga horaria: "{d.nombreCarga}" — no coincide con ningún docente.</Text>}
+                  {d.items.map((it, j) => (
+                    <Text key={j} size={200} block>• {it.asignatura}{it.nuevaAsignatura ? ' (nueva)' : ''}: {it.cursos.join(', ') || '—'}</Text>
+                  ))}
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+      </ModalForm>
     </div>
   )
 }
