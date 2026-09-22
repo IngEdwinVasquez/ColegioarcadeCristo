@@ -171,7 +171,7 @@ export function CargaHorariaPage() {
       if (reg) await col.save({ ...reg, resultado, updatedAt: new Date().toISOString() })
       await Promise.all([refreshCatalogs(), col.refresh()])
       toaster.dispatchToast(
-        `Carga horaria aplicada: ${r.asignacionesCreadas} asignación(es) creada(s), ${r.asignacionesEliminadas} retirada(s), ${r.titularesAsignados} titular(es) de aula, ${r.cursosCreados} curso(s)/asignatura(s) nuevo(s).`,
+        `Carga horaria aplicada: ${r.cursosCreados} Curso/Aula nuevo(s), ${r.asignaturasCreadas} asignatura(s) nueva(s), ${r.asignacionesCreadas} asignación(es) creada(s), ${r.asignacionesEliminadas} retirada(s), ${r.titularesAsignados} titular(es) de aula.`,
         { intent: 'success' },
       )
       setPlan(null)
@@ -241,7 +241,7 @@ export function CargaHorariaPage() {
                     <div style={{ borderTop: '1px solid var(--borde)', paddingTop: '8px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
                       <Text weight="semibold" size={300} block>Información generada</Text>
                       <Text size={200} block style={{ color: 'var(--texto-suave)' }}>
-                        Aplicado: {reg.resultado.aplicadoEn.slice(0, 10)} · {reg.resultado.docentesEmparejados} docente(s) · {reg.resultado.asignacionesCreadas} asignación(es) creada(s) · {reg.resultado.asignacionesEliminadas} retirada(s) · {reg.resultado.titularesAsignados} titular(es) de aula · {reg.resultado.cursosCreados} curso/asignatura nuevo(s)
+                        Aplicado: {reg.resultado.aplicadoEn.slice(0, 10)} · {reg.resultado.docentesEmparejados} docente(s) · {reg.resultado.cursosCreados} Curso/Aula nuevo(s) · {reg.resultado.asignacionesCreadas} asignación(es) creada(s) · {reg.resultado.asignacionesEliminadas} retirada(s) · {reg.resultado.titularesAsignados} titular(es) de aula · {reg.resultado.asignaturasCreadas} asignatura(s) nueva(s)
                       </Text>
                       <Text size={200} block style={{ color: '#B45309' }}>Asignación aplicada. Para volver a procesar, reemplaza el PDF.</Text>
                       <div style={{ maxHeight: '240px', overflowY: 'auto' }}>
@@ -292,8 +292,11 @@ export function CargaHorariaPage() {
           <>
             <Text size={300} block>
               <strong>{plan.docentes.filter((d) => d.docenteId).length}</strong> docente(s) emparejado(s) ·{' '}
-              <strong>{plan.totalAsignaciones}</strong> asignación(es) · <strong>{plan.totalTitulares}</strong> titular(es) de aula · <strong>{plan.cursosNuevos}</strong> curso(s)/asignatura(s) nuevo(s)
-              {plan.asignaturasNuevas.length > 0 ? ` · nuevas asignaturas: ${plan.asignaturasNuevas.join(', ')}` : ''}
+              <strong>{plan.cursosNuevos}</strong> Curso/Aula nuevo(s) ·{' '}
+              <strong>{plan.totalAsignaciones}</strong> asignación(es) de asignatura ·{' '}
+              <strong>{plan.totalTitulares}</strong> titular(es) de aula ·{' '}
+              <strong>{plan.asignaturasNuevas.length}</strong> asignatura(s) nueva(s)
+              {plan.asignaturasNuevas.length > 0 ? `: ${plan.asignaturasNuevas.join(', ')}` : ''}
             </Text>
             {plan.advertencias.length > 0 && (
               <div style={{ background: '#FFF4CE', border: '1px solid #B45309', borderRadius: '8px', padding: '10px 12px' }}>
