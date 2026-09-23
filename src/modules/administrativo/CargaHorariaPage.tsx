@@ -304,6 +304,14 @@ export function CargaHorariaPage() {
                 {plan.advertencias.map((w, i) => <Text key={i} size={200} block>• {w}</Text>)}
               </div>
             )}
+            {plan.docentes.some((d) => !d.docenteId) && (
+              <div style={{ background: '#FDE7E9', border: '1px solid #B42318', borderRadius: '8px', padding: '10px 12px' }}>
+                <Text weight="semibold" size={200} block style={{ color: '#B42318' }}>Docentes no encontrados ({plan.docentes.filter((d) => !d.docenteId).length})</Text>
+                {plan.docentes.filter((d) => !d.docenteId).map((d, i) => <Text key={i} size={200} block style={{ color: '#B42318' }}>• {d.nombreCarga}</Text>)}
+                <Button size="small" appearance="secondary" as="a" href="https://admin.cloud.microsoft/?source=applauncher#/users" target="_blank" rel="noopener noreferrer" style={{ marginTop: '6px' }}>Crear en Microsoft 365</Button>
+                <Text size={200} block style={{ color: '#B42318', marginTop: '4px' }}>Créelos en Microsoft 365 y vuelva a procesar para asignarles rol, asignaturas y cursos.</Text>
+              </div>
+            )}
             <div style={{ maxHeight: '420px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '10px' }}>
               {plan.docentes.map((d, i) => (
                 <div key={i} style={{ border: '1px solid var(--borde)', borderRadius: '10px', padding: '10px 12px' }}>

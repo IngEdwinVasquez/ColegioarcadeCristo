@@ -3,6 +3,7 @@ import { dataService } from './dataService'
 import { genId } from '../utils/helpers'
 import { cicloFromGrade, GRADOS, gradoDe, gradoInicialDe, nivelShort, seccionDe } from '../utils/academic'
 import type { GradeSection, Period, Subject, Teacher, TeacherAssignment } from '../types'
+import type { Role } from '../types/roles'
 
 /** Item de asignatura detectado en la carga horaria. */
 export interface CargaItem {
@@ -67,17 +68,20 @@ const norm = (s: string): string =>
 
 const tokens = (s: string): string[] => norm(s).split(' ').filter(Boolean)
 
-const ORD: Record<string, string> = {
-  '1ro': '1ro', '2do': '2do', '3ro': '3ro', '4to': '4to', '5to': '5to', '6to': '6to',
-  primer: '1ro', primero: '1ro', segundo: '2do', tercero: '3ro', cuarto: '4to', quinto: '5to', sexto: '6to',
-}
+const GRADO_MATCH: Array<[RegExp, string]> = [
+  [/\b(?:1(?:ro|ero|er|o)?|primero|primer)\b/, '1ro'],
+  [/\b(?:2(?:do|da|o)?|segundo|segunda)\b/, '2do'],
+  [/\b(?:3(?:ro|er|o)?|tercero|tercera)\b/, '3ro'],
+  [/\b(?:4(?:to|ta|o)?|cuarto|cuarta)\b/, '4to'],
+  [/\b(?:5(?:to|ta|o)?|quinto|quinta)\b/, '5to'],
+  [/\b(?:6(?:to|ta|o)?|sexto|sexta)\b/, '6to'],
+]
 
 /** Extrae el grado (1roâ€¦6to) y las secciones (Aâ€“G) de un texto como "5to", "6to A", "4to. A,B". */
 function parseGrado(texto: string): { grado: string; secciones: string[]; general: boolean } {
   const t = norm(texto)
-  let grado = ''
-  const gm = t.match(/\b(1ro|2do|3ro|4to|5to|6to|primer|primero|segundo|tercero|cuarto|quinto|sexto)\b/)
-  if (gm) grado = ORD[gm[1]] ?? ''
+  const gm = GRADO_MATCH.find(([re]) => re.test(t))
+  const grado = gm ? gm[1] : ''
   const secciones = [...t.matchAll(/\b([a-g])\b/g)].map((m) => m[1].toUpperCase())
   const general = /secundari|primari|inicial|todos|todas|nivel/.test(t) && !grado
   return { grado, secciones, general }
@@ -293,6 +297,19 @@ export async function aplicarPlan(
         for (const g of objetivo) {
           if (g.leadTeacherId !== fila.docenteId) { await dataServiceSaveGrade({ ...g, leadTeacherId: fila.docenteId }); titularesAsignados++ }
         }
+        // Asignatura general del aula de Inicial: se crea y se asigna al docente.
+        let general = subjects.find((s) => norm(s.name) === 'asignaturas generales')
+        if (!general) {
+          general = { id: genId('sub'), name: 'Asignaturas Generales', shortName: 'General' }
+          await dataServiceSaveSubject(general)
+          subjects.push(general)
+          asignaturasCreadas++
+        }
+        const base = objetivo[0]
+        if (base) {
+          const gradeId = await asegurarCursoAsignatura('Inicial', gradoDe(base), seccionDe(base), general, grades, () => cursosCreados++)
+          wanted.set(`${gradeId}|${general.id}`, { gradeId, subjectId: general.id })
+        }
         continue
       }
       // Asignatura: usar la del catálogo o crear una nueva.
@@ -332,6 +349,12 @@ export async function aplicarPlan(
         grades: [...new Set([...wanted.values()].map((v) => v.gradeId))],
         subjects: [...new Set([...wanted.values()].map((v) => v.subjectId))],
       })
+      // Asegurar el rol de docente para la cuenta vinculada.
+      const users = await dataService.getUsers()
+      const cuenta = (teacher.userId && users.find((x) => x.id === teacher.userId)) || users.find((x) => x.teacherId === teacher.id)
+      if (cuenta && !cuenta.roles.includes('docente')) {
+        await dataService.saveUser({ ...cuenta, teacherId: teacher.id, roles: [...new Set<Role>([...cuenta.roles, 'docente'])], updatedAt: new Date().toISOString() })
+      }
     }
   }
 
