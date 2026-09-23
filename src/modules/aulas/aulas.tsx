@@ -768,32 +768,48 @@ Si falta información, complétala según el Diseño Curricular del MINERD para 
     }
   }
 
+  /** Aulas agrupadas por nivel, en secuencia (Inicial → Primaria → Secundaria). */
+  const gruposNivel = useMemo(() => {
+    const orden = ['Inicial', 'Primaria', 'Secundaria']
+    const map = new Map<string, Aula[]>()
+    for (const a of aulas) { const k = a.nivel || 'Otros'; if (!map.has(k)) map.set(k, []); map.get(k)!.push(a) }
+    return [...map.entries()].sort((x, y) => {
+      const ix = orden.indexOf(x[0]); const iy = orden.indexOf(y[0])
+      return (ix < 0 ? 99 : ix) - (iy < 0 ? 99 : iy)
+    })
+  }, [aulas])
+
   return (
     <div>
       <PageHeader title={pageTitle} subtitle={subtitle ?? 'Aulas del colegio. Entre a un aula para ver y gestionar sus asignaturas.'} />
       {aulas.length === 0 ? (
         <EmptyStateView title="Sin aulas" message="No hay aulas disponibles para este usuario." icon={<VideoRegular />} />
       ) : (
-        <div className={styles.grid}>
-          {aulas.map((a) => (
-            <Card key={a.curso} className={styles.card} onClick={() => setSelected(a.curso)}>
-              <div className={styles.imgWrap}>
-                <AulaImg aula={a} className={styles.img} />
-                {canManage && (
-                  <Button className={styles.imgBtn} size="small" appearance="secondary" icon={<ImageRegular />} onClick={(e) => { e.stopPropagation(); setImgAula(a) }} aria-label="Cambiar imagen" />
-                )}
-              </div>
-              <div className={styles.body}>
-                <Text weight="semibold" size={400}>{a.curso}</Text>
-                <div className={styles.chips}>
-                  <span className={styles.chip}>{a.nivel}</span>
-                  <span className={styles.chip}>{a.records.length} asignatura(s)</span>
-                </div>
-                <span className={styles.link}>Abrir aula <ArrowRightRegular /></span>
-              </div>
-            </Card>
-          ))}
-        </div>
+        gruposNivel.map(([nivel, lista]) => (
+          <div key={nivel} style={{ marginBottom: '26px' }}>
+            <Text weight="semibold" size={500} block style={{ marginBottom: '10px' }}>Nivel {nivel}</Text>
+            <div className={styles.grid}>
+              {lista.map((a) => (
+                <Card key={a.curso} className={styles.card} onClick={() => setSelected(a.curso)}>
+                  <div className={styles.imgWrap}>
+                    <AulaImg aula={a} className={styles.img} />
+                    {canManage && (
+                      <Button className={styles.imgBtn} size="small" appearance="secondary" icon={<ImageRegular />} onClick={(e) => { e.stopPropagation(); setImgAula(a) }} aria-label="Cambiar imagen" />
+                    )}
+                  </div>
+                  <div className={styles.body}>
+                    <Text weight="semibold" size={400}>{a.curso}</Text>
+                    <div className={styles.chips}>
+                      <span className={styles.chip}>{a.nivel}</span>
+                      <span className={styles.chip}>{a.records.length} asignatura(s)</span>
+                    </div>
+                    <span className={styles.link}>Abrir aula <ArrowRightRegular /></span>
+                  </div>
+                </Card>
+              ))}
+            </div>
+          </div>
+        ))
       )}
 
       <Dialog open={!!seleccion} onOpenChange={(_, d) => { if (!d.open) setSelected(null) }}>
