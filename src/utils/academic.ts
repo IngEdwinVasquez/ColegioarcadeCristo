@@ -152,13 +152,16 @@ export const asignaturaDe = (curso: GradeSection): string => {
 }
 
 const NIVEL_ORDEN = ['Inicial', 'Primaria', 'Secundaria']
-const GRADO_ORDEN = ['1ro', '2do', '3ro', '4to', '5to', '6to']
+const GRADO_ORDEN = ['Pre-Kinder', 'Kinder', 'Pre-Primaria', '1ro', '2do', '3ro', '4to', '5to', '6to']
+
+/** Normaliza para comparar nombres de grado sin acentos ni mayúsculas. */
+const normGrado = (s: string) => (s ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim()
 
 /** Indica si un curso tiene estructura válida (tiene grado, o es de Inicial). */
 export const esCursoValido = (g: GradeSection): boolean => !(gradoDe(g) === '' && nivelShort(g.level) !== 'Inicial')
 
 const rankGrado = (g: GradeSection): number => {
-  const i = GRADO_ORDEN.indexOf(gradoDe(g))
+  const i = GRADO_ORDEN.findIndex((x) => normGrado(x) === normGrado(gradoDe(g)))
   return i === -1 ? 99 : i
 }
 
