@@ -1,24 +1,48 @@
-import { useMemo, useState, type ReactNode } from 'react'
+import { useMemo, useRef, useState, type ReactNode } from 'react'
 import { Button, Card, Input, ProgressBar, Select, Text, useToastController, makeStyles } from '@fluentui/react-components'
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Cell, LabelList, Tooltip as RTooltip } from 'recharts'
 import { useApp } from '../../context/useApp'
 import { dataService } from '../../services/dataService'
 import { useCollection } from '../../hooks/useCollection'
 import { graphErrorMessage } from '../../services/graph'
+import { extractPdfText } from '../../services/pdf'
+import { parseSigerdText } from '../../services/sigerdAi'
 import { genId } from '../../utils/helpers'
-import { GRADOS, cursoNombre, gradoDe, seccionDe, nivelShort, nivelDeTanda, isRealSubject, asignaturaDe, ordenarCursos } from '../../utils/academic'
+import { GRADOS, cursoNombre, gradoDe, seccionDe, gradoInicialDe, nivelShort, nivelDeTanda, isRealSubject, asignaturaDe, ordenarCursos } from '../../utils/academic'
 import { PERSON_GROUPS, peopleInGroup, transferPerson, type PersonRef } from '../../services/personGroups'
 import type { Enrollment, GradeSection, Persona, SigerdReport, Student, StudentGuardian, Teacher } from '../../types'
 
-const GRADO_WORDS: Record<string, number> = {
-  '1ro': 1, '1er': 1, primero: 1, primer: 1, '2do': 2, segundo: 2, '3ro': 3, tercero: 3, '4to': 4, cuarto: 4, '5to': 5, quinto: 5, '6to': 6, sexto: 6,
-}
+const GRADE_TOKENS: Array<[RegExp, number]> = [
+  [/pre\s*-?\s*kinder|prekinder|maternal|nido|3\s*a[nñ]os/, 0],
+  [/pre\s*-?\s*primar|preprimar|5\s*a[nñ]os/, 0],
+  [/kinder|4\s*a[nñ]os/, 0],
+  [/\b1ro\b|\b1er\b|primero|primer\b/, 1],
+  [/\b2do\b|\b2da\b|segundo|segunda/, 2],
+  [/\b3ro\b|\b3er\b|tercero|tercera/, 3],
+  [/\b4to\b|\b4ta\b|cuarto|cuarta/, 4],
+  [/\b5to\b|\b5ta\b|quinto|quinta/, 5],
+  [/\b6to\b|\b6ta\b|sexto|sexta/, 6],
+]
+
+/**
+ * Número de grado tomando la PRIMERA mención del texto.
+ * Ej.: "Quinto grado (3ro. Nivel Medio)" → 5. Inicial → 0.
+ */
 const numGrado = (g?: string): number | null => {
-  const t = ` ${(g ?? '').toLowerCase()} `
-  for (const [k, v] of Object.entries(GRADO_WORDS)) if (t.includes(k)) return v
-  const m = (g ?? '').match(/\b([1-6])\b/)
-  return m ? Number(m[1]) : null
+  const t = (g ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+  let mejorIdx = Infinity
+  let mejor: number | null = null
+  for (const [re, num] of GRADE_TOKENS) {
+    const m = re.exec(t)
+    if (m && m.index < mejorIdx) { mejorIdx = m.index; mejor = num }
+  }
+  return mejor
 }
+
+/** Clave insensible a orden, acentos y mayúsculas con los tokens del nombre completo. */
+const tokensNombre = (s: string): string =>
+  (s ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9\s]/g, ' ')
+    .split(/\s+/).filter((t) => t.length > 1).sort().join(' ')
 
 const useStyles = makeStyles({
   grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 320px), 1fr))', gap: '16px' },
@@ -91,6 +115,7 @@ export function GruposPersonas({ scopeIds, levelFilter }: { scopeIds?: Set<strin
   const enrollmentsCol = useCollection<Enrollment>(dataService.getEnrollments)
   const reportsCol = useCollection<SigerdReport>(dataService.getSigerdReports)
   const [matriculando, setMatriculando] = useState(false)
+  const listadoRef = useRef<HTMLInputElement>(null)
   const [asig, setAsig] = useState<Record<string, string>>({})
   const inScope = (gradeId?: string) => !scopeIds || (!!gradeId && scopeIds.has(gradeId))
 
@@ -230,6 +255,67 @@ export function GruposPersonas({ scopeIds, levelFilter }: { scopeIds?: Set<strin
     }
   }
 
+  /**
+   * Matricula a los estudiantes no matriculados comparando su nombre con los
+   * listados SIGERD (PDF) por secciones: nombre + apellidos, y curso desde Grado + Sec.
+   */
+  const matricularDesdeListado = async (files: FileList | null) => {
+    if (!files || files.length === 0) return
+    if (!activePeriod) { toaster.dispatchToast('No hay un período activo.', { intent: 'error' }); if (listadoRef.current) listadoRef.current.value = ''; return }
+    setMatriculando(true)
+    try {
+      // Nombre normalizado → { grado, sec, nivel } según los listados.
+      const mapa = new Map<string, { grado: string; sec: string; nivel?: string }>()
+      for (const file of Array.from(files)) {
+        const texto = await extractPdfText(file)
+        const parsed = parseSigerdText(texto)
+        const nivelListado = parsed.header.tandaServicio ? nivelDeTanda(parsed.header.tandaServicio) ?? undefined : undefined
+        for (const e of parsed.estudiantes) {
+          const clave = tokensNombre(`${e.nombres ?? ''} ${e.primerApellido ?? ''} ${e.segundoApellido ?? ''}`)
+          if (clave) mapa.set(clave, { grado: e.grado ?? parsed.header.grado ?? '', sec: e.seccion ?? parsed.header.seccion ?? '', nivel: nivelListado })
+        }
+      }
+      if (mapa.size === 0) { toaster.dispatchToast('No se detectaron estudiantes en los listados.', { intent: 'error' }); return }
+
+      let ok = 0
+      let sinCoincidencia = 0
+      let sinCurso = 0
+      for (const s of noMatriculados) {
+        const info = mapa.get(tokensNombre(s.fullName))
+        if (!info) { sinCoincidencia += 1; continue }
+        const gi = gradoInicialDe(info.grado)
+        let curso: GradeSection | undefined
+        if (gi) {
+          curso = grades.find((g) => nivelShort(g.level) === 'Inicial' && gradoDe(g) === gi.nombre && seccionDe(g) === info.sec.toUpperCase())
+            ?? grades.find((g) => nivelShort(g.level) === 'Inicial' && gradoDe(g) === gi.nombre)
+            ?? grades.find((g) => nivelShort(g.level) === 'Inicial' && gradoDe(g) === gi.nombre && info.sec === '')
+        } else {
+          const n = numGrado(info.grado)
+          const sec = (info.sec || '').trim().toUpperCase()
+          if (n) {
+            curso = grades.find((g) => cursoNombre(g) === `${GRADOS[n - 1]}.${sec}${info.nivel ? ` · ${nivelShort(info.nivel)}` : ''}`)
+              ?? grades.find((g) => gradoDe(g) === GRADOS[n - 1] && seccionDe(g) === sec && (!info.nivel || nivelShort(g.level) === nivelShort(info.nivel)))
+              ?? grades.find((g) => gradoDe(g) === GRADOS[n - 1] && seccionDe(g) === sec)
+          }
+        }
+        if (!curso) { sinCurso += 1; continue }
+        await dataService.saveEnrollment({ id: genId('enr'), studentId: s.id, gradeId: curso.id, periodId: activePeriod })
+        if (s.gradeId !== curso.id) await dataService.saveStudent({ ...s, gradeId: curso.id })
+        ok += 1
+      }
+      await Promise.all([studentsCol.refresh(), enrollmentsCol.refresh()])
+      toaster.dispatchToast(
+        `Matriculados: ${ok}. No encontrados en el listado: ${sinCoincidencia}. Sin curso identificable: ${sinCurso}.`,
+        { intent: ok ? 'success' : 'warning' },
+      )
+    } catch (error) {
+      toaster.dispatchToast(graphErrorMessage(error), { intent: 'error' })
+    } finally {
+      setMatriculando(false)
+      if (listadoRef.current) listadoRef.current.value = ''
+    }
+  }
+
   const transferir = async (groupKey: string) => {
     const group = PERSON_GROUPS.find((g) => g.key === groupKey)
     const tgt = PERSON_GROUPS.find((g) => g.key === target[groupKey])
@@ -285,11 +371,15 @@ export function GruposPersonas({ scopeIds, levelFilter }: { scopeIds?: Set<strin
         )}
         action={
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            <input ref={listadoRef} type="file" accept="application/pdf" multiple style={{ display: 'none' }} onChange={(e) => void matricularDesdeListado(e.target.files)} />
             {seleccionados.length > 0 && (
               <Button appearance="primary" size="small" disabled={matriculando} onClick={() => void matricularSeleccionados()}>
                 {matriculando ? 'Matriculando…' : `Matricular seleccionados (${seleccionados.length})`}
               </Button>
             )}
+            <Button appearance="primary" size="small" disabled={matriculando || noMatriculados.length === 0} onClick={() => listadoRef.current?.click()}>
+              {matriculando ? 'Matriculando…' : 'Matricular desde listado (PDF)'}
+            </Button>
             <Button appearance="secondary" size="small" disabled={matriculando || noMatriculados.length === 0} onClick={() => void matricularNoMatriculados()}>
               {matriculando ? 'Matriculando…' : 'Matricular (comparar con SIGERD)'}
             </Button>
