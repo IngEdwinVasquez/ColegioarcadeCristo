@@ -15,6 +15,14 @@ interface NivelSelectorProps {
 /** Selector del nivel de coordinación (Inicial / Primaria / Secundaria). */
 export function NivelSelector({ value, onChange, levels }: NivelSelectorProps) {
   const styles = useStyles()
+  if (levels.length <= 1) {
+    return (
+      <div className={styles.wrap}>
+        <span className={styles.label}>Nivel de coordinación</span>
+        <span style={{ fontWeight: 600 }}>{levels[0] ?? value}</span>
+      </div>
+    )
+  }
   return (
     <div className={styles.wrap}>
       <span className={styles.label}>Nivel de coordinación</span>

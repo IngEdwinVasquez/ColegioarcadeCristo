@@ -36,7 +36,7 @@ function masFrecuente(niveles: CoordinationLevel[]): CoordinationLevel | null {
  *   2. Los acompañamientos que ha realizado (nivel predominante).
  *   3. Los grados de su ficha de docente (nivel predominante).
  */
-export function useCoordinationLevel(): { level: CoordinationLevel; setLevel: (l: CoordinationLevel) => void; levels: CoordinationLevel[] } {
+export function useCoordinationLevel(): { level: CoordinationLevel; setLevel: (l: CoordinationLevel) => void; levels: CoordinationLevel[]; locked: boolean } {
   const { user, teachers, grades } = useApp()
   const [porAcompanamientos, setPorAcompanamientos] = useState<CoordinationLevel | null>(null)
   const [porPersona, setPorPersona] = useState<CoordinationLevel | null>(null)
@@ -79,21 +79,31 @@ export function useCoordinationLevel(): { level: CoordinationLevel; setLevel: (l
     return masFrecuente(grades.filter((g) => ids.has(g.id)).map((g) => nivelShort(g.level) as CoordinationLevel))
   }, [user, teachers, grades, porAcompanamientos, porPersona])
 
+  // Nivel fijo del coordinador: su ficha de personal o su cargo. Si está definido,
+  // solo verá ese nivel (los cursos/asignaturas de su nivel).
+  const fijo = useMemo<CoordinationLevel | null>(
+    () => porPersona ?? nivelDesdeTexto(user?.jobTitle),
+    [porPersona, user?.jobTitle],
+  )
+
   const [level, setLevelState] = useState<CoordinationLevel>(() => {
+    if (fijo) return fijo
     const stored = sessionStorage.getItem(KEY) as CoordinationLevel | null
     return stored && LEVELS.includes(stored) ? stored : (derivado ?? 'Primaria')
   })
 
   // Mientras el usuario no elija manualmente, sigue el nivel deducido.
   useEffect(() => {
+    if (fijo) { if (fijo !== level) setLevelState(fijo); return }
     if (sessionStorage.getItem(KEY)) return
     if (derivado && derivado !== level) setLevelState(derivado)
-  }, [derivado, level])
+  }, [derivado, level, fijo])
 
   const setLevel = useCallback((l: CoordinationLevel) => {
+    if (fijo) return
     setLevelState(l)
     sessionStorage.setItem(KEY, l)
-  }, [])
+  }, [fijo])
 
-  return { level, setLevel, levels: LEVELS }
+  return { level, setLevel, levels: fijo ? [fijo] : LEVELS, locked: !!fijo }
 }
