@@ -210,11 +210,16 @@ export function construirPlan(nivel: string, filas: CargaDocente[], ctx: CargaCo
     const pares = new Set<string>()
     let titulares = 0
     if (nivelShort(nivel) === 'Inicial') {
-      // En Inicial la carga es "Docente de aula": el docente es titular del aula (no lleva asignaturas).
+      // En Inicial el docente trabaja todas las áreas en un aula: titular + "Asignatura General".
       const curso = resolverCursoInicial(fila.grado, ctx.grades)
       if (curso) {
-        itemsResueltos.push({ asignatura: 'Docente titular del aula', nuevaAsignatura: false, cursos: [`${curso.grado}.${curso.seccion}`], titular: true, gradoInicial: curso.grado, seccionInicial: curso.seccion })
+        const existenteGeneral = ctx.subjects.find((s) => /general/.test(norm(s.name)))
+        const asign = emparejarAsignatura(existenteGeneral?.name ?? 'Asignatura General', ctx.subjects)
+        if (asign.nueva) asignaturasNuevas.add(asign.nombre)
+        const aula = `${curso.grado}.${curso.seccion}`
+        itemsResueltos.push({ asignatura: asign.nombre, subjectId: asign.id, nuevaAsignatura: asign.nueva, cursos: [aula], titular: true, gradoInicial: curso.grado, seccionInicial: curso.seccion })
         titulares++
+        pares.add(`${aula}|${norm(asign.nombre)}`)
         const existe = ctx.grades.some((g) => nivelShort(g.level) === 'Inicial' && gradoDe(g) === curso.grado && seccionDe(g) === curso.seccion)
         if (!existe) nuevasAulas.add(`Inicial|${curso.grado}.${curso.seccion}`)
       } else {
@@ -276,7 +281,7 @@ export async function aplicarPlan(
     const wanted = new Map<string, { gradeId: string; subjectId: string }>()
 
     for (const item of fila.items) {
-      // Inicial: el docente es titular del aula (se marca como docente titular del curso).
+      // Inicial: el docente trabaja todas las áreas en un aula (titular + "Asignatura General").
       if (item.titular) {
         let objetivo = grades.filter((g) => nivelShort(g.level) === 'Inicial' && gradoDe(g) === item.gradoInicial && seccionDe(g) === item.seccionInicial)
         if (objetivo.length === 0 && item.gradoInicial) {
@@ -287,7 +292,7 @@ export async function aplicarPlan(
             section: item.seccionInicial,
             level: 'Nivel Inicial',
             nivel: 'Inicial',
-            asignatura: 'Asignaturas Generales',
+            asignatura: 'Asignatura General',
           }
           await dataServiceSaveGrade(nuevo)
           grades.push(nuevo)
@@ -297,19 +302,33 @@ export async function aplicarPlan(
         for (const g of objetivo) {
           if (g.leadTeacherId !== fila.docenteId) { await dataServiceSaveGrade({ ...g, leadTeacherId: fila.docenteId }); titularesAsignados++ }
         }
-        // Asignatura general del aula de Inicial: se crea y se asigna al docente.
-        let general = subjects.find((s) => norm(s.name) === 'asignaturas generales')
+        // Asignatura General del aula de Inicial: se asegura en el catálogo y se asigna al docente.
+        let general = subjects.find((s) => /general/.test(norm(s.name)))
         if (!general) {
-          general = { id: genId('sub'), name: 'Asignaturas Generales', shortName: 'General' }
+          general = { id: genId('sub'), name: 'Asignatura General', shortName: 'General' }
           await dataServiceSaveSubject(general)
           subjects.push(general)
           asignaturasCreadas++
         }
-        const base = objetivo[0]
-        if (base) {
-          const gradeId = await asegurarCursoAsignatura('Inicial', gradoDe(base), seccionDe(base), general, grades, () => cursosCreados++)
-          wanted.set(`${gradeId}|${general.id}`, { gradeId, subjectId: general.id })
+        let rec = objetivo.find((g) => /general/.test(norm(g.asignatura ?? '')))
+        if (!rec) {
+          const b = objetivo[0]
+          const nuevo: GradeSection = {
+            id: genId('g'),
+            name: `${gradoDe(b)}.${seccionDe(b)}`,
+            grado: gradoDe(b),
+            section: seccionDe(b),
+            level: b.level,
+            nivel: b.nivel ?? 'Inicial',
+            ciclo: b.ciclo,
+            asignatura: general.name,
+          }
+          await dataServiceSaveGrade(nuevo)
+          grades.push(nuevo)
+          rec = nuevo
+          cursosCreados++
         }
+        wanted.set(`${rec.id}|${general.id}`, { gradeId: rec.id, subjectId: general.id })
         continue
       }
       // Asignatura: usar la del catálogo o crear una nueva.
