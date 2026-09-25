@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from 'react'
-import { Button, Card, Select, Spinner, Tab, TabList, Table, TableBody, TableCell, TableHeader, TableHeaderCell, TableRow, Text, Toolbar, ToolbarButton, useToastController, makeStyles, tokens } from '@fluentui/react-components'
+import { Button, Card, Checkbox, Select, Spinner, Tab, TabList, Table, TableBody, TableCell, TableHeader, TableHeaderCell, TableRow, Text, Toolbar, ToolbarButton, useToastController, makeStyles, tokens } from '@fluentui/react-components'
 import { DeleteRegular, CheckmarkCircleRegular, ArrowUploadRegular, ArrowDownloadRegular, EditRegular } from '@fluentui/react-icons'
 import * as XLSX from 'xlsx'
 import { PageHeader } from '../../components/shared/PageHeader'
@@ -47,6 +47,8 @@ export function AsignacionesPage() {
   const excelRef = useRef<HTMLInputElement>(null)
   const subjectExcelRef = useRef<HTMLInputElement>(null)
   const [importingSubjects, setImportingSubjects] = useState(false)
+  const [manualCurso, setManualCurso] = useState('')
+  const [manualAsig, setManualAsig] = useState<Record<string, boolean>>({})
   const [editEnr, setEditEnr] = useState<Enrollment | null>(null)
   const [editEnrCurso, setEditEnrCurso] = useState('')
 
@@ -123,6 +125,63 @@ export function AsignacionesPage() {
       .map((nivel) => ({ nivel, cursos: cursosConAsignaturas.filter((c) => (nivel === 'Otros' ? !['Primaria', 'Secundaria', 'Inicial'].includes(c.nivel) : c.nivel === nivel)) }))
       .filter((g) => g.cursos.length > 0)
   }, [cursosConAsignaturas])
+
+  // Asignaturas que ya tiene el curso seleccionado (para la gestión manual).
+  const asignaturasDelCurso = useMemo(() => {
+    if (!manualCurso) return []
+    return [...new Set(grades.filter((g) => cursoNombre(g) === manualCurso && isRealSubject(asignaturaDe(g))).map((g) => asignaturaDe(g)))].sort((a, b) => a.localeCompare(b))
+  }, [grades, manualCurso])
+
+  /** Agrega al curso seleccionado las asignaturas marcadas manualmente. */
+  const agregarAsignaturasManual = async () => {
+    if (!manualCurso) { toaster.dispatchToast('Selecciona un curso.', { intent: 'error' }); return }
+    const elegidas = Object.entries(manualAsig).filter(([, v]) => v).map(([k]) => k)
+    if (elegidas.length === 0) { toaster.dispatchToast('Marca al menos una asignatura.', { intent: 'error' }); return }
+    const registros = grades.filter((g) => cursoNombre(g) === manualCurso)
+    const template = registros.find((g) => isRealSubject(asignaturaDe(g))) ?? registros[0]
+    if (!template) { toaster.dispatchToast('No se encontró el curso en Gestión académica.', { intent: 'error' }); return }
+    setBusy(true)
+    try {
+      let creadas = 0
+      const existentes = new Set(registros.map((g) => asignaturaDe(g).trim().toLowerCase()))
+      for (const asig of elegidas) {
+        if (existentes.has(asig.trim().toLowerCase())) continue
+        await gradesCol.save({
+          id: genId('g'),
+          name: template.name,
+          grado: template.grado ?? gradoDe(template),
+          section: template.section ?? seccionDe(template),
+          level: template.level,
+          nivel: template.nivel ?? nivelShort(template.level),
+          ciclo: template.ciclo,
+          asignatura: asig,
+        })
+        creadas += 1
+      }
+      await Promise.all([gradesCol.refresh(), refreshCatalogs()])
+      setManualAsig({})
+      toaster.dispatchToast(`${creadas} asignatura(s) agregada(s) al curso.`, { intent: 'success' })
+    } catch (e) {
+      toaster.dispatchToast(e instanceof Error ? e.message : 'No se pudieron agregar las asignaturas.', { intent: 'error' })
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  /** Quita una asignatura del curso seleccionado. */
+  const quitarAsignaturaManual = async (asig: string) => {
+    setBusy(true)
+    try {
+      const targets = grades.filter((g) => cursoNombre(g) === manualCurso && asignaturaDe(g).trim().toLowerCase() === asig.trim().toLowerCase())
+      for (const g of targets) await gradesCol.remove(g.id)
+      await Promise.all([gradesCol.refresh(), refreshCatalogs()])
+      toaster.dispatchToast(`Asignatura "${asig}" quitada del curso.`, { intent: 'success' })
+    } catch (e) {
+      toaster.dispatchToast(e instanceof Error ? e.message : 'No se pudo quitar la asignatura.', { intent: 'error' })
+    } finally {
+      setBusy(false)
+    }
+  }
 
   // Un curso es válido si su nombre sigue el patrón: "Grado.Sección" (Primaria/Secundaria) o el grado de Inicial.
   const esNombreValido = (g: GradeSection): boolean => {
@@ -939,6 +998,50 @@ export function AsignacionesPage() {
       {/* ------------------------------ Agregar asignaturas por curso ------------------------------ */}
       {tab === 'asignaturas' && (
         <>
+          <Card className={styles.card}>
+            <Text weight="semibold" size={300}>Agregar o quitar asignaturas a un curso (manual)</Text>
+            <FormField label="Curso">
+              <Select value={manualCurso} onChange={(_, d) => { setManualCurso(d.value); setManualAsig({}) }} style={{ maxWidth: '360px' }}>
+                <option value="">Selecciona un curso…</option>
+                {cursosCatalogo.map((c) => <option key={c.nombre} value={c.nombre}>{c.nombre}</option>)}
+              </Select>
+            </FormField>
+            {manualCurso && (
+              <>
+                <Text size={200} block style={{ color: 'var(--texto-suave)' }}>Marca las asignaturas a agregar:</Text>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px 16px', maxHeight: '220px', overflowY: 'auto' }}>
+                  {subjects.map((s) => (
+                    <Checkbox
+                      key={s.id}
+                      checked={!!manualAsig[s.name]}
+                      disabled={asignaturasDelCurso.some((a) => a.trim().toLowerCase() === s.name.trim().toLowerCase())}
+                      label={s.name}
+                      onChange={(_, d) => setManualAsig((m) => ({ ...m, [s.name]: !!d.checked }))}
+                    />
+                  ))}
+                </div>
+                <div className={styles.actions}>
+                  <Button appearance="primary" icon={busy ? <Spinner size="tiny" /> : <CheckmarkCircleRegular />} disabled={busy} onClick={() => void agregarAsignaturasManual()}>
+                    {busy ? 'Agregando…' : 'Agregar asignaturas marcadas'}
+                  </Button>
+                </div>
+                <Text weight="semibold" size={300} block style={{ marginTop: '8px' }}>Asignaturas del curso ({asignaturasDelCurso.length})</Text>
+                {asignaturasDelCurso.length === 0 ? (
+                  <Text size={200} style={{ color: 'var(--texto-suave)' }}>Este curso aún no tiene asignaturas.</Text>
+                ) : (
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                    {asignaturasDelCurso.map((a) => (
+                      <span key={a} style={{ border: '1px solid var(--borde)', borderRadius: '999px', padding: '2px 6px 2px 12px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                        <Text size={200}>{a}</Text>
+                        <Button size="small" appearance="subtle" icon={<DeleteRegular />} disabled={busy} aria-label={`Quitar ${a}`} onClick={() => void quitarAsignaturaManual(a)} />
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
+          </Card>
+
           <Card className={styles.card}>
             <Text weight="semibold" size={300}>Asignaturas por curso</Text>
             <Text size={200} style={{ color: 'var(--texto-suave)' }}>
