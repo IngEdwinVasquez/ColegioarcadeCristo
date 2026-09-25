@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Button, Input, Select, Tab, TabList, Text, makeStyles, useToastController } from '@fluentui/react-components'
-import { CloudArrowDownRegular, DeleteRegular } from '@fluentui/react-icons'
+import { Button, Input, Select, Spinner, Tab, TabList, Text, makeStyles, useToastController } from '@fluentui/react-components'
+import { CloudArrowDownRegular, DeleteRegular, ArrowSyncRegular } from '@fluentui/react-icons'
 import { PageHeader } from '../../components/shared/PageHeader'
 import { EntityCrud, type CrudColumn } from '../../components/shared/EntityCrud'
 import { FormField, FieldRow } from '../../components/shared/form'
@@ -17,6 +17,7 @@ import { MultiSelect } from '../../components/shared/MultiSelect'
 import { ImportPersonasWizard } from '../tecnologia/ImportPersonasWizard'
 import { entraEmail, getDirectoryUsers, linkUserRole, syncTeacherAssignments, unlinkUserRole, type LinkTarget } from '../../services/userLinks'
 import { graphErrorMessage } from '../../services/graph'
+import { syncPersonsWithEntra } from '../../services/syncPersons'
 
 const useStyles = makeStyles({
   tabs: { marginBottom: '16px' },
@@ -69,7 +70,7 @@ interface BasePerson { id: string; fullName: string; userId?: string }
 export function PersonasPage() {
   const styles = useStyles()
   const toaster = useToastController()
-  const { grades, subjects, periods } = useApp()
+  const { grades, subjects, periods, refreshCatalogs } = useApp()
   const studentsCol = useCollection<Student>(dataService.getStudents, dataService.saveStudent, dataService.deleteStudent)
   const teachersCol = useCollection<Teacher>(dataService.getTeachers, dataService.saveTeacher, dataService.deleteTeacher)
   const guardiansCol = useCollection<StudentGuardian>(dataService.getGuardians, dataService.saveGuardian, dataService.deleteGuardian)
@@ -79,8 +80,27 @@ export function PersonasPage() {
   const [tab, setTab] = useState('estudiantes')
   const [importOpen, setImportOpen] = useState(false)
   const [deduping, setDeduping] = useState(false)
+  const [syncing, setSyncing] = useState(false)
   const [soloActivos, setSoloActivos] = useState(true)
   const [activeIds, setActiveIds] = useState<Set<string> | null>(null)
+
+  /** Sincroniza nombres con Microsoft 365 y elimina fichas sin usuario activo. */
+  const sincronizarM365 = async () => {
+    if (!window.confirm('¿Sincronizar las fichas con Microsoft 365? Se actualizarán los nombres desde las cuentas activas y se ELIMINARÁN las fichas sin usuario activo en el directorio.')) return
+    setSyncing(true)
+    try {
+      const r = await syncPersonsWithEntra()
+      await Promise.all([studentsCol.refresh(), teachersCol.refresh(), guardiansCol.refresh(), personasCol.refresh(), enrollmentsCol.refresh(), refreshCatalogs()])
+      toaster.dispatchToast(
+        `Sincronizado: ${r.nombresActualizados} nombre(s) actualizado(s), ${r.personasEliminadas} ficha(s) eliminada(s) sin usuario activo.`,
+        { intent: r.personasEliminadas ? 'warning' : 'success' },
+      )
+    } catch (e) {
+      toaster.dispatchToast(graphErrorMessage(e), { intent: 'error' })
+    } finally {
+      setSyncing(false)
+    }
+  }
 
   // Usuarios activos del directorio (Microsoft 365) para el filtro único de todas las pestañas.
   useEffect(() => {
@@ -415,6 +435,9 @@ export function PersonasPage() {
         actions={
           <>
             <Button appearance="secondary" icon={<DeleteRegular />} disabled={deduping} onClick={() => void dedupeAll()}>Revisar duplicados</Button>
+            <Button appearance="secondary" icon={syncing ? <Spinner size="tiny" /> : <ArrowSyncRegular />} disabled={syncing || deduping} onClick={() => void sincronizarM365()}>
+              {syncing ? 'Sincronizando…' : 'Sincronizar con Microsoft 365'}
+            </Button>
             <Button appearance="primary" icon={<CloudArrowDownRegular />} onClick={() => setImportOpen(true)}>
               Importar desde Microsoft 365
             </Button>
