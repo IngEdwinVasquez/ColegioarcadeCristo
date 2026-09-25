@@ -15,7 +15,8 @@ import { SigerdPage } from '../modules/tecnologia/SigerdPage'
 import { UsuariosPage } from '../modules/administrativo/UsuariosPage'
 import { RolesPage } from '../modules/administrativo/RolesPage'
 import { AulasPage } from '../modules/aulas/AulasPage'
-import { AulasView } from '../modules/aulas/aulas'
+import { AulasViewManagement } from '../modules/aulas/aulas'
+import { CursoAsignaturaPage } from '../modules/aulas/CursoAsignaturaPage'
 import { RegistroGradoPage } from '../modules/registro/RegistroGradoPage'
 import { CargaHorariaPage } from '../modules/administrativo/CargaHorariaPage'
 import { EncuentrosPage } from '../modules/encuentros/EncuentrosPage'
@@ -86,7 +87,8 @@ export function AdminPortal() {
         <Route path="clases/:id" element={<ClaseDetail />} />
         <Route path="asistencia" element={<AsistenciaPage />} />
         <Route path="aulas" element={<AulasPage />} />
-        <Route path="aulas-curso" element={<AulasView scope={{ kind: 'todos' }} pageTitle="Aulas por curso" subtitle="Todas las aulas del colegio con sus asignaturas y aulas de Teams." />} />
+        <Route path="aulas-curso" element={<AulasViewManagement base="/administrativo/aulas-curso" scope={{ kind: 'todos' }} pageTitle="Aulas por curso" subtitle="Todas las aulas del colegio con sus asignaturas y aulas de Teams." />} />
+        <Route path="aulas-curso/:gradeId/:section/:subjectId/virtual" element={<CursoAsignaturaPage />} />
         <Route path="encuentros" element={<EncuentrosPage />} />
         <Route path="encuentros/:id" element={<EncuentroDetail />} />
         <Route path="personas" element={<PersonasPage />} />

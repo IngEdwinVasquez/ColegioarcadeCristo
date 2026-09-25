@@ -965,3 +965,20 @@ export function StudentAulasView({ studentId }: { studentId: string }) {
     />
   )
 }
+
+/**
+ * Vista de aulas para gestión (Dirección, Tecnología y Coordinación): permite
+ * "Abrir aula" (aula virtual de la asignatura) además de gestionar el aula.
+ */
+export function AulasViewManagement({ base, scope, pageTitle, subtitle }: { base: string; scope: AulaScope; pageTitle: string; subtitle?: string }) {
+  const navigate = useNavigate()
+  const { subjects } = useApp()
+  return (
+    <AulasView
+      scope={scope}
+      pageTitle={pageTitle}
+      subtitle={subtitle}
+      onOpenSubject={(g) => navigate(`${base}/${g.id}/${encodeURIComponent(seccionDe(g))}/${subjectIdOf(g, subjects)}/virtual`)}
+    />
+  )
+}

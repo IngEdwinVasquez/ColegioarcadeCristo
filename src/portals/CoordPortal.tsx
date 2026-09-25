@@ -7,6 +7,7 @@ import { AcompanamientosPage } from '../modules/coordinacion/AcompanamientosPage
 import { CumplimientoPage } from '../modules/coordinacion/CumplimientoPage'
 import { PlanificacionNivel } from '../modules/coordinacion/PlanificacionNivel'
 import { AulasNivelPage } from '../modules/coordinacion/AulasNivelPage'
+import { CursoAsignaturaPage } from '../modules/aulas/CursoAsignaturaPage'
 import { RegistroGradoPage } from '../modules/registro/RegistroGradoPage'
 import { CargaHorariaPage } from '../modules/administrativo/CargaHorariaPage'
 import { GestionTicPage } from '../modules/tecnologia/GestionTicPage'
@@ -61,6 +62,7 @@ export function CoordPortal() {
         <Route path="asignaciones" element={<AsignacionesPage />} />
         <Route path="gestion-academica" element={<AcademicaTecPage />} />
         <Route path="aulas" element={<AulasNivelPage />} />
+        <Route path="aulas/:gradeId/:section/:subjectId/virtual" element={<CursoAsignaturaPage />} />
         <Route path="registro-grado" element={<RegistroGradoPage scope={{ kind: 'coordinacion' }} />} />
         <Route path="carga-horaria" element={<CargaHorariaPage />} />
         <Route path="gestion-tic" element={<GestionTicPage title="Gestión de Coordinación Pedagógica" />} />
