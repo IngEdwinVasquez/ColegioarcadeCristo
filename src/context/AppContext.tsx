@@ -26,6 +26,30 @@ interface Catalogs {
 
 const EMPTY: Catalogs = { subjects: [], grades: [], periods: [], teachers: [], students: [], guardians: [], users: [], roleMeta: [] }
 
+/** Un nombre con forma de id (p. ej. "t-4e219527-…") se considera sin nombre. */
+const GUID_LIKE = /^[a-z]?[-_]?[0-9a-f]{8}([-_][0-9a-f]{4}){3}[-_][0-9a-f]{12}$/i
+const sinNombre = (n?: string) => !n || GUID_LIKE.test(n.trim())
+
+/**
+ * Rellena el nombre visible de las fichas (docentes, estudiantes, acudientes)
+ * a partir del nombre de su cuenta activa de Microsoft 365, cuando la ficha no
+ * tiene nombre o trae un id en lugar del nombre.
+ */
+function backfillNombres(c: Catalogs): Catalogs {
+  const byOid = new Map(c.users.map((u) => [u.id, u]))
+  const byEmail = new Map(c.users.map((u) => [(u.email ?? '').toLowerCase(), u]))
+  const nombreCuenta = (p: { userId?: string; email?: string }): string => {
+    const u = (p.userId ? byOid.get(p.userId) : undefined) ?? (p.email ? byEmail.get(p.email.toLowerCase()) : undefined)
+    return u?.displayName?.trim() || ''
+  }
+  return {
+    ...c,
+    teachers: c.teachers.map((t) => (sinNombre(t.fullName) && nombreCuenta(t) ? { ...t, fullName: nombreCuenta(t) } : t)),
+    students: c.students.map((s) => (sinNombre(s.fullName) && nombreCuenta(s) ? { ...s, fullName: nombreCuenta(s) } : s)),
+    guardians: c.guardians.map((g) => (sinNombre(g.fullName) && nombreCuenta(g) ? { ...g, fullName: nombreCuenta(g) } : g)),
+  }
+}
+
 async function loadCatalogs(): Promise<Catalogs> {
   const [subjects, grades, periods, teachers, students, guardians, users, roleMeta] = await Promise.all([
     dataService.getSubjects(),
@@ -37,7 +61,7 @@ async function loadCatalogs(): Promise<Catalogs> {
     dataService.getUsers(),
     dataService.getRoleMeta(),
   ])
-  return { subjects, grades, periods, teachers, students, guardians, users, roleMeta }
+  return backfillNombres({ subjects, grades, periods, teachers, students, guardians, users, roleMeta })
 }
 
 const sameEmail = (a?: string | null, b?: string | null) => !!a && !!b && a.trim().toLowerCase() === b.trim().toLowerCase()
