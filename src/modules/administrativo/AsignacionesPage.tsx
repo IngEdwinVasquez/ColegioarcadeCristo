@@ -17,6 +17,9 @@ import type { Enrollment, GradeSection, Student, TeacherAssignment } from '../..
 
 const sameEmail = (a?: string | null, b?: string | null) => !!a && !!b && a.trim().toLowerCase() === b.trim().toLowerCase()
 
+/** Valor especial del selector de curso: ver TODAS las asignaturas del docente. */
+const TODOS_CURSOS = '__todas__'
+
 const useStyles = makeStyles({
   tabs: { marginBottom: '16px' },
   card: { padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '16px' },
@@ -86,6 +89,12 @@ export function AsignacionesPage() {
       }),
     [assignmentsCol.items, dDocente, activePeriod, gradeById, subjectById],
   )
+
+  /** Asignaciones del docente, filtradas por el curso seleccionado (o todas si no hay curso). */
+  const asignacionesDocenteFiltradas = useMemo(() => {
+    if (!dCurso || dCurso === TODOS_CURSOS) return asignacionesDocente
+    return asignacionesDocente.filter((a) => cursoNombre(gradeById(a.gradeId) as GradeSection) === dCurso)
+  }, [asignacionesDocente, dCurso, gradeById])
 
   /** Todas las asignaturas que un docente tiene asignadas (sin importar el curso). */
   const asignaturasDeDocente = (teacherId: string) => {
@@ -591,7 +600,7 @@ export function AsignacionesPage() {
 
   // ---------------------------------------------------------------- Asignaciones docentes
   const asignarSeleccionadas = async () => {
-    if (!dCurso || !dDocente || dAsignaturas.length === 0) {
+    if (!dCurso || dCurso === TODOS_CURSOS || !dDocente || dAsignaturas.length === 0) {
       toaster.dispatchToast('Selecciona un docente, un curso y al menos una asignatura.', { intent: 'error' })
       return
     }
@@ -791,6 +800,7 @@ export function AsignacionesPage() {
               <FormField label="Curso" required hint="Al seleccionarlo se muestran sus asignaturas.">
                 <Select value={dCurso} onChange={(_, d) => { setDCurso(d.value); setDAsignaturas([]) }}>
                   <option value="">— Selecciona un curso —</option>
+                  <option value={TODOS_CURSOS}>Todas las asignaturas</option>
                   {cursosCatalogo.map((c) => <option key={c.nombre} value={c.nombre}>{c.nombre}</option>)}
                 </Select>
               </FormField>
@@ -813,10 +823,10 @@ export function AsignacionesPage() {
                   emptyMessage="Este docente no tiene asignaturas asignadas."
                 />
                 <div className={styles.actions}>
-                  <Button appearance="primary" icon={busy ? <Spinner size="tiny" /> : <CheckmarkCircleRegular />} disabled={busy || dAsignaturas.length === 0 || !dCurso} onClick={() => void asignarSeleccionadas()}>
+                  <Button appearance="primary" icon={busy ? <Spinner size="tiny" /> : <CheckmarkCircleRegular />} disabled={busy || dAsignaturas.length === 0 || !dCurso || dCurso === TODOS_CURSOS} onClick={() => void asignarSeleccionadas()}>
                     {busy ? 'Procesando…' : 'Asignar seleccionadas al curso'}
                   </Button>
-                  {!dCurso && <Text size={200} style={{ color: 'var(--texto-suave)' }}>Selecciona un curso para asignar.</Text>}
+                  {(!dCurso || dCurso === TODOS_CURSOS) && <Text size={200} style={{ color: 'var(--texto-suave)' }}>Selecciona un curso para asignar.</Text>}
                 </div>
               </>
             ) : dCurso ? (
@@ -840,10 +850,10 @@ export function AsignacionesPage() {
           {dDocente && (
             <>
               <Text weight="semibold" size={300} block style={{ marginBottom: '8px' }}>
-                Asignaturas de {nombreDocente(dDocente)} ({asignacionesDocente.length})
+                Asignaturas de {nombreDocente(dDocente)}{dCurso && dCurso !== TODOS_CURSOS ? ` en ${dCurso}` : ''} ({asignacionesDocenteFiltradas.length})
               </Text>
-              {asignacionesDocente.length === 0 ? (
-                <EmptyStateView title="Sin asignaturas" message="Este docente no tiene asignaturas asignadas." />
+              {asignacionesDocenteFiltradas.length === 0 ? (
+                <EmptyStateView title="Sin asignaturas" message={dCurso && dCurso !== TODOS_CURSOS ? 'Este docente no tiene asignaturas en el curso seleccionado.' : 'Este docente no tiene asignaturas asignadas.'} />
               ) : (
                 <Table aria-label="Asignaturas del docente">
                   <TableHeader>
@@ -856,7 +866,7 @@ export function AsignacionesPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {asignacionesDocente.map((a) => {
+                    {asignacionesDocenteFiltradas.map((a) => {
                       const g = gradeById(a.gradeId)
                       return (
                         <TableRow key={a.id}>
