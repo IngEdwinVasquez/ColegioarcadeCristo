@@ -7,7 +7,8 @@ import { AsignacionesPage } from '../modules/administrativo/AsignacionesPage'
 import { PromocionPage } from '../modules/administrativo/PromocionPage'
 import { PersonasPage } from '../modules/administrativo/PersonasPage'
 import { SigerdPage } from '../modules/tecnologia/SigerdPage'
-import { AulasView } from '../modules/aulas/aulas'
+import { AulasViewManagement } from '../modules/aulas/aulas'
+import { CursoAsignaturaPage } from '../modules/aulas/CursoAsignaturaPage'
 import { RegistroGradoPage } from '../modules/registro/RegistroGradoPage'
 import { CargaHorariaPage } from '../modules/administrativo/CargaHorariaPage'
 import { UsuariosPage } from '../modules/administrativo/UsuariosPage'
@@ -41,7 +42,8 @@ export function TecnologiaPortal() {
         <Route path="gestion-tic" element={<GestionTicPage />} />
         <Route path="academica" element={<AcademicaTecPage />} />
         <Route path="asignaciones" element={<AsignacionesPage />} />
-        <Route path="aulas" element={<AulasView scope={{ kind: 'todos' }} pageTitle="Aulas por curso" subtitle="Todas las aulas del colegio con sus asignaturas y aulas de Teams." />} />
+        <Route path="aulas" element={<AulasViewManagement base="/tecnologia/aulas" scope={{ kind: 'todos' }} pageTitle="Aulas por curso" subtitle="Todas las aulas del colegio con sus asignaturas y aulas de Teams." />} />
+        <Route path="aulas/:gradeId/:section/:subjectId/virtual" element={<CursoAsignaturaPage />} />
         <Route path="registro-grado" element={<RegistroGradoPage scope={{ kind: 'todos' }} />} />
         <Route path="carga-horaria" element={<CargaHorariaPage />} />
         <Route path="promocion" element={<PromocionPage />} />
