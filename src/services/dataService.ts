@@ -6,6 +6,7 @@ import type {
   AdmissionRequest,
   Announcement,
   AttendanceRecord,
+  AsignaturaLog,
   CargaHorariaRegistro,
   ChatMessage,
   ClassPlan,
@@ -105,6 +106,7 @@ export const collections = {
     gradeRegisters: collection<GradeRegister>(SPO_LISTS.gradeRegisters),
     coursePages: collection<CoursePage>(SPO_LISTS.coursePages),
     cargaHoraria: collection<CargaHorariaRegistro>(SPO_LISTS.cargaHoraria),
+    asignaturaLog: collection<AsignaturaLog>(SPO_LISTS.asignaturaLog),
 }
 
 export const dataService = {
@@ -258,6 +260,9 @@ export const dataService = {
   getCargaHoraria: collections.cargaHoraria.getAll,
   saveCargaHoraria: collections.cargaHoraria.save,
   deleteCargaHoraria: collections.cargaHoraria.remove,
+  // Auditoría de asignaturas eliminadas de un curso
+  getAsignaturaLog: collections.asignaturaLog.getAll,
+  saveAsignaturaLog: collections.asignaturaLog.save,
 }
 
 export type DataService = typeof dataService
