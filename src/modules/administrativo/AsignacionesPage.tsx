@@ -707,7 +707,8 @@ export function AsignacionesPage() {
 
   /** Matricula a los estudiantes de Inicial/Primaria/Secundaria desde los listados SIGERD subidos. */
   const matricularDesdeSigerd = async (nivel: string) => {
-    const reports = reportsCol.items.filter((r) => !nivel || (r.nivel ?? nivelDeTanda(r.header.tandaServicio)) === nivel)
+    const nivelReporte = (r: SigerdReport) => nivelShort(r.nivel ?? nivelDeTanda(r.header.tandaServicio) ?? '')
+    const reports = reportsCol.items.filter((r) => !nivel || nivelReporte(r) === nivel)
     if (reports.length === 0) { toaster.dispatchToast('No hay listados SIGERD para ese nivel. Súbelos en SIGERD.', { intent: 'error' }); return }
     const reportIds = new Set(reports.map((r) => r.id))
     setBusy(true)
@@ -716,7 +717,7 @@ export function AsignacionesPage() {
       let sinCurso = 0
       for (const s of students) {
         const rep = s.sigerdReportId ? reportsCol.items.find((r) => r.id === s.sigerdReportId) : undefined
-        const nivelEst = s.sigerd?.nivel || (rep ? (rep.nivel ?? nivelDeTanda(rep.header.tandaServicio)) : undefined)
+        const nivelEst = s.sigerd?.nivel ? nivelShort(s.sigerd.nivel) : (rep ? nivelReporte(rep) : '')
         if (nivel && nivelEst && nivelEst !== nivel) continue
         if (nivel && !nivelEst && !reportIds.has(s.sigerdReportId ?? '')) continue
         const gi = gradoInicialDe(s.sigerd?.grado)
@@ -729,8 +730,8 @@ export function AsignacionesPage() {
           const n = numGradoSigerd(s.sigerd?.grado) ?? numGradoSigerd(rep?.header.grado)
           const sec = (s.sigerd?.seccion ?? rep?.header.seccion ?? '').trim().toUpperCase()
           if (n) {
-            curso = grades.find((g) => cursoNombre(g) === `${GRADOS[n - 1]}.${sec}${nivelEst ? ` · ${nivelShort(nivelEst)}` : ''}`)
-              ?? grades.find((g) => gradoDe(g) === GRADOS[n - 1] && seccionDe(g) === sec && (!nivelEst || nivelShort(g.level) === nivelShort(nivelEst)))
+            curso = grades.find((g) => cursoNombre(g) === `${GRADOS[n - 1]}.${sec}${nivelEst ? ` · ${nivelEst}` : ''}`)
+              ?? grades.find((g) => gradoDe(g) === GRADOS[n - 1] && seccionDe(g) === sec && (!nivelEst || nivelShort(g.level) === nivelEst))
               ?? grades.find((g) => gradoDe(g) === GRADOS[n - 1] && seccionDe(g) === sec)
           }
         }
