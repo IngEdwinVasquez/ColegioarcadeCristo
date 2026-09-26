@@ -12,11 +12,25 @@ export interface SyncPersonsResult {
 const emailDe = (u: EntraUser): string => (u.mail ?? u.userPrincipalName ?? '').toLowerCase()
 const nombreDe = (u: EntraUser): string => (u.displayName ?? u.userPrincipalName ?? u.mail ?? '').trim()
 
+/** Nombre válido del usuario activo (no vacío ni con forma de id). */
+function nombreValido(u?: EntraUser): string {
+  if (!u) return ''
+  const n = nombreDe(u)
+  return n && !GUID_LIKE.test(n) ? n : ''
+}
+
+interface Ficha {
+  id: string
+  fullName: string
+  email?: string
+  userId?: string
+}
+
 /**
  * Sincroniza las fichas de la plataforma (docentes, estudiantes, acudientes y
  * personal) con los usuarios ACTIVOS de Microsoft 365:
  *  - Rellena el nombre desde la cuenta de M365 cuando falta o es un id.
- *  - Elimina las fichas sin cuenta activa en Microsoft 365.
+ *  - Elimina las fichas sin cuenta activa o cuya cuenta no tiene nombre válido.
  */
 export async function syncPersonsWithEntra(): Promise<SyncPersonsResult> {
   const entra = await listEntraUsers()
@@ -31,23 +45,35 @@ export async function syncPersonsWithEntra(): Promise<SyncPersonsResult> {
   let personasEliminadas = 0
   const detalle: string[] = []
 
+  /** Actualiza el nombre o elimina la ficha según su cuenta de Microsoft 365. */
+  const resolver = async (f: Ficha, tipo: string, persistir: (n: string, u: EntraUser) => Promise<void>, eliminar: () => Promise<void>) => {
+    const u = match(f)
+    const nombre = nombreValido(u)
+    if (!u || !nombre) {
+      await eliminar()
+      personasEliminadas++
+      detalle.push(`${tipo} eliminado (sin usuario activo o sin nombre): ${f.fullName || f.id}`)
+      return
+    }
+    if (GUID_LIKE.test((f.fullName ?? '').trim()) || !f.fullName || f.fullName.trim().toLowerCase() !== nombre.toLowerCase()) {
+      await persistir(nombre, u)
+      nombresActualizados++
+    }
+  }
+
   // ------------------------------ Docentes ------------------------------
   const teachers = await dataService.getTeachers()
   const assignments = await dataService.getTeacherAssignments()
   for (const t of teachers) {
-    const u = match(t)
-    if (!u) {
-      for (const a of assignments.filter((a) => a.teacherId === t.id)) await dataService.deleteTeacherAssignment(a.id)
-      await dataService.deleteTeacher(t.id)
-      personasEliminadas++
-      detalle.push(`Docente eliminado (sin usuario activo): ${t.fullName || t.id}`)
-      continue
-    }
-    const nombre = nombreDe(u)
-    if (nombre && (GUID_LIKE.test((t.fullName ?? '').trim()) || !t.fullName || t.fullName.trim().toLowerCase() !== nombre.toLowerCase())) {
-      await dataService.saveTeacher({ ...t, fullName: nombre, email: t.email || emailDe(u), userId: t.userId || u.id })
-      nombresActualizados++
-    }
+    await resolver(
+      t,
+      'Docente',
+      async (n, u) => dataService.saveTeacher({ ...t, fullName: n, email: t.email || emailDe(u), userId: t.userId || u.id }),
+      async () => {
+        for (const a of assignments.filter((a) => a.teacherId === t.id)) await dataService.deleteTeacherAssignment(a.id)
+        await dataService.deleteTeacher(t.id)
+      },
+    )
   }
 
   // ------------------------------ Estudiantes ------------------------------
@@ -55,53 +81,37 @@ export async function syncPersonsWithEntra(): Promise<SyncPersonsResult> {
   const enrollments = await dataService.getEnrollments()
   const guardians = await dataService.getGuardians()
   for (const s of students) {
-    const u = match(s)
-    if (!u) {
-      for (const e of enrollments.filter((e) => e.studentId === s.id)) await dataService.deleteEnrollment(e.id)
-      for (const g of guardians.filter((g) => g.studentId === s.id)) await dataService.deleteGuardian(g.id)
-      await dataService.deleteStudent(s.id)
-      personasEliminadas++
-      detalle.push(`Estudiante eliminado (sin usuario activo): ${s.fullName || s.id}`)
-      continue
-    }
-    const nombre = nombreDe(u)
-    if (nombre && (GUID_LIKE.test((s.fullName ?? '').trim()) || !s.fullName || s.fullName.trim().toLowerCase() !== nombre.toLowerCase())) {
-      await dataService.saveStudent({ ...s, fullName: nombre, email: s.email || emailDe(u), userId: s.userId || u.id })
-      nombresActualizados++
-    }
+    await resolver(
+      s,
+      'Estudiante',
+      async (n, u) => dataService.saveStudent({ ...s, fullName: n, email: s.email || emailDe(u), userId: s.userId || u.id }),
+      async () => {
+        for (const e of enrollments.filter((e) => e.studentId === s.id)) await dataService.deleteEnrollment(e.id)
+        for (const g of guardians.filter((g) => g.studentId === s.id)) await dataService.deleteGuardian(g.id)
+        await dataService.deleteStudent(s.id)
+      },
+    )
   }
 
   // ------------------------------ Acudientes ------------------------------
   for (const g of guardians) {
-    const u = match(g)
-    if (!u) {
-      await dataService.deleteGuardian(g.id)
-      personasEliminadas++
-      detalle.push(`Acudiente eliminado (sin usuario activo): ${g.fullName || g.id}`)
-      continue
-    }
-    const nombre = nombreDe(u)
-    if (nombre && (GUID_LIKE.test((g.fullName ?? '').trim()) || !g.fullName || g.fullName.trim().toLowerCase() !== nombre.toLowerCase())) {
-      await dataService.saveGuardian({ ...g, fullName: nombre, email: g.email || emailDe(u), userId: g.userId || u.id })
-      nombresActualizados++
-    }
+    await resolver(
+      g,
+      'Acudiente',
+      async (n, u) => dataService.saveGuardian({ ...g, fullName: n, email: g.email || emailDe(u), userId: g.userId || u.id }),
+      async () => dataService.deleteGuardian(g.id),
+    )
   }
 
   // ------------------------------ Personal (Persona) ------------------------------
   const personas = await dataService.getPersonas()
   for (const p of personas) {
-    const u = match(p)
-    if (!u) {
-      await dataService.deletePersona(p.id)
-      personasEliminadas++
-      detalle.push(`Personal eliminado (sin usuario activo): ${p.fullName || p.id}`)
-      continue
-    }
-    const nombre = nombreDe(u)
-    if (nombre && (GUID_LIKE.test((p.fullName ?? '').trim()) || !p.fullName || p.fullName.trim().toLowerCase() !== nombre.toLowerCase())) {
-      await dataService.savePersona({ ...p, fullName: nombre, email: p.email || emailDe(u), userId: p.userId || u.id })
-      nombresActualizados++
-    }
+    await resolver(
+      p,
+      'Personal',
+      async (n, u) => dataService.savePersona({ ...p, fullName: n, email: p.email || emailDe(u), userId: p.userId || u.id }),
+      async () => dataService.deletePersona(p.id),
+    )
   }
 
   return { nombresActualizados, personasEliminadas, detalle }
