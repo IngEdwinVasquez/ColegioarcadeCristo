@@ -331,6 +331,10 @@ export function SigerdPage() {
         }
       />
 
+      <Text size={200} style={{ color: 'var(--texto-suave)', margin: '4px 0 12px' }}>
+        <strong>Reconstruir cursos de Inicial:</strong> crea los cursos Pre-Kinder, Kinder y Pre-Primaria, asigna a cada estudiante su grado y elimina los cursos de Inicial mal nombrados (no toca Primaria ni Secundaria).
+      </Text>
+
       <TabList selectedValue={tab} onTabSelect={(_, d) => setTab(String(d.value))} style={{ marginBottom: '14px' }}>
         <Tab value="reporte">Reporte SIGERD</Tab>
         <Tab value="matriculacion">Matriculación ({listaMatriculacion.length})</Tab>
