@@ -11,7 +11,7 @@ import { useCollection } from '../../hooks/useCollection'
 import type { Enrollment, Persona, Student, StudentGuardian, Teacher } from '../../types'
 import type { Role } from '../../types/roles'
 import { genId } from '../../utils/helpers'
-import { cursoNombre } from '../../utils/academic'
+import { cursoNombre, ordenarCursos, isRealSubject, asignaturaDe } from '../../utils/academic'
 import { EntraUserPicker } from '../../components/shared/EntraUserPicker'
 import { MultiSelect } from '../../components/shared/MultiSelect'
 import { ImportPersonasWizard } from '../tecnologia/ImportPersonasWizard'
@@ -361,6 +361,9 @@ export function PersonasPage() {
 
   const matriculadoIds = useMemo(() => new Set(cursoPorEstudiante.keys()), [cursoPorEstudiante])
 
+  // Cursos/aulas únicos (sin repetir por asignatura), ordenados.
+  const cursosUnicos = useMemo(() => ordenarCursos(grades.filter((g) => isRealSubject(asignaturaDe(g)))), [grades])
+
   const matricularEstudiante = async (s: Student) => {
     const gradeId = estCurso[s.id]
     if (!gradeId) { toaster.dispatchToast('Selecciona un aula.', { intent: 'error' }); return }
@@ -385,7 +388,7 @@ export function PersonasPage() {
         <div style={{ display: 'flex', gap: '6px' }}>
           <Select value={estCurso[s.id] ?? ''} onChange={(_, d) => setEstCurso((m) => ({ ...m, [s.id]: d.value }))} style={{ minWidth: '170px' }}>
             <option value="">Selecciona el aula…</option>
-            {grades.map((g) => <option key={g.id} value={g.id}>{cursoNombre(g)}</option>)}
+            {cursosUnicos.map((g) => <option key={g.id} value={g.id}>{cursoNombre(g)}</option>)}
           </Select>
           <Button size="small" icon={<CheckmarkCircleRegular />} onClick={() => void matricularEstudiante(s)}>Matricular</Button>
         </div>
@@ -551,7 +554,7 @@ export function PersonasPage() {
               <FieldRow>
                 <FormField label="Grado / Curso" required>
                   <Select value={s.gradeId} onChange={(_, d) => set({ ...s, gradeId: d.value })}>
-                    {grades.map((g) => (<option key={g.id} value={g.id}>{cursoNombre(g)}</option>))}
+                    {cursosUnicos.map((g) => (<option key={g.id} value={g.id}>{cursoNombre(g)}</option>))}
                   </Select>
                 </FormField>
                 <FormField label="Fecha de nacimiento">
