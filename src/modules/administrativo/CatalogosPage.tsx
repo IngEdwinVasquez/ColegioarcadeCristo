@@ -9,7 +9,9 @@ import { dataService } from '../../services/dataService'
 import { useCollection } from '../../hooks/useCollection'
 import type { GradeSection, Period, Subject } from '../../types'
 import { formatDate, genId, todayIso } from '../../utils/helpers'
-import { GRADOS, SECCIONES, INICIAL_GRADOS, nivelShort, cicloFromGrade, cursoNombre, asignaturaDe, esCursoValido } from '../../utils/academic'
+import { GRADOS, SECCIONES, INICIAL_GRADOS, nivelShort, cicloFromGrade, cursoNombre, asignaturaDe, gradoDe } from '../../utils/academic'
+
+const norm = (s: string) => (s ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim()
 
 const useStyles = makeStyles({
   tabs: { marginBottom: '16px' },
@@ -63,17 +65,20 @@ export function CatalogosPage() {
     toaster.dispatchToast('Curso guardado', { intent: 'success' })
   }
 
-  /** Elimina cursos duplicados (mismo curso+asignatura) y los que no siguen "Grado.Sección · Nivel". */
+  /** Elimina cursos duplicados (mismo curso+asignatura), con nombre inválido o con una asignatura en el nombre. */
   const normalizarCursos = async () => {
-    if (!window.confirm('Normalizar cursos: eliminar duplicados (mismo curso + asignatura) y cursos con nombre inválido (deben seguir Grado.Sección · Nivel).')) return
+    if (!window.confirm('Normalizar cursos: eliminar duplicados (mismo curso + asignatura) y cursos con nombre inválido (deben seguir Grado.Sección · Nivel, sin nombre de asignatura).')) return
     setBusy(true)
     try {
       const lista = gradesCol.items.length ? [...gradesCol.items] : [...grades]
+      const gradosValidos = new Set([...GRADOS, ...INICIAL_GRADOS.map((gi) => gi.nombre)].map(norm))
       const vistos = new Set<string>()
       let duplicados = 0
       let invalidos = 0
       for (const g of lista) {
-        if (!esCursoValido(g) || !cursoNombre(g).trim()) { await gradesCol.remove(g.id); invalidos += 1; continue }
+        const gd = norm(gradoDe(g))
+        const valido = !!gd && gradosValidos.has(gd)
+        if (!valido) { await gradesCol.remove(g.id); invalidos += 1; continue }
         const clave = `${cursoNombre(g).toLowerCase()}|${asignaturaDe(g).trim().toLowerCase()}`
         if (vistos.has(clave)) { await gradesCol.remove(g.id); duplicados += 1; continue }
         vistos.add(clave)
