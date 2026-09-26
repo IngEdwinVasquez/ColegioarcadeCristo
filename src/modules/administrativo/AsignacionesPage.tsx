@@ -715,11 +715,14 @@ export function AsignacionesPage() {
     try {
       let ok = 0
       let sinCurso = 0
+      let ya = 0
+      let considerados = 0
       for (const s of students) {
         const rep = s.sigerdReportId ? reportsCol.items.find((r) => r.id === s.sigerdReportId) : undefined
         const nivelEst = s.sigerd?.nivel ? nivelShort(s.sigerd.nivel) : (rep ? nivelReporte(rep) : '')
         if (nivel && nivelEst && nivelEst !== nivel) continue
         if (nivel && !nivelEst && !reportIds.has(s.sigerdReportId ?? '')) continue
+        considerados += 1
         const gi = gradoInicialDe(s.sigerd?.grado)
         let curso: GradeSection | undefined
         if (gi) {
@@ -736,14 +739,17 @@ export function AsignacionesPage() {
           }
         }
         if (!curso) { sinCurso += 1; continue }
-        const ya = enrollmentsCol.items.some((e) => e.studentId === s.id && (!activePeriod || e.periodId === activePeriod))
-        if (ya) continue
+        const matriculado = enrollmentsCol.items.some((e) => e.studentId === s.id && (!activePeriod || e.periodId === activePeriod))
+        if (matriculado) { ya += 1; continue }
         await enrollmentsCol.save({ id: genId('enr'), studentId: s.id, gradeId: curso.id, periodId: activePeriod })
         if (s.gradeId !== curso.id) await dataService.saveStudent({ ...s, gradeId: curso.id })
         ok += 1
       }
       await Promise.all([enrollmentsCol.refresh(), refreshCatalogs()])
-      toaster.dispatchToast(`Matriculados desde SIGERD: ${ok}. Sin curso identificable: ${sinCurso}.`, { intent: ok ? 'success' : 'warning' })
+      toaster.dispatchToast(
+        `SIGERD: ${considerados} estudiante(s) considerados · ${ok} matriculado(s) · ${ya} ya matriculados · ${sinCurso} sin curso identificable.`,
+        { intent: considerados === 0 ? 'warning' : 'success' },
+      )
     } catch (e) {
       toaster.dispatchToast(e instanceof Error ? e.message : 'No se pudo matricular desde SIGERD.', { intent: 'error' })
     } finally {
