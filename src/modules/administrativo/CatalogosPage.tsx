@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { Input, Select, Tab, TabList, Text, makeStyles, useToastController } from '@fluentui/react-components'
+import { Button, Input, Select, Tab, TabList, Text, makeStyles, useToastController } from '@fluentui/react-components'
+import { ArrowSyncRegular } from '@fluentui/react-icons'
 import { PageHeader } from '../../components/shared/PageHeader'
 import { EntityCrud, type CrudColumn } from '../../components/shared/EntityCrud'
 import { FormField, FieldRow } from '../../components/shared/form'
@@ -8,6 +9,7 @@ import { dataService } from '../../services/dataService'
 import { useCollection } from '../../hooks/useCollection'
 import type { GradeSection, Period, Subject } from '../../types'
 import { formatDate, genId, todayIso } from '../../utils/helpers'
+import { GRADOS, SECCIONES, INICIAL_GRADOS, nivelShort, cicloFromGrade, cursoNombre, asignaturaDe, esCursoValido } from '../../utils/academic'
 
 const useStyles = makeStyles({
   tabs: { marginBottom: '16px' },
@@ -23,10 +25,11 @@ export function CatalogosPage() {
   const periodsCol = useCollection<Period>(dataService.getPeriods, dataService.savePeriod, dataService.deletePeriod)
 
   const [tab, setTab] = useState('cursos')
+  const [busy, setBusy] = useState(false)
 
   const gradeColumns: CrudColumn<GradeSection>[] = [
-    { header: 'Curso', render: (g) => <Text weight="semibold">{g.name}</Text> },
-    { header: 'Nivel', render: (g) => g.level },
+    { header: 'Curso', render: (g) => <Text weight="semibold">{cursoNombre(g)}</Text> },
+    { header: 'Nivel', render: (g) => nivelShort(g.level) },
   ]
 
   const subjectColumns: CrudColumn<Subject>[] = [
@@ -55,8 +58,33 @@ export function CatalogosPage() {
   ]
 
   const saveGrade = async (g: GradeSection) => {
-    await gradesCol.save(g)
+    const next: GradeSection = { ...g, nivel: nivelShort(g.level), ciclo: g.grado ? cicloFromGrade(g.level, g.grado) : g.ciclo }
+    await gradesCol.save(next)
     toaster.dispatchToast('Curso guardado', { intent: 'success' })
+  }
+
+  /** Elimina cursos duplicados (mismo curso+asignatura) y los que no siguen "Grado.Sección · Nivel". */
+  const normalizarCursos = async () => {
+    if (!window.confirm('Normalizar cursos: eliminar duplicados (mismo curso + asignatura) y cursos con nombre inválido (deben seguir Grado.Sección · Nivel).')) return
+    setBusy(true)
+    try {
+      const lista = gradesCol.items.length ? [...gradesCol.items] : [...grades]
+      const vistos = new Set<string>()
+      let duplicados = 0
+      let invalidos = 0
+      for (const g of lista) {
+        if (!esCursoValido(g) || !cursoNombre(g).trim()) { await gradesCol.remove(g.id); invalidos += 1; continue }
+        const clave = `${cursoNombre(g).toLowerCase()}|${asignaturaDe(g).trim().toLowerCase()}`
+        if (vistos.has(clave)) { await gradesCol.remove(g.id); duplicados += 1; continue }
+        vistos.add(clave)
+      }
+      await gradesCol.refresh()
+      toaster.dispatchToast(`Cursos normalizados: ${duplicados} duplicado(s) y ${invalidos} inválido(s) eliminados.`, { intent: 'success' })
+    } catch (error) {
+      toaster.dispatchToast(error instanceof Error ? error.message : 'No se pudo normalizar.', { intent: 'error' })
+    } finally {
+      setBusy(false)
+    }
   }
   const saveSubject = async (s: Subject) => {
     await subjectsCol.save(s)
@@ -72,6 +100,13 @@ export function CatalogosPage() {
       <PageHeader
         title="Catálogos académicos"
         subtitle="Mantenimiento de cursos, asignaturas y períodos escolares."
+        actions={
+          tab === 'cursos' ? (
+            <Button appearance="secondary" icon={<ArrowSyncRegular />} disabled={busy} onClick={() => void normalizarCursos()}>
+              Normalizar cursos
+            </Button>
+          ) : undefined
+        }
       />
       <TabList className={styles.tabs} selectedValue={tab} onTabSelect={(_, d) => setTab(String(d.value))}>
         <Tab value="cursos">Cursos ({grades.length})</Tab>
@@ -87,23 +122,42 @@ export function CatalogosPage() {
           columns={gradeColumns}
           searchText={(g) => `${g.name} ${g.level}`}
           newLabel="Nuevo curso"
-          createDefault={() => ({ id: genId('g'), name: '', level: 'Nivel Primario' })}
-          renderForm={(g, set) => (
-            <div>
-              <FieldRow>
-                <FormField label="Nombre del curso" required>
-                  <Input value={g.name} onChange={(_, d) => set({ ...g, name: d.value })} placeholder="Ej. 6to A" />
-                </FormField>
-                <FormField label="Nivel">
-                  <Select value={g.level} onChange={(_, d) => set({ ...g, level: d.value })}>
-                    <option value="Nivel Inicial">Nivel Inicial</option>
-                    <option value="Nivel Primario">Nivel Primario</option>
-                    <option value="Nivel Secundario">Nivel Secundario</option>
+          createDefault={() => ({ id: genId('g'), name: '', grado: '', level: 'Nivel Primario', asignatura: 'Asignaturas Generales' })}
+          renderForm={(g, set) => {
+            const esInicial = nivelShort(g.level) === 'Inicial'
+            const grados = esInicial ? INICIAL_GRADOS.map((gi) => gi.nombre) : GRADOS
+            const actualizar = (grado: string, seccion: string) => {
+              const name = esInicial ? grado : `${grado}.${seccion}`
+              set({ ...g, grado, section: esInicial ? undefined : seccion, name })
+            }
+            return (
+              <div>
+                <FormField label="Nivel" required>
+                  <Select value={g.level} onChange={(_, d) => set({ ...g, level: d.value, grado: '', section: undefined, name: '' })}>
+                    <option value="Nivel Inicial">Inicial</option>
+                    <option value="Nivel Primario">Primaria</option>
+                    <option value="Nivel Secundario">Secundaria</option>
                   </Select>
                 </FormField>
-              </FieldRow>
-            </div>
-          )}
+                <FieldRow>
+                  <FormField label="Grado" required>
+                    <Select value={g.grado ?? ''} onChange={(_, d) => actualizar(d.value, g.section ?? 'A')}>
+                      <option value="">Selecciona el grado…</option>
+                      {grados.map((gr) => <option key={gr} value={gr}>{gr}</option>)}
+                    </Select>
+                  </FormField>
+                  {!esInicial && (
+                    <FormField label="Sección" required>
+                      <Select value={g.section ?? 'A'} onChange={(_, d) => actualizar(g.grado ?? '', d.value)}>
+                        {SECCIONES.map((s) => <option key={s} value={s}>{s}</option>)}
+                      </Select>
+                    </FormField>
+                  )}
+                </FieldRow>
+                {g.grado && <Text size={200}>Se creará el curso: <strong>{esInicial ? `${g.grado} · Inicial` : `${g.grado}.${g.section ?? 'A'} · ${nivelShort(g.level)}`}</strong></Text>}
+              </div>
+            )
+          }}
           onSave={saveGrade}
           onDelete={(id) => gradesCol.remove(id)}
         />
