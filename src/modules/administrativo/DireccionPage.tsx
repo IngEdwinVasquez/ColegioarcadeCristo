@@ -297,7 +297,7 @@ export function DireccionPage() {
             <TableBody>
               {Object.entries(byTeacher).map(([teacherId, v]) => (
                 <TableRow key={teacherId}>
-                  <TableCell>{teacherById(teacherId)?.fullName ?? teacherId}</TableCell>
+                  <TableCell>{teacherById(teacherId)?.fullName ?? '—'}</TableCell>
                   <TableCell>{v.plan}</TableCell>
                   <TableCell>{v.hecho}</TableCell>
                   <TableCell>
@@ -356,7 +356,7 @@ export function DireccionPage() {
                   <TableRow key={r.key}>
                     <TableCell>{subjectById(r.subjectId)?.name ?? r.subjectId}</TableCell>
                     <TableCell>{g ? cursoNombre(g) : r.gradeId}</TableCell>
-                    <TableCell>{teacherById(r.teacherId)?.fullName ?? r.teacherId}</TableCell>
+                    <TableCell>{teacherById(r.teacherId)?.fullName ?? '—'}</TableCell>
                     <TableCell>{r.plan}</TableCell>
                     <TableCell>{r.imp}</TableCell>
                     <TableCell>{r.act}</TableCell>
@@ -419,7 +419,7 @@ export function DireccionPage() {
                 const pts = act?.points ?? 100
                 return (
                   <TableRow key={s.id}>
-                    <TableCell>{studentById(s.studentId)?.fullName ?? s.studentId}</TableCell>
+                    <TableCell>{studentById(s.studentId)?.fullName ?? '—'}</TableCell>
                     <TableCell>{act?.title ?? s.activityId}</TableCell>
                     <TableCell>{s.score}</TableCell>
                     <TableCell>{pts}</TableCell>

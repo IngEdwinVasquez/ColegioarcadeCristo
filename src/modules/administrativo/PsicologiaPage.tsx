@@ -136,7 +136,7 @@ export function PsicologiaPage() {
               <TableBody>
                 {casosSeguimiento.slice(0, 12).map((c) => (
                   <TableRow key={c.studentId}>
-                    <TableCell>{studentById(c.studentId)?.fullName ?? c.studentId}</TableCell>
+                    <TableCell>{studentById(c.studentId)?.fullName ?? '—'}</TableCell>
                     <TableCell>{gradeById(studentById(c.studentId)?.gradeId ?? '')?.name ?? '—'}</TableCell>
                     <TableCell>{c.porcentaje}%</TableCell>
                     <TableCell>
@@ -170,7 +170,7 @@ export function PsicologiaPage() {
                   <TableRow key={r.id}>
                     <TableCell>{formatDate(r.fecha)}</TableCell>
                     <TableCell>{r.tipo}</TableCell>
-                    <TableCell>{studentById(r.studentId)?.fullName ?? r.studentId}</TableCell>
+                    <TableCell>{studentById(r.studentId)?.fullName ?? '—'}</TableCell>
                     <TableCell>{r.detalle}</TableCell>
                     <TableCell>
                       {r.estado === 'cerrado' ? (

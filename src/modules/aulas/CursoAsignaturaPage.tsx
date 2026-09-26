@@ -875,7 +875,7 @@ Incluye una introducción, al menos 3 recursos variando el tipo según la necesi
                   ) : (
                     draft.entregas.filter((e) => e.actividadId === a.id).map((e) => (
                       <div key={e.id} style={{ marginTop: '8px', paddingTop: '8px', borderTop: '1px dashed var(--borde)' }}>
-                        <Text size={200} block><strong>{students.find((s) => s.id === e.studentId)?.fullName ?? e.studentId}</strong> · {e.archivos.map((f) => f.name).join(', ')}</Text>
+                        <Text size={200} block><strong>{students.find((s) => s.id === e.studentId)?.fullName ?? '—'}</strong> · {e.archivos.map((f) => f.name).join(', ')}</Text>
                         <div className={styles.actions} style={{ marginTop: '4px' }}>
                           <Input placeholder="Calificación" value={e.calificacion ?? ''} disabled={!editable} onChange={(_, d) => setEntregaCal(e.id, { calificacion: d.value })} style={{ maxWidth: '120px' }} />
                           <Input placeholder="Comentario" value={e.comentario ?? ''} disabled={!editable} onChange={(_, d) => setEntregaCal(e.id, { comentario: d.value })} />
