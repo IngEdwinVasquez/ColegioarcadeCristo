@@ -114,5 +114,18 @@ export async function syncPersonsWithEntra(): Promise<SyncPersonsResult> {
     )
   }
 
+  // ------------------- Limpieza de registros huérfanos -------------------
+  // Elimina matrículas, acudientes, calificaciones y asignaciones que apunten a
+  // personas ya inexistentes (evita que se muestren ids como "-39625d65-…").
+  const validStudentIds = new Set(students.filter((s) => nombreValido(match(s))).map((s) => s.id))
+  const validTeacherIds = new Set(teachers.filter((t) => nombreValido(match(t))).map((t) => t.id))
+
+  for (const e of enrollments) if (!validStudentIds.has(e.studentId)) { await dataService.deleteEnrollment(e.id); personasEliminadas++ }
+  for (const g of guardians) if (!validStudentIds.has(g.studentId)) { await dataService.deleteGuardian(g.id); personasEliminadas++ }
+  for (const a of assignments) if (!validTeacherIds.has(a.teacherId)) { await dataService.deleteTeacherAssignment(a.id) }
+
+  const scores = await dataService.getScores()
+  for (const sc of scores) if (!validStudentIds.has(sc.studentId)) await dataService.deleteScore(sc.id)
+
   return { nombresActualizados, personasEliminadas, detalle }
 }
