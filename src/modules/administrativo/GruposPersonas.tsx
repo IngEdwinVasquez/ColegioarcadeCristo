@@ -44,6 +44,22 @@ const tokensNombre = (s: string): string =>
   (s ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9\s]/g, ' ')
     .split(/\s+/).filter((t) => t.length > 1).sort().join(' ')
 
+const GUID_LIKE = /^[a-z]?[-_]?[0-9a-f]{8}([-_][0-9a-f]{4}){3}[-_][0-9a-f]{12}$/i
+
+/** Nombre visible de un estudiante: su nombre o, si es un id, el reconstruido desde SIGERD. */
+const nombreVisibleEstudiante = (s: Student): string => {
+  const actual = (s.fullName ?? '').trim()
+  if (actual && !GUID_LIKE.test(actual)) return actual
+  const sg = [s.sigerd?.nombres, s.sigerd?.primerApellido, s.sigerd?.segundoApellido].map((x) => (x ?? '').trim()).filter(Boolean).join(' ')
+  return sg || '—'
+}
+
+/** Nunca muestra un id como nombre. */
+const nombreSeguro = (fullName: string): string => {
+  const actual = (fullName ?? '').trim()
+  return actual && !GUID_LIKE.test(actual) ? actual : '—'
+}
+
 const useStyles = makeStyles({
   grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 320px), 1fr))', gap: '16px' },
   card: { padding: '16px', display: 'flex', flexDirection: 'column', gap: '10px' },
@@ -142,17 +158,17 @@ export function GruposPersonas({ scopeIds, levelFilter }: { scopeIds?: Set<strin
 
   const data = useMemo(
     () => ({
-      students: studentsCol.items.filter((s) => (levelFilter ? nivelDeEstudiante(s) === levelFilter : inScope(s.gradeId))),
+      students: studentsCol.items.filter((s) => (levelFilter ? nivelDeEstudiante(s) === levelFilter : inScope(s.gradeId))).map((s) => ({ ...s, fullName: nombreVisibleEstudiante(s) })),
       teachers: teachersCol.items.filter((t) => (levelFilter
         ? t.grades.some((id) => nivelDeCurso(grades.find((x) => x.id === id)) === levelFilter)
-        : (!scopeIds || t.grades.some((g) => scopeIds.has(g))))),
+        : (!scopeIds || t.grades.some((g) => scopeIds.has(g))))).map((t) => ({ ...t, fullName: nombreSeguro(t.fullName) })),
       guardians: guardiansCol.items.filter((g) => {
         const st = studentsCol.items.find((s) => s.id === g.studentId)
         if (levelFilter) return !!st && nivelDeEstudiante(st) === levelFilter
         if (!scopeIds) return true
         return !!st && inScope(st.gradeId)
-      }),
-      personas: personasCol.items,
+      }).map((g) => ({ ...g, fullName: nombreSeguro(g.fullName) })),
+      personas: personasCol.items.map((p) => ({ ...p, fullName: nombreSeguro(p.fullName) })),
     }),
     [studentsCol.items, teachersCol.items, guardiansCol.items, personasCol.items, scopeIds, levelFilter, grades, reportsCol.items],
   )
