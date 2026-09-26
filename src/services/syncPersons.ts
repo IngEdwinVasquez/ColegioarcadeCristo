@@ -80,17 +80,31 @@ export async function syncPersonsWithEntra(): Promise<SyncPersonsResult> {
   const students = await dataService.getStudents()
   const enrollments = await dataService.getEnrollments()
   const guardians = await dataService.getGuardians()
+
+  /** Nombre correcto del estudiante: fullName, o el del SIGERD (nombres + apellidos), o la cuenta de M365. */
+  const nombreEstudiante = (s: { fullName: string; sigerd?: { nombres?: string; primerApellido?: string; segundoApellido?: string } }, u?: EntraUser): string => {
+    const actual = (s.fullName ?? '').trim()
+    if (actual && !GUID_LIKE.test(actual)) return actual
+    const sg = [s.sigerd?.nombres, s.sigerd?.primerApellido, s.sigerd?.segundoApellido].map((x) => (x ?? '').trim()).filter(Boolean).join(' ')
+    if (sg && !GUID_LIKE.test(sg)) return sg
+    return nombreValido(u)
+  }
+
   for (const s of students) {
-    await resolver(
-      s,
-      'Estudiante',
-      async (n, u) => dataService.saveStudent({ ...s, fullName: n, email: s.email || emailDe(u), userId: s.userId || u.id }),
-      async () => {
-        for (const e of enrollments.filter((e) => e.studentId === s.id)) await dataService.deleteEnrollment(e.id)
-        for (const g of guardians.filter((g) => g.studentId === s.id)) await dataService.deleteGuardian(g.id)
-        await dataService.deleteStudent(s.id)
-      },
-    )
+    const u = match(s)
+    const nombre = nombreEstudiante(s, u)
+    if (!nombre) {
+      for (const e of enrollments.filter((e) => e.studentId === s.id)) await dataService.deleteEnrollment(e.id)
+      for (const g of guardians.filter((g) => g.studentId === s.id)) await dataService.deleteGuardian(g.id)
+      await dataService.deleteStudent(s.id)
+      personasEliminadas++
+      detalle.push(`Estudiante eliminado (sin nombre válido): ${s.fullName || s.id}`)
+      continue
+    }
+    if ((s.fullName ?? '').trim() !== nombre) {
+      await dataService.saveStudent({ ...s, fullName: nombre, email: s.email || (u ? emailDe(u) : ''), userId: s.userId || (u ? u.id : undefined) })
+      nombresActualizados++
+    }
   }
 
   // ------------------------------ Acudientes ------------------------------
@@ -117,7 +131,7 @@ export async function syncPersonsWithEntra(): Promise<SyncPersonsResult> {
   // ------------------- Limpieza de registros huérfanos -------------------
   // Elimina matrículas, acudientes, calificaciones y asignaciones que apunten a
   // personas ya inexistentes (evita que se muestren ids como "-39625d65-…").
-  const validStudentIds = new Set(students.filter((s) => nombreValido(match(s))).map((s) => s.id))
+  const validStudentIds = new Set(students.filter((s) => nombreEstudiante(s, match(s))).map((s) => s.id))
   const validTeacherIds = new Set(teachers.filter((t) => nombreValido(match(t))).map((t) => t.id))
 
   for (const e of enrollments) if (!validStudentIds.has(e.studentId)) { await dataService.deleteEnrollment(e.id); personasEliminadas++ }

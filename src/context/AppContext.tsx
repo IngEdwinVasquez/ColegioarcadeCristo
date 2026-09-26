@@ -43,10 +43,14 @@ function backfillNombres(c: Catalogs): Catalogs {
     const n = u?.displayName?.trim() || ''
     return n && !GUID_LIKE.test(n) ? n : ''
   }
+  const nombreSigerd = (sg?: { nombres?: string; primerApellido?: string; segundoApellido?: string }): string => {
+    const n = [sg?.nombres, sg?.primerApellido, sg?.segundoApellido].map((x) => (x ?? '').trim()).filter(Boolean).join(' ')
+    return n && !GUID_LIKE.test(n) ? n : ''
+  }
   return {
     ...c,
     teachers: c.teachers.map((t) => (sinNombre(t.fullName) && nombreCuenta(t) ? { ...t, fullName: nombreCuenta(t) } : t)),
-    students: c.students.map((s) => (sinNombre(s.fullName) && nombreCuenta(s) ? { ...s, fullName: nombreCuenta(s) } : s)),
+    students: c.students.map((s) => (sinNombre(s.fullName) ? { ...s, fullName: nombreSigerd(s.sigerd) || nombreCuenta(s) || s.fullName } : s)),
     guardians: c.guardians.map((g) => (sinNombre(g.fullName) && nombreCuenta(g) ? { ...g, fullName: nombreCuenta(g) } : g)),
   }
 }
