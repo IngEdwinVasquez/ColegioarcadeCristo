@@ -160,6 +160,13 @@ const normGrado = (s: string) => (s ?? '').normalize('NFD').replace(/[\u0300-\u0
 /** Indica si un curso tiene estructura válida (tiene grado, o es de Inicial). */
 export const esCursoValido = (g: GradeSection): boolean => !(gradoDe(g) === '' && nivelShort(g.level) !== 'Inicial')
 
+/** Indica si el grado del curso es válido (1ro…6to o Pre-Kinder/Kinder/Pre-Primaria). */
+export const esGradoValido = (g: GradeSection): boolean => {
+  const gd = normGrado(gradoDe(g))
+  if (!gd) return false
+  return GRADOS.some((x) => normGrado(x) === gd) || INICIAL_GRADOS.some((gi) => normGrado(gi.nombre) === gd)
+}
+
 const rankGrado = (g: GradeSection): number => {
   const i = GRADO_ORDEN.findIndex((x) => normGrado(x) === normGrado(gradoDe(g)))
   return i === -1 ? 99 : i

@@ -13,8 +13,9 @@ import { ModalForm } from '../../components/shared/ModalForm'
 import { FormField, FieldRow } from '../../components/shared/form'
 import { useApp } from '../../context/useApp'
 import { dataService } from '../../services/dataService'
+import { normalizarCursos } from '../../services/courseNormalize'
 import { useCollection } from '../../hooks/useCollection'
-import { cursoNombre, nivelShort, ordenarCursos, asignaturaDe, isRealSubject, gradoDe, seccionDe } from '../../utils/academic'
+import { cursoNombre, nivelShort, ordenarCursos, asignaturaDe, isRealSubject, gradoDe, seccionDe, esGradoValido } from '../../utils/academic'
 import { createClassTeam, listTenantTeams, resolveTeamUrl } from '../../services/teamsEdu'
 import { graphErrorMessage } from '../../services/graph'
 import { uploadFile, uploadAndShare, downloadFileAsDataUrl, listFilesInFolder } from '../../services/onedrive'
@@ -67,6 +68,7 @@ export function aulasFromGrades(grades: GradeSection[]): Aula[] {
   const map = new Map<string, Aula>()
   for (const g of grades) {
     if (!isRealSubject(asignaturaDe(g))) continue
+    if (!esGradoValido(g)) continue
     const curso = cursoNombre(g)
     if (!curso) continue
     let a = map.get(curso)
@@ -501,7 +503,7 @@ export function AulasView({ scope, subtitle, pageTitle = 'Aulas', onOpenSubject 
 }) {
   const styles = useStyles()
   const toaster = useToastController()
-  const { grades, studentById, gradeById, students, periods } = useApp()
+  const { grades, studentById, gradeById, students, periods, refreshCatalogs } = useApp()
   const gradesCol = useCollection<GradeSection>(dataService.getGrades, dataService.saveGrade)
   const assignmentsCol = useCollection<TeacherAssignment>(dataService.getTeacherAssignments)
   const enrollmentsCol = useCollection<Enrollment>(dataService.getEnrollments)
@@ -544,6 +546,22 @@ export function AulasView({ scope, subtitle, pageTitle = 'Aulas', onOpenSubject 
   }, [notas, scope, assignmentsCol.items, enrollmentsCol.items, studentById, gradeById])
 
   const canManage = scope.kind !== 'estudiante'
+  const [normalizando, setNormalizando] = useState(false)
+
+  /** Normaliza cursos/aulas (elimina inválidos con nombre de asignatura y duplicados). */
+  const normalizarEnAulas = async () => {
+    if (!window.confirm('Normalizar cursos: eliminar cursos sin grado o con nombre de asignatura y duplicados (mismo curso + asignatura).')) return
+    setNormalizando(true)
+    try {
+      const r = await normalizarCursos(gradesCol.items.length ? gradesCol.items : grades)
+      await Promise.all([gradesCol.refresh(), refreshCatalogs()])
+      toaster.dispatchToast(`Cursos normalizados: ${r.duplicados} duplicado(s) y ${r.invalidos} inválido(s) eliminados.`, { intent: 'success' })
+    } catch (e) {
+      toaster.dispatchToast(graphErrorMessage(e), { intent: 'error' })
+    } finally {
+      setNormalizando(false)
+    }
+  }
   const seleccion = aulas.find((a) => a.curso === selected) ?? null
 
   const registroDe = (curso?: string) => (curso ? registrosCol.items.find((r) => r.curso === curso) : undefined)
@@ -781,7 +799,17 @@ Si falta información, complétala según el Diseño Curricular del MINERD para 
 
   return (
     <div>
-      <PageHeader title={pageTitle} subtitle={subtitle ?? 'Aulas del colegio. Entre a un aula para ver y gestionar sus asignaturas.'} />
+      <PageHeader
+        title={pageTitle}
+        subtitle={subtitle ?? 'Aulas del colegio. Entre a un aula para ver y gestionar sus asignaturas.'}
+        actions={
+          scope.kind === 'todos' ? (
+            <Button appearance="secondary" icon={normalizando ? <Spinner size="tiny" /> : <DeleteRegular />} disabled={normalizando} onClick={() => void normalizarEnAulas()}>
+              {normalizando ? 'Normalizando…' : 'Normalizar cursos'}
+            </Button>
+          ) : undefined
+        }
+      />
       {aulas.length === 0 ? (
         <EmptyStateView title="Sin aulas" message="No hay aulas disponibles para este usuario." icon={<VideoRegular />} />
       ) : (
