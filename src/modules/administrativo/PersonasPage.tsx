@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Button, Input, Select, Spinner, Tab, TabList, Text, makeStyles, useToastController } from '@fluentui/react-components'
-import { CloudArrowDownRegular, DeleteRegular, ArrowSyncRegular } from '@fluentui/react-icons'
+import { CloudArrowDownRegular, DeleteRegular, ArrowSyncRegular, CheckmarkCircleRegular } from '@fluentui/react-icons'
 import { PageHeader } from '../../components/shared/PageHeader'
 import { EntityCrud, type CrudColumn } from '../../components/shared/EntityCrud'
 import { FormField, FieldRow } from '../../components/shared/form'
@@ -115,6 +115,8 @@ export function PersonasPage() {
   const applyFilter = <T extends { userId?: string }>(items: T[]) => (soloActivos && activeIds ? items.filter(esActivo) : items)
   const [nivelFilter, setNivelFilter] = useState('')
   const [cicloFilter, setCicloFilter] = useState('')
+  const [estFilter, setEstFilter] = useState('todos')
+  const [estCurso, setEstCurso] = useState<Record<string, string>>({})
 
   const filteredGrades = useMemo(() => {
     return grades
@@ -357,10 +359,38 @@ export function PersonasPage() {
     return map
   }, [enrollmentsCol.items, activePeriodId, grades])
 
+  const matriculadoIds = useMemo(() => new Set(cursoPorEstudiante.keys()), [cursoPorEstudiante])
+
+  const matricularEstudiante = async (s: Student) => {
+    const gradeId = estCurso[s.id]
+    if (!gradeId) { toaster.dispatchToast('Selecciona un aula.', { intent: 'error' }); return }
+    try {
+      await dataService.saveEnrollment({ id: genId('enr'), studentId: s.id, gradeId, periodId: activePeriodId })
+      if (s.gradeId !== gradeId) await dataService.saveStudent({ ...s, gradeId })
+      await Promise.all([studentsCol.refresh(), enrollmentsCol.refresh(), refreshCatalogs()])
+      setEstCurso((m) => ({ ...m, [s.id]: '' }))
+      toaster.dispatchToast(`${s.fullName} matriculado.`, { intent: 'success' })
+    } catch (e) {
+      toaster.dispatchToast(graphErrorMessage(e), { intent: 'error' })
+    }
+  }
+
   const studentColumns: CrudColumn<Student>[] = [
     { header: 'Estudiante', render: (s) => <Text weight="semibold">{s.fullName}</Text> },
     { header: 'Cuenta M365', render: (s) => s.email || <Text size={200} style={{ color: '#B42318' }}>Sin vincular</Text> },
-    { header: 'Curso', render: (s) => cursoPorEstudiante.get(s.id) ?? '' },
+    { header: 'Curso', render: (s) => {
+      const curso = cursoPorEstudiante.get(s.id)
+      if (curso) return <Text>{curso}</Text>
+      return (
+        <div style={{ display: 'flex', gap: '6px' }}>
+          <Select value={estCurso[s.id] ?? ''} onChange={(_, d) => setEstCurso((m) => ({ ...m, [s.id]: d.value }))} style={{ minWidth: '170px' }}>
+            <option value="">Selecciona el aula…</option>
+            {grades.map((g) => <option key={g.id} value={g.id}>{cursoNombre(g)}</option>)}
+          </Select>
+          <Button size="small" icon={<CheckmarkCircleRegular />} onClick={() => void matricularEstudiante(s)}>Matricular</Button>
+        </div>
+      )
+    } },
     { header: 'Tipo', render: (s) => tipoCell('estudiante', s) },
     { header: 'Padre / Tutor', render: (s) => s.parentName || '—' },
     { header: 'Contacto', render: (s) => s.parentEmail || '—', hideMobile: true },
@@ -490,14 +520,23 @@ export function PersonasPage() {
       </TabList>
 
       {tab === 'estudiantes' && (
-        <EntityCrud
-          title="Estudiantes"
-          items={applyFilter(studentsCol.items)}
-          loading={studentsCol.loading}
-          columns={studentColumns}
-          searchText={(s) => `${s.fullName} ${s.parentName}`}
-          newLabel="Nuevo estudiante"
-          createDefault={() => ({ id: genId('s'), fullName: '', email: '', userId: undefined, gradeId: grades[0]?.id ?? '', parentName: '', parentEmail: '', birthDate: '' })}
+        <>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px', flexWrap: 'wrap' }}>
+            <Text size={200} weight="semibold">Matrícula:</Text>
+            <Select value={estFilter} onChange={(_, d) => setEstFilter(d.value)} style={{ maxWidth: '220px' }}>
+              <option value="todos">Todos</option>
+              <option value="matriculados">Matriculados</option>
+              <option value="no">No matriculados</option>
+            </Select>
+          </div>
+          <EntityCrud
+            title="Estudiantes"
+            items={applyFilter(studentsCol.items).filter((s) => (estFilter === 'matriculados' ? matriculadoIds.has(s.id) : estFilter === 'no' ? !matriculadoIds.has(s.id) : true))}
+            loading={studentsCol.loading}
+            columns={studentColumns}
+            searchText={(s) => `${s.fullName} ${s.parentName}`}
+            newLabel="Nuevo estudiante"
+            createDefault={() => ({ id: genId('s'), fullName: '', email: '', userId: undefined, gradeId: grades[0]?.id ?? '', parentName: '', parentEmail: '', birthDate: '' })}
           renderForm={(s, set) => (
             <div>
               <FormField label="Nombre completo" required>
@@ -533,6 +572,7 @@ export function PersonasPage() {
           onDelete={deleteStudent}
           emptyMessage="Registre los estudiantes de la matrícula."
         />
+        </>
       )}
 
       {tab === 'docentes' && (
