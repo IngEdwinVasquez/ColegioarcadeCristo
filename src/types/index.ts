@@ -1049,6 +1049,16 @@ export interface CargaResultado {
   detalle: CargaResultadoDocente[]
 }
 
+/** Registro de una asignatura eliminada de un curso (auditoría). */
+export interface AsignaturaLog {
+  id: string
+  curso: string
+  asignatura: string
+  userId?: string
+  userName: string
+  fecha: string
+}
+
 // ------------------------------ Aula virtual por asignatura (estilo Moodle) ------------------------------
 
 export interface CursoLabel {

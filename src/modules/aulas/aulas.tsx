@@ -23,7 +23,7 @@ import { renderPdfFirstPageToBlob, extractPdfText } from '../../services/pdf'
 import { htmlToPdfBlob, downloadPlanPdf } from '../../services/planPdf'
 import { aiChat } from '../../services/ai'
 import { genId } from '../../utils/helpers'
-import type { Enrollment, GradeRegister, GradeSection, RegistroStudent, SubjectPlan, TeacherAssignment } from '../../types'
+import type { AsignaturaLog, Enrollment, GradeRegister, GradeSection, RegistroStudent, SubjectPlan, TeacherAssignment } from '../../types'
 
 export const AULA_IMAGENES = [
   '/aulas/aula1.svg', '/aulas/aula2.svg', '/aulas/aula3.svg',
@@ -307,7 +307,7 @@ export function AulaSubjectsPanel({ subjects, canManage, onOpenSubject, onPlanif
 }) {
   const styles = useStyles()
   const toaster = useToastController()
-  const { subjects: catsSubjects, grades: todasLasNotas, refreshCatalogs } = useApp()
+  const { user, subjects: catsSubjects, grades: todasLasNotas, refreshCatalogs } = useApp()
   const [teamRecord, setTeamRecord] = useState<GradeSection | null>(null)
   const [teamOpen, setTeamOpen] = useState(false)
   const [creando, setCreando] = useState<string | null>(null)
@@ -317,6 +317,10 @@ export function AulaSubjectsPanel({ subjects, canManage, onOpenSubject, onPlanif
   const [nuevaNombre, setNuevaNombre] = useState('')
   const [nuevaCorta, setNuevaCorta] = useState('')
   const [agregando, setAgregando] = useState(false)
+  const [delOpen, setDelOpen] = useState(false)
+  const [logOpen, setLogOpen] = useState(false)
+  const [logItems, setLogItems] = useState<AsignaturaLog[]>([])
+  const [eliminando, setEliminando] = useState(false)
 
   const quitar = async (g: GradeSection) => {
     try {
@@ -399,11 +403,51 @@ export function AulaSubjectsPanel({ subjects, canManage, onOpenSubject, onPlanif
     }
   }
 
+  const asignaturasCurso = [...new Set(subjects.map((g) => asignaturaDe(g).trim()))].sort((a, b) => a.localeCompare(b))
+
+  /** Elimina una asignatura del curso (auditando quién la eliminó). */
+  const eliminarAsignatura = async (asig: string) => {
+    if (!window.confirm(`¿Eliminar la asignatura "${asig}" de este curso?`)) return
+    setEliminando(true)
+    try {
+      const records = subjects.filter((g) => asignaturaDe(g).trim() === asig)
+      for (const g of records) await dataService.deleteGrade(g.id)
+      await dataService.saveAsignaturaLog({
+        id: genId('alg'),
+        curso: subjects[0] ? cursoNombre(subjects[0]) : '',
+        asignatura: asig,
+        userId: user?.id,
+        userName: user?.displayName ?? user?.email ?? '—',
+        fecha: new Date().toISOString(),
+      })
+      await refreshCatalogs()
+      onChanged()
+      toaster.dispatchToast(`Asignatura "${asig}" eliminada.`, { intent: 'success' })
+    } catch (e) {
+      toaster.dispatchToast(graphErrorMessage(e), { intent: 'error' })
+    } finally {
+      setEliminando(false)
+    }
+  }
+
+  const abrirLog = async () => {
+    try {
+      const items = await dataService.getAsignaturaLog()
+      setLogItems([...items].sort((a, b) => (a.fecha < b.fecha ? 1 : -1)))
+    } catch (e) {
+      setLogItems([])
+      toaster.dispatchToast(graphErrorMessage(e), { intent: 'error' })
+    }
+    setLogOpen(true)
+  }
+
   return (
     <>
       {canManage && (
         <div className={styles.actions} style={{ marginBottom: '10px' }}>
           <Button appearance="primary" icon={<AddRegular />} onClick={abrirAdd}>Agregar asignatura al curso</Button>
+          <Button appearance="secondary" icon={<DeleteRegular />} onClick={() => setDelOpen(true)}>Eliminar asignatura del curso</Button>
+          <Button appearance="subtle" icon={<BookOpenRegular />} onClick={() => void abrirLog()}>Ver asignaturas eliminadas</Button>
           <Text size={200} style={{ color: 'var(--texto-suave)' }}>{subjects.length} asignatura(s)</Text>
         </div>
       )}
@@ -469,6 +513,52 @@ export function AulaSubjectsPanel({ subjects, canManage, onOpenSubject, onPlanif
               <Input value={nuevaCorta} onChange={(_, d) => setNuevaCorta(d.value)} />
             </FormField>
           </FieldRow>
+        )}
+      </ModalForm>
+
+      <ModalForm
+        open={delOpen}
+        onOpenChange={(o) => { if (!o) setDelOpen(false) }}
+        title="Eliminar asignatura del curso"
+        subtitle="Selecciona la asignatura que deseas quitar de este curso."
+        width={520}
+        actions={<Button appearance="secondary" onClick={() => setDelOpen(false)}>Cerrar</Button>}
+      >
+        {asignaturasCurso.length === 0 ? (
+          <Text size={200} style={{ color: 'var(--texto-suave)' }}>Este curso no tiene asignaturas.</Text>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            {asignaturasCurso.map((a) => (
+              <div key={a} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', border: '1px solid var(--borde)', borderRadius: '8px', padding: '8px 12px' }}>
+                <Text weight="semibold">{a}</Text>
+                <Button size="small" appearance="subtle" icon={eliminando ? <Spinner size="tiny" /> : <DeleteRegular />} disabled={eliminando} onClick={() => void eliminarAsignatura(a)}>
+                  Eliminar
+                </Button>
+              </div>
+            ))}
+          </div>
+        )}
+      </ModalForm>
+
+      <ModalForm
+        open={logOpen}
+        onOpenChange={(o) => { if (!o) setLogOpen(false) }}
+        title="Asignaturas eliminadas"
+        subtitle="Historial de asignaturas quitadas de los cursos y quién las eliminó."
+        width={640}
+        actions={<Button appearance="secondary" onClick={() => setLogOpen(false)}>Cerrar</Button>}
+      >
+        {logItems.length === 0 ? (
+          <Text size={200} style={{ color: 'var(--texto-suave)' }}>No hay asignaturas eliminadas registradas.</Text>
+        ) : (
+          <div style={{ maxHeight: '420px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            {logItems.map((l) => (
+              <div key={l.id} style={{ border: '1px solid var(--borde)', borderRadius: '8px', padding: '8px 12px' }}>
+                <Text size={200} block><strong>{l.asignatura}</strong> — {l.curso}</Text>
+                <Text size={200} block style={{ color: 'var(--texto-suave)' }}>Eliminada por: {l.userName} · {l.fecha.slice(0, 10)}</Text>
+              </div>
+            ))}
+          </div>
         )}
       </ModalForm>
     </>
