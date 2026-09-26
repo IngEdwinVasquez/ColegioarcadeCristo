@@ -17,7 +17,7 @@ import { MultiSelect } from '../../components/shared/MultiSelect'
 import { ImportPersonasWizard } from '../tecnologia/ImportPersonasWizard'
 import { entraEmail, getDirectoryUsers, linkUserRole, syncTeacherAssignments, unlinkUserRole, type LinkTarget } from '../../services/userLinks'
 import { graphErrorMessage } from '../../services/graph'
-import { syncPersonsWithEntra } from '../../services/syncPersons'
+import { syncPersonsWithEntra, repairStudentNames } from '../../services/syncPersons'
 
 const useStyles = makeStyles({
   tabs: { marginBottom: '16px' },
@@ -427,6 +427,24 @@ export function PersonasPage() {
     />
   )
 
+  /** Repara los nombres de estudiantes desde su ficha SIGERD o su cuenta de M365. */
+  const repararNombres = async () => {
+    if (!window.confirm('¿Reparar los nombres de los estudiantes usando su ficha SIGERD (y su cuenta de Microsoft 365 si no tiene SIGERD)? No se elimina nada.')) return
+    setSyncing(true)
+    try {
+      const r = await repairStudentNames()
+      await Promise.all([studentsCol.refresh(), refreshCatalogs()])
+      toaster.dispatchToast(
+        `Nombres reparados: ${r.reparados}. Sin fuente de nombre: ${r.sinFuente}.`,
+        { intent: r.sinFuente ? 'warning' : 'success' },
+      )
+    } catch (e) {
+      toaster.dispatchToast(graphErrorMessage(e), { intent: 'error' })
+    } finally {
+      setSyncing(false)
+    }
+  }
+
   return (
     <div>
       <PageHeader
@@ -437,6 +455,9 @@ export function PersonasPage() {
             <Button appearance="secondary" icon={<DeleteRegular />} disabled={deduping} onClick={() => void dedupeAll()}>Revisar duplicados</Button>
             <Button appearance="secondary" icon={syncing ? <Spinner size="tiny" /> : <ArrowSyncRegular />} disabled={syncing || deduping} onClick={() => void sincronizarM365()}>
               {syncing ? 'Sincronizando…' : 'Sincronizar con Microsoft 365'}
+            </Button>
+            <Button appearance="secondary" icon={<ArrowSyncRegular />} disabled={syncing || deduping} onClick={() => void repararNombres()}>
+              Reparar nombres de estudiantes
             </Button>
             <Button appearance="primary" icon={<CloudArrowDownRegular />} onClick={() => setImportOpen(true)}>
               Importar desde Microsoft 365
@@ -586,7 +607,7 @@ export function PersonasPage() {
             { header: 'Tipo', render: (g) => tipoCell('padre', g) },
             { header: 'Teléfono', render: (g) => g.phone || '—' },
             { header: 'Parentesco', render: (g) => <StatusBadge status={g.parentesco}>{g.parentesco}</StatusBadge> },
-            { header: 'Estudiante', render: (g) => studentsCol.items.find((s) => s.id === g.studentId)?.fullName ?? g.studentId },
+            { header: 'Estudiante', render: (g) => studentsCol.items.find((s) => s.id === g.studentId)?.fullName ?? '—' },
           ]}
           searchText={(g) => `${g.fullName} ${g.email} ${g.parentesco}`}
           newLabel="Registrar tutor"

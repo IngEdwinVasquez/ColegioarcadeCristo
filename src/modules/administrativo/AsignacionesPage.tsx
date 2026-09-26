@@ -244,7 +244,7 @@ export function AsignacionesPage() {
     [cursosCatalogo, eCurso, eTeacher],
   )
   /** Nombre visible de un docente o de un usuario con acceso al portal Docente. */
-  const nombreDocente = (id?: string) => (id ? teacherById(id)?.fullName ?? userById(id)?.displayName ?? id : '')
+  const nombreDocente = (id?: string) => (id ? teacherById(id)?.fullName ?? userById(id)?.displayName ?? '—' : '')
 
   const encargadoTitulo = eCurso
     ? `Curso: ${eCurso}`
@@ -326,7 +326,7 @@ export function AsignacionesPage() {
           return g && cursoNombre(g) !== mCurso
         })
         if (otherCourse) {
-          conflicts.push(studentById(studentId)?.fullName ?? studentId)
+          conflicts.push(studentById(studentId)?.fullName ?? '—')
           continue
         }
         const already = existing.some((e) => {
@@ -771,7 +771,7 @@ export function AsignacionesPage() {
               <TableBody>
                 {matriculasCurso.map((e) => (
                   <TableRow key={e.id}>
-                    <TableCell><Text weight="semibold">{studentById(e.studentId)?.fullName ?? e.studentId}</Text></TableCell>
+                    <TableCell><Text weight="semibold">{studentById(e.studentId)?.fullName ?? '—'}</Text></TableCell>
                     <TableCell>{gradeById(e.gradeId) ? cursoNombre(gradeById(e.gradeId) as GradeSection) : e.gradeId}</TableCell>
                     <TableCell>{e.subjectId ? subjectById(e.subjectId)?.name ?? e.subjectId : 'Todas'}</TableCell>
                     <TableCell>{periodById(e.periodId)?.name ?? e.periodId}</TableCell>

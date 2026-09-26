@@ -143,3 +143,32 @@ export async function syncPersonsWithEntra(): Promise<SyncPersonsResult> {
 
   return { nombresActualizados, personasEliminadas, detalle }
 }
+
+/**
+ * Repara (sin eliminar) el nombre de los estudiantes cuyo `fullName` es un id
+ * o está vacío, reconstruyéndolo desde su ficha SIGERD o, si no, desde su
+ * cuenta de Microsoft 365. Devuelve cuántos se repararon y cuántos quedaron
+ * sin una fuente de nombre.
+ */
+export async function repairStudentNames(): Promise<{ reparados: number; sinFuente: number }> {
+  const students = await dataService.getStudents()
+  const entra = await listEntraUsers()
+  const byOid = new Map<string, EntraUser>(entra.map((u) => [u.id.toLowerCase(), u]))
+  const byEmail = new Map<string, EntraUser>()
+  for (const u of entra) { const e = emailDe(u); if (e) byEmail.set(e, u) }
+
+  let reparados = 0
+  let sinFuente = 0
+  for (const s of students) {
+    const actual = (s.fullName ?? '').trim()
+    if (actual && !GUID_LIKE.test(actual)) continue
+    const sg = [s.sigerd?.nombres, s.sigerd?.primerApellido, s.sigerd?.segundoApellido].map((x) => (x ?? '').trim()).filter(Boolean).join(' ')
+    const u = (s.userId ? byOid.get(s.userId.toLowerCase()) : undefined) ?? (s.email ? byEmail.get(s.email.toLowerCase()) : undefined)
+    const cuenta = u ? nombreValido(u) : ''
+    const nombre = (sg && !GUID_LIKE.test(sg) ? sg : '') || cuenta
+    if (!nombre) { sinFuente++; continue }
+    await dataService.saveStudent({ ...s, fullName: nombre })
+    reparados++
+  }
+  return { reparados, sinFuente }
+}
