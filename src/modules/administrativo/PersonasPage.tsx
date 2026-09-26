@@ -18,6 +18,7 @@ import { ImportPersonasWizard } from '../tecnologia/ImportPersonasWizard'
 import { entraEmail, getDirectoryUsers, linkUserRole, syncTeacherAssignments, unlinkUserRole, type LinkTarget } from '../../services/userLinks'
 import { graphErrorMessage } from '../../services/graph'
 import { syncPersonsWithEntra, repairStudentNames } from '../../services/syncPersons'
+import { normalizarCursos } from '../../services/courseNormalize'
 
 const useStyles = makeStyles({
   tabs: { marginBottom: '16px' },
@@ -478,6 +479,21 @@ export function PersonasPage() {
     }
   }
 
+  /** Normaliza cursos/aulas (elimina inválidos con nombre de asignatura y duplicados). */
+  const normalizarCursosPersonal = async () => {
+    if (!window.confirm('Normalizar cursos: eliminar cursos sin grado o con nombre de asignatura y duplicados (mismo curso + asignatura).')) return
+    setSyncing(true)
+    try {
+      const r = await normalizarCursos(grades)
+      await refreshCatalogs()
+      toaster.dispatchToast(`Cursos normalizados: ${r.duplicados} duplicado(s) y ${r.invalidos} inválido(s) eliminados.`, { intent: 'success' })
+    } catch (e) {
+      toaster.dispatchToast(graphErrorMessage(e), { intent: 'error' })
+    } finally {
+      setSyncing(false)
+    }
+  }
+
   return (
     <div>
       <PageHeader
@@ -539,6 +555,11 @@ export function PersonasPage() {
             columns={studentColumns}
             searchText={(s) => `${s.fullName} ${s.parentName}`}
             newLabel="Nuevo estudiante"
+            headerActions={
+              <Button appearance="secondary" icon={<ArrowSyncRegular />} disabled={syncing} onClick={() => void normalizarCursosPersonal()}>
+                Normalizar cursos
+              </Button>
+            }
             createDefault={() => ({ id: genId('s'), fullName: '', email: '', userId: undefined, gradeId: grades[0]?.id ?? '', parentName: '', parentEmail: '', birthDate: '' })}
           renderForm={(s, set) => (
             <div>
