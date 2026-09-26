@@ -15,7 +15,7 @@ import { useApp } from '../../context/useApp'
 import { dataService } from '../../services/dataService'
 import { normalizarCursos } from '../../services/courseNormalize'
 import { useCollection } from '../../hooks/useCollection'
-import { cursoNombre, nivelShort, ordenarCursos, asignaturaDe, isRealSubject, gradoDe, seccionDe, esGradoValido } from '../../utils/academic'
+import { cursoNombre, nivelShort, ordenarCursos, asignaturaDe, isRealSubject, gradoDe, seccionDe, esGradoValido, GRADOS, SECCIONES, INICIAL_GRADOS, cicloFromGrade } from '../../utils/academic'
 import { createClassTeam, listTenantTeams, resolveTeamUrl } from '../../services/teamsEdu'
 import { graphErrorMessage } from '../../services/graph'
 import { uploadFile, uploadAndShare, downloadFileAsDataUrl, listFilesInFolder } from '../../services/onedrive'
@@ -547,6 +547,8 @@ export function AulasView({ scope, subtitle, pageTitle = 'Aulas', onOpenSubject 
 
   const canManage = scope.kind !== 'estudiante'
   const [normalizando, setNormalizando] = useState(false)
+  const [nuevoCursoOpen, setNuevoCursoOpen] = useState(false)
+  const [nuevoCurso, setNuevoCurso] = useState({ nivel: 'Nivel Primario', grado: '', seccion: 'A' })
 
   /** Normaliza cursos/aulas (elimina inválidos con nombre de asignatura y duplicados). */
   const normalizarEnAulas = async () => {
@@ -560,6 +562,32 @@ export function AulasView({ scope, subtitle, pageTitle = 'Aulas', onOpenSubject 
       toaster.dispatchToast(graphErrorMessage(e), { intent: 'error' })
     } finally {
       setNormalizando(false)
+    }
+  }
+
+  /** Crea un curso/aula respetando la estructura Grado.Sección.Nivel. */
+  const crearCursoAula = async () => {
+    const esInicial = nivelShort(nuevoCurso.nivel) === 'Inicial'
+    if (!nuevoCurso.grado) { toaster.dispatchToast('Selecciona el grado.', { intent: 'error' }); return }
+    const nombre = esInicial ? `${nuevoCurso.grado}.${nuevoCurso.seccion}` : `${nuevoCurso.grado}.${nuevoCurso.seccion}`
+    const nuevo: GradeSection = {
+      id: genId('g'),
+      name: nombre,
+      grado: nuevoCurso.grado,
+      section: nuevoCurso.seccion,
+      level: nuevoCurso.nivel,
+      nivel: nivelShort(nuevoCurso.nivel),
+      ciclo: esInicial ? undefined : cicloFromGrade(nuevoCurso.nivel, nuevoCurso.grado),
+      asignatura: 'Asignaturas Generales',
+    }
+    try {
+      await gradesCol.save(nuevo)
+      await Promise.all([gradesCol.refresh(), refreshCatalogs()])
+      setNuevoCursoOpen(false)
+      setNuevoCurso({ nivel: 'Nivel Primario', grado: '', seccion: 'A' })
+      toaster.dispatchToast(`Curso "${cursoNombre(nuevo)}" creado.`, { intent: 'success' })
+    } catch (e) {
+      toaster.dispatchToast(graphErrorMessage(e), { intent: 'error' })
     }
   }
   const seleccion = aulas.find((a) => a.curso === selected) ?? null
@@ -974,6 +1002,46 @@ Si falta información, complétala según el Diseño Curricular del MINERD para 
             )}
             {planResult && <Text size={200} block style={{ color: 'var(--texto-suave)' }}>{planResult}</Text>}
           </>
+        )}
+      </ModalForm>
+
+      <ModalForm
+        open={nuevoCursoOpen}
+        onOpenChange={(o) => { if (!o) setNuevoCursoOpen(false) }}
+        title="Nuevo curso / aula"
+        subtitle="El nombre se construye automáticamente con Grado + Sección + Nivel."
+        width={560}
+        actions={
+          <>
+            <Button appearance="secondary" onClick={() => setNuevoCursoOpen(false)}>Cancelar</Button>
+            <Button appearance="primary" icon={<AddRegular />} disabled={!nuevoCurso.grado} onClick={() => void crearCursoAula()}>
+              Crear curso
+            </Button>
+          </>
+        }
+      >
+        <FieldRow>
+          <FormField label="Nivel" required>
+            <Select value={nuevoCurso.nivel} onChange={(_, d) => setNuevoCurso({ ...nuevoCurso, nivel: d.value, grado: '' })}>
+              <option value="Nivel Inicial">Inicial</option>
+              <option value="Nivel Primario">Primaria</option>
+              <option value="Nivel Secundario">Secundaria</option>
+            </Select>
+          </FormField>
+          <FormField label="Sección" required>
+            <Select value={nuevoCurso.seccion} onChange={(_, d) => setNuevoCurso({ ...nuevoCurso, seccion: d.value })}>
+              {SECCIONES.map((s) => <option key={s} value={s}>{s}</option>)}
+            </Select>
+          </FormField>
+        </FieldRow>
+        <FormField label="Grado" required>
+          <Select value={nuevoCurso.grado} onChange={(_, d) => setNuevoCurso({ ...nuevoCurso, grado: d.value })}>
+            <option value="">Selecciona el grado…</option>
+            {(nivelShort(nuevoCurso.nivel) === 'Inicial' ? INICIAL_GRADOS.map((gi) => gi.nombre) : GRADOS).map((gr) => <option key={gr} value={gr}>{gr}</option>)}
+          </Select>
+        </FormField>
+        {nuevoCurso.grado && (
+          <Text size={200}>Se creará el aula: <strong>{`${nuevoCurso.grado}.${nuevoCurso.seccion} · ${nivelShort(nuevoCurso.nivel)}`}</strong></Text>
         )}
       </ModalForm>
     </div>
