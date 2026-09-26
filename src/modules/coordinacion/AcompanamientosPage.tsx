@@ -12,7 +12,7 @@ import { useCollection } from '../../hooks/useCollection'
 import { NivelSelector } from './NivelSelector'
 import { useCoordinationLevel } from './useCoordinationLevel'
 import { printAcompanamiento, exportAcompanamientoWord } from './exportAcompanamiento'
-import type { Accompaniment, ClassPlan, DailyPlan, SchoolClassRecord } from '../../types'
+import type { Accompaniment, ClassPlan, CoordinationLevel, DailyPlan, SchoolClassRecord } from '../../types'
 import { formatDate, genId, todayIso } from '../../utils/helpers'
 
 const PHASES = [
@@ -130,11 +130,11 @@ export function AcompanamientosPage() {
         </Table>
       )}
 
-      <ModalForm open={formOpen} onOpenChange={setFormOpen} title={editing ? 'Editar acompañamiento' : 'Nuevo acompañamiento'} subtitle={`Acompañamiento docente · ${level}`} width={760}>
+      <ModalForm open={formOpen} onOpenChange={setFormOpen} title={editing ? 'Editar acompañamiento' : 'Nuevo acompañamiento'} subtitle={`Acompañamiento docente · ${level || 'Todas'}`} width={760}>
         <AcompanamientoForm
           initial={editing}
           coordinatorId={user?.id ?? ''}
-          level={level}
+          level={(level || 'Primaria') as CoordinationLevel}
           teacherRefs={refsByTeacher}
           teachers={teachers}
           onSave={(a) => void handleSave(a)}
