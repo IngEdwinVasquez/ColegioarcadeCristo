@@ -12,7 +12,7 @@ import { createClassTeam, listTenantTeams, resolveTeamUrl, type TeamInfo } from 
 import { graphErrorMessage } from '../../services/graph'
 import type { GradeSection } from '../../types'
 import { genId } from '../../utils/helpers'
-import { CICLOS, GRADOS, SECCIONES, LEVEL_SHORT, asignaturaDe, cicloFromGrade, cursoNombre, cursoNombresOrdenados, detectLevel, gradoDe, isRealSubject, nivelShort, seccionDe } from '../../utils/academic'
+import { CICLOS, GRADOS, SECCIONES, LEVEL_SHORT, INICIAL_GRADOS, asignaturaDe, cicloFromGrade, cursoNombre, cursoNombresOrdenados, detectLevel, gradoDe, isRealSubject, nivelShort, seccionDe } from '../../utils/academic'
 import { appConfig } from '../../config/appConfig'
 
 const useStyles = makeStyles({
@@ -92,18 +92,40 @@ export function AcademicaTecPage() {
 
   /** Curso válido = tiene grado (o es de Inicial). Descarta registros sin estructura (ej. «A · Primaria»). */
   const esCursoValido = (g: GradeSection) => !(gradoDe(g) === '' && nivelShort(g.level) !== 'Inicial')
+  const norm = (s: string) => (s ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim()
+  const gradosValidos = new Set([...GRADOS, ...INICIAL_GRADOS.map((gi) => gi.nombre)].map(norm))
+  /** Grado válido: debe ser 1ro…6to o Pre-Kinder/Kinder/Pre-Primaria (no un nombre de asignatura). */
+  const esGradoValido = (g: GradeSection) => {
+    const gd = norm(gradoDe(g))
+    return !!gd && gradosValidos.has(gd)
+  }
   /** Solo cursos que corresponden a una asignatura real (filtra "Equipo de implementación", etc.). */
   const cursos = gradesCol.items.filter((g) => isRealSubject(asignaturaDe(g)) && esCursoValido(g))
-  const cursosInvalidos = gradesCol.items.filter((g) => !esCursoValido(g))
+  const cursosInvalidos = gradesCol.items.filter((g) => !esGradoValido(g))
   const ignorados = gradesCol.items.length - cursos.length
 
-  /** Elimina los cursos sin estructura (sin grado) de la lista de Gestión académica. */
-  const eliminarInvalidos = async () => {
-    if (cursosInvalidos.length === 0) return
-    if (!window.confirm(`¿Eliminar ${cursosInvalidos.length} curso(s) sin grado (por ejemplo «A · Primaria», «A · Secundaria»)?`)) return
+  /** Elimina cursos sin estructura o con nombre de asignatura, y los duplicados. */
+  const normalizarCursos = async () => {
+    const dup = new Set<string>()
+    let duplicados = 0
+    for (const g of gradesCol.items) {
+      if (!esGradoValido(g)) continue
+      const clave = `${cursoNombre(g).toLowerCase()}|${asignaturaDe(g).trim().toLowerCase()}`
+      if (dup.has(clave)) duplicados += 1
+      dup.add(clave)
+    }
+    if (cursosInvalidos.length === 0 && duplicados === 0) return
+    if (!window.confirm(`¿Normalizar cursos? Se eliminarán ${cursosInvalidos.length} curso(s) sin grado o con nombre de asignatura y ${duplicados} duplicado(s) (mismo curso + asignatura).`)) return
     try {
-      for (const g of cursosInvalidos) await gradesCol.remove(g.id)
-      toaster.dispatchToast(`${cursosInvalidos.length} curso(s) eliminado(s).`, { intent: 'success' })
+      const dupSet = new Set<string>()
+      let eliminados = 0
+      for (const g of gradesCol.items) {
+        if (!esGradoValido(g)) { await gradesCol.remove(g.id); eliminados += 1; continue }
+        const clave = `${cursoNombre(g).toLowerCase()}|${asignaturaDe(g).trim().toLowerCase()}`
+        if (dupSet.has(clave)) { await gradesCol.remove(g.id); eliminados += 1; continue }
+        dupSet.add(clave)
+      }
+      toaster.dispatchToast(`${eliminados} curso(s) eliminado(s) al normalizar.`, { intent: 'success' })
     } catch (error) {
       toaster.dispatchToast(`No se pudieron eliminar: ${graphErrorMessage(error)}`, { intent: 'error' })
     }
@@ -333,11 +355,9 @@ export function AcademicaTecPage() {
           {cursoFilterOptions.map((c) => (<option key={c} value={c}>{c}</option>))}
         </Select>
         <Text size={200} style={{ color: 'var(--texto-suave)' }}>{cursosFiltrados.length} asignatura(s)</Text>
-        {cursosInvalidos.length > 0 && (
-          <Button size="small" appearance="outline" icon={<DeleteRegular />} onClick={() => void eliminarInvalidos()}>
-            Eliminar sin grado ({cursosInvalidos.length})
-          </Button>
-        )}
+        <Button size="small" appearance="outline" icon={<DeleteRegular />} onClick={() => void normalizarCursos()}>
+          Normalizar cursos ({cursosInvalidos.length} inválido{cursosInvalidos.length === 1 ? '' : 's'})
+        </Button>
       </div>
 
       <Table aria-label="Cursos">
