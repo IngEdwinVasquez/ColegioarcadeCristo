@@ -35,6 +35,20 @@ const numGradoSigerd = (g?: string): number | null => {
   return null
 }
 
+/** Opciones de "cambiar tipo" (mismas categorías que la columna Tipo del sitio Personal). */
+const TIPO_OPCIONES = [
+  { label: 'Docente', key: 'docentes' },
+  { label: 'Padre / Tutor', key: 'padres' },
+  { label: 'Coordinador pedagógico', key: 'coordinacion' },
+  { label: 'Tecnología (TIC)', key: 'tecnologia' },
+  { label: 'Orientación y Psicología', key: 'psicologia' },
+  { label: 'Pasante', key: 'pasantes' },
+  { label: 'Personal de apoyo', key: 'apoyo' },
+  { label: 'Director', key: 'directores' },
+  { label: 'Administrador', key: 'administradores' },
+  { label: 'SIGERD', key: 'siger' },
+]
+
 /** Página SIGERD: importación de estudiantes desde PDF, matriculación por aulas y consulta. */
 export function SigerdPage() {
   const styles = useStyles()
@@ -52,6 +66,7 @@ export function SigerdPage() {
   const [busy, setBusy] = useState(false)
   const [progreso, setProgreso] = useState('')
   const [matFilter, setMatFilter] = useState('todos')
+  const [matNivel, setMatNivel] = useState('')
   const [selCurso, setSelCurso] = useState<Record<string, string>>({})
   const [selTipo, setSelTipo] = useState<Record<string, string>>({})
 
@@ -308,11 +323,13 @@ export function SigerdPage() {
   )
   const listaMatriculacion = useMemo(() => {
     const q = search.trim().toLowerCase()
+    const nivelEst = (s: Student) => nivelShort(gradeById(s.gradeId)?.level ?? nivelDeReporte(reports.find((r) => r.id === s.sigerdReportId))) || '—'
     return studentsCol.items
       .filter((s) => !q || s.fullName.toLowerCase().includes(q) || (s.sigerdId ?? '').toLowerCase().includes(q))
       .filter((s) => (matFilter === 'matriculados' ? matriculadoIds.has(s.id) : matFilter === 'no' ? !matriculadoIds.has(s.id) : true))
+      .filter((s) => !matNivel || nivelEst(s) === matNivel)
       .sort((a, b) => a.fullName.localeCompare(b.fullName))
-  }, [studentsCol.items, matFilter, search, matriculadoIds])
+  }, [studentsCol.items, matFilter, matNivel, search, matriculadoIds, gradeById, reports])
 
   return (
     <div>
@@ -451,10 +468,16 @@ export function SigerdPage() {
         <>
           <div className={styles.bar}>
             <Text size={200} weight="semibold">Mostrar:</Text>
-            <Select value={matFilter} onChange={(_, d) => setMatFilter(d.value)} style={{ minWidth: '220px' }}>
+            <Select value={matFilter} onChange={(_, d) => setMatFilter(d.value)} style={{ minWidth: '180px' }}>
               <option value="todos">Todos</option>
               <option value="matriculados">Matriculados</option>
               <option value="no">No matriculados</option>
+            </Select>
+            <Select value={matNivel} onChange={(_, d) => setMatNivel(d.value)} style={{ minWidth: '160px' }}>
+              <option value="">Todos los niveles</option>
+              <option value="Inicial">Inicial</option>
+              <option value="Primaria">Primaria</option>
+              <option value="Secundaria">Secundaria</option>
             </Select>
             <Input className={styles.search} contentBefore={<SearchRegular />} value={search} onChange={(_, d) => setSearch(d.value)} placeholder="Buscar estudiante…" />
           </div>
@@ -498,9 +521,9 @@ export function SigerdPage() {
                         </TableCell>
                         <TableCell>
                           <div style={{ display: 'flex', gap: '6px' }}>
-                            <Select value={selTipo[s.id] ?? ''} onChange={(_, d) => setSelTipo((m) => ({ ...m, [s.id]: d.value }))} style={{ minWidth: '180px' }}>
+                            <Select value={selTipo[s.id] ?? ''} onChange={(_, d) => setSelTipo((m) => ({ ...m, [s.id]: d.value }))} style={{ minWidth: '200px' }}>
                               <option value="">Cambiar a…</option>
-                              {PERSON_GROUPS.filter((g) => g.kind !== 'estudiante').map((g) => <option key={g.key} value={g.key}>{g.label}</option>)}
+                              {TIPO_OPCIONES.map((t) => <option key={t.key} value={t.key}>{t.label}</option>)}
                             </Select>
                             <Button size="small" icon={<ArrowSyncRegular />} onClick={() => void cambiarTipo(s)}>Cambiar</Button>
                           </div>
