@@ -45,17 +45,20 @@ export async function syncPersonsWithEntra(): Promise<SyncPersonsResult> {
   let personasEliminadas = 0
   const detalle: string[] = []
 
-  /** Actualiza el nombre o elimina la ficha según su cuenta de Microsoft 365. */
+  /** Actualiza el nombre desde M365; solo elimina si el nombre es un id Y no hay cuenta activa. */
   const resolver = async (f: Ficha, tipo: string, persistir: (n: string, u: EntraUser) => Promise<void>, eliminar: () => Promise<void>) => {
     const u = match(f)
     const nombre = nombreValido(u)
-    if (!u || !nombre) {
+    const actual = (f.fullName ?? '').trim()
+    const nombreInvalido = !actual || GUID_LIKE.test(actual)
+    // Solo se elimina cuando el nombre no es válido y además no hay cuenta en M365.
+    if (nombreInvalido && !u) {
       await eliminar()
       personasEliminadas++
-      detalle.push(`${tipo} eliminado (sin usuario activo o sin nombre): ${f.fullName || f.id}`)
+      detalle.push(`${tipo} eliminado (sin nombre y sin usuario activo): ${f.fullName || f.id}`)
       return
     }
-    if (GUID_LIKE.test((f.fullName ?? '').trim()) || !f.fullName || f.fullName.trim().toLowerCase() !== nombre.toLowerCase()) {
+    if (u && nombre && (nombreInvalido || actual.toLowerCase() !== nombre.toLowerCase())) {
       await persistir(nombre, u)
       nombresActualizados++
     }
@@ -93,14 +96,8 @@ export async function syncPersonsWithEntra(): Promise<SyncPersonsResult> {
   for (const s of students) {
     const u = match(s)
     const nombre = nombreEstudiante(s, u)
-    if (!nombre) {
-      for (const e of enrollments.filter((e) => e.studentId === s.id)) await dataService.deleteEnrollment(e.id)
-      for (const g of guardians.filter((g) => g.studentId === s.id)) await dataService.deleteGuardian(g.id)
-      await dataService.deleteStudent(s.id)
-      personasEliminadas++
-      detalle.push(`Estudiante eliminado (sin nombre válido): ${s.fullName || s.id}`)
-      continue
-    }
+    // Nunca se elimina un estudiante: solo se repara su nombre si se puede reconstruir.
+    if (!nombre) continue
     if ((s.fullName ?? '').trim() !== nombre) {
       await dataService.saveStudent({ ...s, fullName: nombre, email: s.email || (u ? emailDe(u) : ''), userId: s.userId || (u ? u.id : undefined) })
       nombresActualizados++

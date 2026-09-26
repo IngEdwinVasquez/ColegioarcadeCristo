@@ -11,9 +11,9 @@ import { useApp } from '../../context/useApp'
 import { dataService } from '../../services/dataService'
 import { useCollection } from '../../hooks/useCollection'
 import { genId } from '../../utils/helpers'
-import { asignaturaDe, cursoNombre, ordenarCursos, isRealSubject, nivelShort, gradoDe, seccionDe, cicloFromGrade, INICIAL_GRADOS } from '../../utils/academic'
+import { asignaturaDe, cursoNombre, ordenarCursos, isRealSubject, nivelShort, gradoDe, seccionDe, cicloFromGrade, INICIAL_GRADOS, GRADOS, nivelDeTanda, gradoInicialDe } from '../../utils/academic'
 import { expandPortalRoles } from '../../types/roles'
-import type { Enrollment, GradeSection, Student, TeacherAssignment } from '../../types'
+import type { Enrollment, GradeSection, SigerdReport, Student, TeacherAssignment } from '../../types'
 
 const sameEmail = (a?: string | null, b?: string | null) => !!a && !!b && a.trim().toLowerCase() === b.trim().toLowerCase()
 
@@ -21,6 +21,22 @@ const sameEmail = (a?: string | null, b?: string | null) => !!a && !!b && a.trim
 const TODOS_CURSOS = '__todas__'
 /** Valor especial del selector de docente: ver TODOS los docentes. */
 const TODOS_DOCENTES = '__todos__'
+
+/** Número de grado tomando la PRIMERA mención (ej. "Quinto grado (3ro. Nivel Medio)" → 5). */
+const numGradoSigerd = (g?: string): number | null => {
+  const t = (g ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+  const re = /\b(1ro|1er|primero|primer|2do|2da|segundo|segunda|3ro|3er|tercero|tercera|4to|4ta|cuarto|cuarta|5to|5ta|quinto|quinta|6to|6ta|sexto|sexta)\b/
+  const m = re.exec(t)
+  if (!m) return null
+  const x = m[1]
+  if (/primero|primer|1ro|1er/.test(x)) return 1
+  if (/segundo|segunda|2do|2da/.test(x)) return 2
+  if (/tercero|tercera|3ro|3er/.test(x)) return 3
+  if (/cuarto|cuarta|4to|4ta/.test(x)) return 4
+  if (/quinto|quinta|5to|5ta/.test(x)) return 5
+  if (/sexto|sexta|6to|6ta/.test(x)) return 6
+  return null
+}
 
 const useStyles = makeStyles({
   tabs: { marginBottom: '16px' },
@@ -35,6 +51,7 @@ export function AsignacionesPage() {
   const toaster = useToastController()
   const { students, teachers, users, roleMeta, grades, subjects, periods, gradeById, subjectById, periodById, studentById, teacherById, userById, refreshCatalogs } = useApp()
   const enrollmentsCol = useCollection<Enrollment>(dataService.getEnrollments, dataService.saveEnrollment, dataService.deleteEnrollment)
+  const reportsCol = useCollection<SigerdReport>(dataService.getSigerdReports)
   const assignmentsCol = useCollection<TeacherAssignment>(dataService.getTeacherAssignments, dataService.saveTeacherAssignment, dataService.deleteTeacherAssignment)
   const gradesCol = useCollection<GradeSection>(dataService.getGrades, dataService.saveGrade, dataService.deleteGrade)
   const studentsCol = useCollection<Student>(dataService.getStudents, dataService.saveStudent)
@@ -52,6 +69,7 @@ export function AsignacionesPage() {
   const excelRef = useRef<HTMLInputElement>(null)
   const subjectExcelRef = useRef<HTMLInputElement>(null)
   const [importingSubjects, setImportingSubjects] = useState(false)
+  const [sigNivel, setSigNivel] = useState('')
   const [manualCurso, setManualCurso] = useState('')
   const [manualAsig, setManualAsig] = useState<Record<string, boolean>>({})
   const [editEnr, setEditEnr] = useState<Enrollment | null>(null)
@@ -687,6 +705,51 @@ export function AsignacionesPage() {
     }
   }
 
+  /** Matricula a los estudiantes de Inicial/Primaria/Secundaria desde los listados SIGERD subidos. */
+  const matricularDesdeSigerd = async (nivel: string) => {
+    const reports = reportsCol.items.filter((r) => !nivel || (r.nivel ?? nivelDeTanda(r.header.tandaServicio)) === nivel)
+    if (reports.length === 0) { toaster.dispatchToast('No hay listados SIGERD para ese nivel. Súbelos en SIGERD.', { intent: 'error' }); return }
+    const reportIds = new Set(reports.map((r) => r.id))
+    setBusy(true)
+    try {
+      let ok = 0
+      let sinCurso = 0
+      for (const s of students) {
+        const rep = s.sigerdReportId ? reportsCol.items.find((r) => r.id === s.sigerdReportId) : undefined
+        const nivelEst = s.sigerd?.nivel || (rep ? (rep.nivel ?? nivelDeTanda(rep.header.tandaServicio)) : undefined)
+        if (nivel && nivelEst && nivelEst !== nivel) continue
+        if (nivel && !nivelEst && !reportIds.has(s.sigerdReportId ?? '')) continue
+        const gi = gradoInicialDe(s.sigerd?.grado)
+        let curso: GradeSection | undefined
+        if (gi) {
+          const sec = (s.sigerd?.seccion ?? rep?.header.seccion ?? 'A').trim().toUpperCase()
+          curso = grades.find((g) => nivelShort(g.level) === 'Inicial' && gradoDe(g) === gi.nombre && seccionDe(g) === sec)
+            ?? grades.find((g) => nivelShort(g.level) === 'Inicial' && gradoDe(g) === gi.nombre)
+        } else {
+          const n = numGradoSigerd(s.sigerd?.grado) ?? numGradoSigerd(rep?.header.grado)
+          const sec = (s.sigerd?.seccion ?? rep?.header.seccion ?? '').trim().toUpperCase()
+          if (n) {
+            curso = grades.find((g) => cursoNombre(g) === `${GRADOS[n - 1]}.${sec}${nivelEst ? ` · ${nivelShort(nivelEst)}` : ''}`)
+              ?? grades.find((g) => gradoDe(g) === GRADOS[n - 1] && seccionDe(g) === sec && (!nivelEst || nivelShort(g.level) === nivelShort(nivelEst)))
+              ?? grades.find((g) => gradoDe(g) === GRADOS[n - 1] && seccionDe(g) === sec)
+          }
+        }
+        if (!curso) { sinCurso += 1; continue }
+        const ya = enrollmentsCol.items.some((e) => e.studentId === s.id && (!activePeriod || e.periodId === activePeriod))
+        if (ya) continue
+        await enrollmentsCol.save({ id: genId('enr'), studentId: s.id, gradeId: curso.id, periodId: activePeriod })
+        if (s.gradeId !== curso.id) await dataService.saveStudent({ ...s, gradeId: curso.id })
+        ok += 1
+      }
+      await Promise.all([enrollmentsCol.refresh(), refreshCatalogs()])
+      toaster.dispatchToast(`Matriculados desde SIGERD: ${ok}. Sin curso identificable: ${sinCurso}.`, { intent: ok ? 'success' : 'warning' })
+    } catch (e) {
+      toaster.dispatchToast(e instanceof Error ? e.message : 'No se pudo matricular desde SIGERD.', { intent: 'error' })
+    } finally {
+      setBusy(false)
+    }
+  }
+
   return (
     <div>
       <PageHeader
@@ -740,6 +803,28 @@ export function AsignacionesPage() {
               </div>
             )}
 
+          </Card>
+
+          <Card className={styles.card}>
+            <Text weight="semibold" size={300}>Matricular desde SIGERD (listados PDF)</Text>
+            <Text size={200} style={{ color: 'var(--texto-suave)' }}>
+              Matricula a los estudiantes de Inicial, Primaria o Secundaria según los listados subidos en SIGERD, en el curso que les corresponde (grado + sección).
+            </Text>
+            <FieldRow>
+              <FormField label="Nivel">
+                <Select value={sigNivel} onChange={(_, d) => setSigNivel(d.value)} style={{ maxWidth: '260px' }}>
+                  <option value="">Todos los niveles</option>
+                  <option value="Inicial">Inicial</option>
+                  <option value="Primaria">Primaria</option>
+                  <option value="Secundaria">Secundaria</option>
+                </Select>
+              </FormField>
+            </FieldRow>
+            <div className={styles.actions}>
+              <Button appearance="primary" icon={busy ? <Spinner size="tiny" /> : <CheckmarkCircleRegular />} disabled={busy} onClick={() => void matricularDesdeSigerd(sigNivel)}>
+                {busy ? 'Procesando…' : 'Matricular desde SIGERD'}
+              </Button>
+            </div>
           </Card>
 
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginBottom: '10px', flexWrap: 'wrap' }}>
