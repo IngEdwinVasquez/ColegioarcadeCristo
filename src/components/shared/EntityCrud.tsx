@@ -31,6 +31,8 @@ interface EntityCrudProps<T extends { id: string }> {
   saveLabel?: string
   searchText?: (item: T) => string
   filterRow?: ReactNode
+  /** Botones adicionales junto al botón "Nuevo". */
+  headerActions?: ReactNode
   emptyMessage?: string
 }
 
@@ -48,6 +50,7 @@ export function EntityCrud<T extends { id: string }>({
   saveLabel = 'Guardar',
   searchText,
   filterRow,
+  headerActions,
   emptyMessage,
 }: EntityCrudProps<T>) {
   const styles = useStyles()
@@ -88,9 +91,12 @@ export function EntityCrud<T extends { id: string }>({
         title={title}
         subtitle={subtitle}
         actions={
-          <Button appearance="primary" icon={<AddRegular />} onClick={openNew}>
-            {newLabel}
-          </Button>
+          <>
+            {headerActions}
+            <Button appearance="primary" icon={<AddRegular />} onClick={openNew}>
+              {newLabel}
+            </Button>
+          </>
         }
       />
 
