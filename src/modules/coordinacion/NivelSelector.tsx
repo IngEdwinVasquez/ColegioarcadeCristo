@@ -7,26 +7,19 @@ const useStyles = makeStyles({
 })
 
 interface NivelSelectorProps {
-  value: CoordinationLevel
-  onChange: (level: CoordinationLevel) => void
+  value: CoordinationLevel | ''
+  onChange: (level: CoordinationLevel | '') => void
   levels: CoordinationLevel[]
 }
 
-/** Selector del nivel de coordinación (Inicial / Primaria / Secundaria). */
+/** Selector del nivel de coordinación (Ver todas / Inicial / Primaria / Secundaria). */
 export function NivelSelector({ value, onChange, levels }: NivelSelectorProps) {
   const styles = useStyles()
-  if (levels.length <= 1) {
-    return (
-      <div className={styles.wrap}>
-        <span className={styles.label}>Nivel de coordinación</span>
-        <span style={{ fontWeight: 600 }}>{levels[0] ?? value}</span>
-      </div>
-    )
-  }
   return (
     <div className={styles.wrap}>
       <span className={styles.label}>Nivel de coordinación</span>
-      <Select value={value} onChange={(_, d) => onChange(d.value as CoordinationLevel)}>
+      <Select value={value} onChange={(_, d) => onChange(d.value as CoordinationLevel | '')}>
+        <option value="">Ver todas</option>
         {levels.map((l) => (
           <option key={l} value={l}>{l}</option>
         ))}
