@@ -164,6 +164,7 @@ export const dataService = {
   deleteActivity: collections.activities.remove,
   getScores: collections.scores.getAll,
   saveScore: collections.scores.save,
+  deleteScore: collections.scores.remove,
   // Encuentros virtuales
   getMeetings: collections.meetings.getAll,
   saveMeeting: collections.meetings.save,
