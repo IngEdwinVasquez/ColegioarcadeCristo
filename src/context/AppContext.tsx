@@ -40,7 +40,8 @@ function backfillNombres(c: Catalogs): Catalogs {
   const byEmail = new Map(c.users.map((u) => [(u.email ?? '').toLowerCase(), u]))
   const nombreCuenta = (p: { userId?: string; email?: string }): string => {
     const u = (p.userId ? byOid.get(p.userId) : undefined) ?? (p.email ? byEmail.get(p.email.toLowerCase()) : undefined)
-    return u?.displayName?.trim() || ''
+    const n = u?.displayName?.trim() || ''
+    return n && !GUID_LIKE.test(n) ? n : ''
   }
   return {
     ...c,
