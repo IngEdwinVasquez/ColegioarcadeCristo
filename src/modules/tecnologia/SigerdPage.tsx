@@ -8,7 +8,7 @@ import { dataService } from '../../services/dataService'
 import { useCollection } from '../../hooks/useCollection'
 import { useApp } from '../../context/useApp'
 import { formatDate, genId } from '../../utils/helpers'
-import { cursoNombre, nivelShort, gradoInicialDe, INICIAL_GRADOS, GRADOS, nivelDeTanda, gradoDe, seccionDe, ordenarCursos, isRealSubject, asignaturaDe } from '../../utils/academic'
+import { cursoNombre, nivelShort, gradoInicialDe, INICIAL_GRADOS, GRADOS, nivelDeTanda, gradoDe, seccionDe, ordenarCursos, isRealSubject, asignaturaDe, cicloFromGrade } from '../../utils/academic'
 import { PERSON_GROUPS, transferPerson, type PersonRef } from '../../services/personGroups'
 import type { Enrollment, GradeSection, SigerdReport, SigerdStudent, Student } from '../../types'
 
@@ -80,23 +80,6 @@ export function SigerdPage() {
   const selected = reports.find((r) => r.id === reportId)
 
   const nivelDeReporte = (r?: SigerdReport) => nivelShort(r?.nivel ?? nivelDeTanda(r?.header.tandaServicio) ?? '')
-
-  /** Resuelve el aula (curso) de un estudiante SIGERD según grado + sección + nivel. */
-  const aulaDeEstudiante = (g: SigerdStudent | undefined, nivel: string): GradeSection | undefined => {
-    if (!g) return undefined
-    const gi = gradoInicialDe(g.grado)
-    if (gi) {
-      const sec = (g.seccion ?? '').trim().toUpperCase()
-      return grades.find((x) => nivelShort(x.level) === 'Inicial' && gradoDe(x) === gi.nombre && (seccionDe(x) === sec || !sec))
-        ?? grades.find((x) => nivelShort(x.level) === 'Inicial' && gradoDe(x) === gi.nombre)
-    }
-    const n = numGradoSigerd(g.grado)
-    if (!n) return undefined
-    const sec = (g.seccion ?? '').trim().toUpperCase()
-    return grades.find((x) => cursoNombre(x) === `${GRADOS[n - 1]}.${sec} · ${nivel}`)
-      ?? grades.find((x) => gradoDe(x) === GRADOS[n - 1] && seccionDe(x) === sec && nivelShort(x.level) === nivel)
-      ?? grades.find((x) => gradoDe(x) === GRADOS[n - 1] && seccionDe(x) === sec)
-  }
 
   const eliminarUno = async (s: Student) => {
     if (!window.confirm(`¿Eliminar el registro SIGERD de ${s.fullName}?`)) return
@@ -209,14 +192,47 @@ export function SigerdPage() {
     if (!nivel) { toaster.dispatchToast('No se pudo determinar el nivel del PDF.', { intent: 'error' }); return }
     const lista = studentsCol.items.filter((s) => s.sigerdReportId === selected.id)
     if (lista.length === 0) { toaster.dispatchToast('Este PDF no tiene estudiantes.', { intent: 'error' }); return }
-    if (!window.confirm(`Matricular a los ${lista.length} estudiantes de este PDF en sus aulas (Nivel ${nivel}), reemplazando la matrícula actual de esas aulas.`)) return
+    if (!window.confirm(`Matricular a los ${lista.length} estudiantes de este PDF en sus aulas (Nivel ${nivel}), creando las aulas que falten y reemplazando la matrícula actual de esas aulas.`)) return
     setBusy(true)
     setProgreso('Matriculando…')
+    const nivelLargo = nivel === 'Inicial' ? 'Nivel Inicial' : nivel === 'Secundaria' ? 'Nivel Secundario' : 'Nivel Primario'
+    const listaGrades = [...(gradesCol.items.length ? gradesCol.items : grades)]
+    let aulasCreadas = 0
     try {
+      // Encuentra o crea el aula según grado + sección + nivel.
+      const asegurarAula = async (g: SigerdStudent | undefined): Promise<GradeSection | null> => {
+        if (!g) return null
+        const gi = gradoInicialDe(g.grado)
+        if (gi) {
+          const sec = (g.seccion ?? '').trim().toUpperCase()
+          const existente = listaGrades.find((x) => nivelShort(x.level) === 'Inicial' && gradoDe(x) === gi.nombre && (seccionDe(x) === sec || !sec))
+            ?? listaGrades.find((x) => nivelShort(x.level) === 'Inicial' && gradoDe(x) === gi.nombre)
+          if (existente) return existente
+          const nuevo: GradeSection = { id: genId('g'), name: gi.nombre, grado: gi.nombre, section: sec || undefined, level: 'Nivel Inicial', nivel: 'Inicial', asignatura: 'Asignaturas Generales', edad: gi.edad }
+          await dataService.saveGrade(nuevo)
+          listaGrades.push(nuevo)
+          aulasCreadas += 1
+          return nuevo
+        }
+        const n = numGradoSigerd(g.grado)
+        if (!n) return null
+        const sec = (g.seccion ?? '').trim().toUpperCase() || 'A'
+        const grado = GRADOS[n - 1]
+        const existente = listaGrades.find((x) => cursoNombre(x) === `${grado}.${sec} · ${nivel}`)
+          ?? listaGrades.find((x) => gradoDe(x) === grado && seccionDe(x) === sec && nivelShort(x.level) === nivel)
+          ?? listaGrades.find((x) => gradoDe(x) === grado && seccionDe(x) === sec)
+        if (existente) return existente
+        const nuevo: GradeSection = { id: genId('g'), name: `${grado}.${sec}`, grado, section: sec, level: nivelLargo, nivel, ciclo: cicloFromGrade(nivelLargo, grado), asignatura: 'Asignaturas Generales' }
+        await dataService.saveGrade(nuevo)
+        listaGrades.push(nuevo)
+        aulasCreadas += 1
+        return nuevo
+      }
+
       const porAula = new Map<string, Student[]>()
       const sinCurso: string[] = []
       for (const s of lista) {
-        const aula = aulaDeEstudiante(s.sigerd, nivel)
+        const aula = await asegurarAula(s.sigerd)
         if (!aula) { sinCurso.push(s.fullName); continue }
         if (!porAula.has(aula.id)) porAula.set(aula.id, [])
         porAula.get(aula.id)!.push(s)
@@ -237,8 +253,8 @@ export function SigerdPage() {
           ok += 1
         }
       }
-      await Promise.all([studentsCol.refresh(), enrollmentsCol.refresh(), refreshCatalogs()])
-      toaster.dispatchToast(`Matriculados ${ok} estudiante(s) en ${porAula.size} aula(s). Matrículas anteriores retiradas: ${quitadas}. Sin aula: ${sinCurso.length}.`, { intent: 'success' })
+      await Promise.all([studentsCol.refresh(), enrollmentsCol.refresh(), gradesCol.refresh(), refreshCatalogs()])
+      toaster.dispatchToast(`Matriculados ${ok} estudiante(s) en ${porAula.size} aula(s). Aulas creadas: ${aulasCreadas}. Matrículas anteriores retiradas: ${quitadas}. Sin aula: ${sinCurso.length}.`, { intent: 'success' })
     } catch (error) {
       toaster.dispatchToast(error instanceof Error ? error.message : 'No se pudo matricular.', { intent: 'error' })
     } finally {
