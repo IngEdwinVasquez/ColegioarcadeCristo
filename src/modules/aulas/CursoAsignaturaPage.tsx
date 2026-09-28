@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { Button, Card, Input, Select, Spinner, Tab, TabList, Table, TableBody, TableCell, TableHeader, TableHeaderCell, TableRow, Text, Textarea, useToastController, makeStyles } from '@fluentui/react-components'
-import { AddRegular, DeleteRegular, ImageRegular, ArrowUploadRegular, SaveRegular, BookOpenRegular, SparkleRegular, ArrowDownloadRegular, ArrowRightRegular, EditRegular } from '@fluentui/react-icons'
+import { AddRegular, DeleteRegular, ImageRegular, ArrowUploadRegular, SaveRegular, BookOpenRegular, SparkleRegular, ArrowDownloadRegular, ArrowRightRegular, EditRegular, ChevronDownRegular, ChevronRightRegular } from '@fluentui/react-icons'
 import { PageHeader } from '../../components/shared/PageHeader'
 import { ModalForm } from '../../components/shared/ModalForm'
 import { FormField, FieldRow } from '../../components/shared/form'
@@ -103,6 +103,7 @@ export function CursoAsignaturaPage() {
   const [tab, setTab] = useState('curso')
   const [busy, setBusy] = useState(false)
   const [filtroEstudiante, setFiltroEstudiante] = useState('')
+  const [colapsadas, setColapsadas] = useState<Record<string, boolean>>({})
   const headerRef = useRef<HTMLInputElement>(null)
   const labelImgRef = useRef<HTMLInputElement>(null)
   const recursoFileRef = useRef<HTMLInputElement>(null)
@@ -760,6 +761,13 @@ Incluye una introducción, al menos 3 recursos variando el tipo según la necesi
 
           {draft.units.map((u) => (
             <Card key={u.id} className={styles.card}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+                <Button size="small" appearance="subtle" icon={colapsadas[u.id] ? <ChevronRightRegular /> : <ChevronDownRegular />} onClick={() => setColapsadas((c) => ({ ...c, [u.id]: !c[u.id] }))} aria-label="Expandir o contraer unidad" />
+                <Text weight="semibold" size={400} style={{ flex: 1, cursor: 'pointer' }} onClick={() => setColapsadas((c) => ({ ...c, [u.id]: !c[u.id] }))}>{u.titulo || `Unidad ${draft.units.indexOf(u) + 1}`}</Text>
+                <Text size={200} style={{ color: 'var(--texto-suave)' }}>{u.recursos.length} recursos · {u.actividades.length} actividades</Text>
+              </div>
+              {!colapsadas[u.id] && (
+              <>
               {(editable || u.imageRef) && (
                 <div className={styles.unitImgWrap}>
                   <RefImage fileRef={u.imageRef} className={styles.unitImg} alt={u.tema || u.titulo} />
@@ -916,6 +924,8 @@ Incluye una introducción, al menos 3 recursos variando el tipo según la necesi
                   </div>
                 </Card>
               ) : <Button icon={<AddRegular />} onClick={() => setNuevaActividad({ unidadId: u.id, act: { id: '', titulo: '' } })}>Asignar actividad</Button>)}
+              </>
+              )}
             </Card>
           ))}
           <input ref={studentFileRef} type="file" style={{ display: 'none' }} onChange={(e) => { const id = studentActividad; if (id) void subirEntregaEstudiante(e.target.files?.[0], id) }} />
