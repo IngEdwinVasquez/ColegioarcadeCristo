@@ -120,6 +120,10 @@ export function GestionTicPage({ title = 'Gestión del Coordinador TIC' }: { tit
     try {
       const text = await extractPdfText(file)
       const schedule = await parseWeeklySchedulePdf(text, horarioTitle)
+      if (schedule.rows.length === 0) {
+        toaster.dispatchToast('El PDF no parece ser un horario semanal (HOR/LUNES…VIERNES). Para la Planificación TIC use "Importar Planificación (PDF)" en la pestaña Plan de trabajo.', { intent: 'warning' })
+        return
+      }
       await horCol.save(schedule)
       setHorarioOpen(false)
       toaster.dispatchToast('Horario semanal creado desde el PDF.', { intent: 'success' })
@@ -308,6 +312,23 @@ export function GestionTicPage({ title = 'Gestión del Coordinador TIC' }: { tit
     if (aiFileRef.current) aiFileRef.current.value = ''
   }
 
+  const planFileRef = useRef<HTMLInputElement>(null)
+
+  /** Importa la Planificación TIC desde un PDF: extrae el texto y abre el generador con IA. */
+  const onPlanPdf = async (file: File | undefined) => {
+    if (!file) return
+    try {
+      const text = await extractPdfText(file)
+      setAiScope('anual')
+      setAiSource(text)
+      setAiOpen(true)
+      toaster.dispatchToast('PDF leído. Pulsa "Generar plan" para crear la planificación con IA.', { intent: 'success' })
+    } catch (error) {
+      toaster.dispatchToast(`No se pudo leer el PDF: ${error instanceof Error ? error.message : ''}`, { intent: 'error' })
+    }
+    if (planFileRef.current) planFileRef.current.value = ''
+  }
+
   /** Genera un plan de trabajo TIC con IA y lo abre en el formulario de edición. */
   const generar = async () => {
     if (!aiSource.trim()) {
@@ -454,7 +475,11 @@ export function GestionTicPage({ title = 'Gestión del Coordinador TIC' }: { tit
             </Select>
           </div>
 
-          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '12px' }}>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginBottom: '12px', flexWrap: 'wrap' }}>
+            <input ref={planFileRef} type="file" accept="application/pdf" style={{ display: 'none' }} onChange={(e) => void onPlanPdf(e.target.files?.[0])} />
+            <Button appearance="secondary" icon={<DocumentPdfRegular />} onClick={() => planFileRef.current?.click()}>
+              Importar Planificación (PDF)
+            </Button>
             <Button
               appearance="secondary"
               icon={annualGenerating ? <Spinner size="tiny" /> : <SparkleRegular />}
