@@ -1059,6 +1059,22 @@ export interface AsignaturaLog {
   fecha: string
 }
 
+/** Elemento de gestión del Departamento de Tecnología (Clubes / Infraestructura / Proyecto M365). */
+export type TicGestionTipo = 'club' | 'infraestructura' | 'm365'
+
+export interface TicGestionItem {
+  id: string
+  tipo: TicGestionTipo
+  titulo: string
+  descripcion?: string
+  /** Club: nivel/grado · Infraestructura: ubicación · M365: docente/destinatario. */
+  detalle?: string
+  estado?: string
+  fecha?: string
+  createdAt: string
+  updatedAt: string
+}
+
 // ------------------------------ Aula virtual por asignatura (estilo Moodle) ------------------------------
 
 export interface CursoLabel {

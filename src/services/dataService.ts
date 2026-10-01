@@ -9,6 +9,7 @@ import type {
   AsignaturaLog,
   CargaHorariaRegistro,
   ChatMessage,
+  TicGestionItem,
   ClassPlan,
   ClassSchedule,
   DailyPlan,
@@ -107,6 +108,7 @@ export const collections = {
     coursePages: collection<CoursePage>(SPO_LISTS.coursePages),
     cargaHoraria: collection<CargaHorariaRegistro>(SPO_LISTS.cargaHoraria),
     asignaturaLog: collection<AsignaturaLog>(SPO_LISTS.asignaturaLog),
+    ticGestion: collection<TicGestionItem>(SPO_LISTS.ticGestion),
 }
 
 export const dataService = {
@@ -263,6 +265,10 @@ export const dataService = {
   // Auditoría de asignaturas eliminadas de un curso
   getAsignaturaLog: collections.asignaturaLog.getAll,
   saveAsignaturaLog: collections.asignaturaLog.save,
+  // Gestión del Departamento de Tecnología (Clubes / Infraestructura / M365)
+  getTicGestion: collections.ticGestion.getAll,
+  saveTicGestion: collections.ticGestion.save,
+  deleteTicGestion: collections.ticGestion.remove,
 }
 
 export type DataService = typeof dataService
