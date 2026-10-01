@@ -20,7 +20,7 @@ import { DeveloperBoardRegular, PeopleTeamRegular, ShieldPersonRegular, ShieldCh
 
 const NAV: NavItem[] = [
   { to: '/tecnologia', label: 'Panel de Tecnología', icon: <DeveloperBoardRegular />, end: true, group: 'General' },
-  { to: '/tecnologia/gestion-tic', label: 'Gestión TIC', icon: <ClipboardTaskRegular />, group: 'Coordinación TIC' },
+  { to: '/tecnologia/gestion-tic', label: 'Planificación TIC', icon: <ClipboardTaskRegular />, group: 'Coordinación TIC' },
   { to: '/tecnologia/gestion-dep-tecnologia', label: 'Gestión Dep. Tecnología', icon: <ClipboardTaskRegular />, group: 'Coordinación TIC' },
   { to: '/tecnologia/academica', label: 'Gestión académica', icon: <BookRegular />, group: 'Coordinación TIC' },
   { to: '/tecnologia/asignaciones', label: 'Asignaciones', icon: <LinkSquareRegular />, group: 'Académico' },
