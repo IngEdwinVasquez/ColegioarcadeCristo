@@ -2,6 +2,7 @@ import { Route, Routes } from 'react-router-dom'
 import { AppShell, type NavItem } from '../components/layout/AppShell'
 import { TecnologiaDashboard } from '../modules/tecnologia/TecnologiaDashboard'
 import { GestionTicPage } from '../modules/tecnologia/GestionTicPage'
+import { GestionDepTecnologia } from '../modules/tecnologia/GestionDepTecnologia'
 import { AcademicaTecPage } from '../modules/tecnologia/AcademicaTecPage'
 import { AsignacionesPage } from '../modules/administrativo/AsignacionesPage'
 import { PromocionPage } from '../modules/administrativo/PromocionPage'
@@ -20,6 +21,7 @@ import { DeveloperBoardRegular, PeopleTeamRegular, ShieldPersonRegular, ShieldCh
 const NAV: NavItem[] = [
   { to: '/tecnologia', label: 'Panel de Tecnología', icon: <DeveloperBoardRegular />, end: true, group: 'General' },
   { to: '/tecnologia/gestion-tic', label: 'Gestión TIC', icon: <ClipboardTaskRegular />, group: 'Coordinación TIC' },
+  { to: '/tecnologia/gestion-dep-tecnologia', label: 'Gestión Dep. Tecnología', icon: <ClipboardTaskRegular />, group: 'Coordinación TIC' },
   { to: '/tecnologia/academica', label: 'Gestión académica', icon: <BookRegular />, group: 'Coordinación TIC' },
   { to: '/tecnologia/asignaciones', label: 'Asignaciones', icon: <LinkSquareRegular />, group: 'Académico' },
   { to: '/tecnologia/aulas', label: 'Aulas por curso', icon: <VideoRegular />, group: 'Académico' },
@@ -40,6 +42,7 @@ export function TecnologiaPortal() {
       <Route element={<AppShell nav={NAV} />}>
         <Route index element={<TecnologiaDashboard />} />
         <Route path="gestion-tic" element={<GestionTicPage />} />
+        <Route path="gestion-dep-tecnologia" element={<GestionDepTecnologia />} />
         <Route path="academica" element={<AcademicaTecPage />} />
         <Route path="asignaciones" element={<AsignacionesPage />} />
         <Route path="aulas" element={<AulasViewManagement base="/tecnologia/aulas" scope={{ kind: 'todos' }} pageTitle="Aulas por curso" subtitle="Todas las aulas del colegio con sus asignaturas y aulas de Teams." />} />
