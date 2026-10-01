@@ -562,7 +562,7 @@ export function GestionTicPage({ title = 'Gestión del Coordinador TIC' }: { tit
               <Table aria-label={h.title}>
                 <TableHeader>
                   <TableRow>
-                    <TableHeaderCell>HOR</TableHeaderCell>
+                    <TableHeaderCell>HORA</TableHeaderCell>
                     {WEEK_DAYS.map((d) => (<TableHeaderCell key={d}>{d}</TableHeaderCell>))}
                   </TableRow>
                 </TableHeader>
@@ -887,7 +887,7 @@ export function GestionTicPage({ title = 'Gestión del Coordinador TIC' }: { tit
               <Table aria-label="Editar horario" size="small">
                 <TableHeader>
                   <TableRow>
-                    <TableHeaderCell>HOR</TableHeaderCell>
+                    <TableHeaderCell>HORA</TableHeaderCell>
                     {WEEK_DAYS.map((d) => (<TableHeaderCell key={d}>{d}</TableHeaderCell>))}
                     <TableHeaderCell> </TableHeaderCell>
                   </TableRow>
