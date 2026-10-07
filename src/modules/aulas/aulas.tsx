@@ -476,6 +476,7 @@ export function AulaSubjectsPanel({ subjects, canManage, onOpenSubject, onPlanif
               )}
               {onPlanificarIA && <Button size="small" appearance="secondary" icon={<SparkleRegular />} onClick={() => onPlanificarIA(g)} title={g.classPlans?.length ? 'Planificación del curso creada. Ver, editar o regenerar.' : 'Crear la planificación del curso de esta asignatura'}>{g.classPlans?.length ? 'Ver planificación del curso' : 'Planificación del curso'}</Button>}
               {onOpenSubject && <Button size="small" appearance="outline" icon={<ArrowRightRegular />} onClick={() => onOpenSubject(g)}>Abrir</Button>}
+              {canManage && <Button size="small" appearance="subtle" icon={eliminando ? <Spinner size="tiny" /> : <DeleteRegular />} disabled={eliminando} onClick={() => void eliminarAsignatura(asignaturaDe(g))}>Eliminar</Button>}
             </div>
           </Card>
         ))}
