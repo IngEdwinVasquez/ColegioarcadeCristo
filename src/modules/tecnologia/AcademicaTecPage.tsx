@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Badge, Button, Checkbox, Input, Select, Spinner, Table, TableBody, TableCell, TableHeader, TableHeaderCell, TableRow, Text, Toolbar, ToolbarButton, useToastController, makeStyles } from '@fluentui/react-components'
+import { Badge, Button, Checkbox, Combobox, Input, Option, Select, Spinner, Table, TableBody, TableCell, TableHeader, TableHeaderCell, TableRow, Text, Toolbar, ToolbarButton, useToastController, makeStyles } from '@fluentui/react-components'
 import { AddRegular, ArrowDownloadRegular, DeleteRegular, EditRegular, OpenRegular, PeopleTeamRegular, VideoRegular, PrintRegular, DocumentRegular, CopyRegular } from '@fluentui/react-icons'
 import { PageHeader } from '../../components/shared/PageHeader'
 import { ModalForm } from '../../components/shared/ModalForm'
@@ -19,6 +19,12 @@ const useStyles = makeStyles({
   hint: { marginBottom: '14px', color: 'var(--texto-suave)' },
 })
 
+/** Normaliza un nombre para comparar asignaturas sin acentos ni mayúsculas. */
+const normNombre = (s: string) => (s ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim()
+
+/** Colores para asignaturas nuevas del catálogo. */
+const ASSIGN_COLORS = ['#0082AD', '#2AA9D8', '#0A7C66', '#B45309', '#7C3AED', '#BE123C', '#15803D', '#4338CA']
+
 /**
  * RM-008: gestión académica desde Tecnología — cursos y secciones con
  * creación y vinculación del equipo de Microsoft Teams de cada curso.
@@ -26,7 +32,7 @@ const useStyles = makeStyles({
 export function AcademicaTecPage() {
   const styles = useStyles()
   const toaster = useToastController()
-  const { students, enrollments } = useAcademicData()
+  const { students, enrollments, subjects, refreshCatalogs } = useAcademicData()
   const gradesCol = useCollection<GradeSection>(dataService.getGrades, dataService.saveGrade, dataService.deleteGrade)
 
   const [editing, setEditing] = useState<GradeSection | null>(null)
@@ -245,6 +251,16 @@ export function AcademicaTecPage() {
       return
     }
     try {
+      // Crea la asignatura en el catálogo si es nueva.
+      if (asignatura && !subjects.some((s) => normNombre(s.name) === normNombre(asignatura))) {
+        await dataService.saveSubject({
+          id: genId('sub'),
+          name: asignatura,
+          shortName: asignatura.slice(0, 16),
+          color: ASSIGN_COLORS[subjects.length % ASSIGN_COLORS.length],
+        })
+        await refreshCatalogs()
+      }
       const isNew = !gradesCol.items.some((x) => x.id === g.id)
       // Crear el curso también en Teams en el mismo paso.
       let saved: GradeSection = next
@@ -523,6 +539,17 @@ export function AcademicaTecPage() {
                 </Select>
               </FormField>
             </FieldRow>
+            <FormField label="Asignatura" hint="Escribe para filtrar una asignatura existente, o escribe una nueva para crearla.">
+              <Combobox
+                freeform
+                value={editing.asignatura ?? ''}
+                placeholder="Ej. Matemática"
+                onChange={(e) => setEditing({ ...editing, asignatura: e.target.value })}
+                onOptionSelect={(_, d) => setEditing({ ...editing, asignatura: d.optionValue || editing.asignatura || '' })}
+              >
+                {subjects.map((s) => <Option key={s.id} value={s.name}>{s.name}</Option>)}
+              </Combobox>
+            </FormField>
             <FormField label="Nombre del curso" hint="Se construye automáticamente con grado + sección (ej. 1ro.A). Puede ajustarlo.">
               <Input value={editing.name} onChange={(_, d) => setEditing({ ...editing, name: d.value })} placeholder="Ej. 1ro.A" />
             </FormField>
@@ -541,7 +568,7 @@ export function AcademicaTecPage() {
 }
 
 function useAcademicData() {
-  const { students } = useApp()
+  const { students, subjects, refreshCatalogs } = useApp()
   const enrollmentsCol = useCollection(dataService.getEnrollments)
-  return { students, enrollments: enrollmentsCol.items }
+  return { students, enrollments: enrollmentsCol.items, subjects, refreshCatalogs }
 }
