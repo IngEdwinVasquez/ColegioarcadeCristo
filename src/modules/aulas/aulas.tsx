@@ -300,12 +300,14 @@ function TeamModal({ record, open, onClose, onSaved }: { record: GradeSection | 
 }
 
 /** Panel de asignaturas de un aula, con acceso y gestión del aula de Teams. */
-export function AulaSubjectsPanel({ subjects, canManage, onOpenSubject, onPlanificarIA, onChanged }: {
+export function AulaSubjectsPanel({ subjects, canManage, onOpenSubject, onPlanificarIA, onChanged, puedePaseAsignatura, onPaseAsignatura }: {
   subjects: GradeSection[]
   canManage: boolean
   onOpenSubject?: (g: GradeSection) => void
   onPlanificarIA?: (g: GradeSection) => void
   onChanged: () => void
+  puedePaseAsignatura?: (g: GradeSection) => boolean
+  onPaseAsignatura?: (g: GradeSection) => void
 }) {
   const styles = useStyles()
   const toaster = useToastController()
@@ -478,6 +480,7 @@ export function AulaSubjectsPanel({ subjects, canManage, onOpenSubject, onPlanif
               )}
               {onPlanificarIA && <Button size="small" appearance="secondary" icon={<SparkleRegular />} onClick={() => onPlanificarIA(g)} title={g.classPlans?.length ? 'Planificación del curso creada. Ver, editar o regenerar.' : 'Crear la planificación del curso de esta asignatura'}>{g.classPlans?.length ? 'Ver planificación del curso' : 'Planificación del curso'}</Button>}
               {onOpenSubject && <Button size="small" appearance="outline" icon={<ArrowRightRegular />} onClick={() => onOpenSubject(g)}>Abrir</Button>}
+              {onPaseAsignatura && (!puedePaseAsignatura || puedePaseAsignatura(g)) && <Button size="small" appearance="secondary" icon={<CheckmarkCircleRegular />} onClick={() => onPaseAsignatura(g)}>Pase de lista</Button>}
               {canManage && <Button size="small" appearance="subtle" icon={eliminando ? <Spinner size="tiny" /> : <DeleteRegular />} disabled={eliminando} onClick={() => void eliminarAsignatura(asignaturaDe(g))}>Eliminar</Button>}
             </div>
           </Card>
@@ -642,6 +645,8 @@ export function AulasView({ scope, subtitle, pageTitle = 'Aulas', onOpenSubject 
   const [normalizando, setNormalizando] = useState(false)
   const [paseOpen, setPaseOpen] = useState(false)
   const [histOpen, setHistOpen] = useState(false)
+  const [paseAsigOpen, setPaseAsigOpen] = useState(false)
+  const [paseAsig, setPaseAsig] = useState<GradeSection | null>(null)
   const [nuevoCursoOpen, setNuevoCursoOpen] = useState(false)
   const [nuevoCurso, setNuevoCurso] = useState({ nivel: 'Nivel Primario', grado: '', seccion: 'A' })
 
@@ -1005,6 +1010,8 @@ Si falta información, complétala según el Diseño Curricular del MINERD para 
                     onOpenSubject={onOpenSubject}
                     onPlanificarIA={(g) => abrirPlanIA(g)}
                     onChanged={() => { void gradesCol.refresh() }}
+                    puedePaseAsignatura={(g) => !!user?.teacherId && assignmentsCol.items.some((a) => a.teacherId === user.teacherId && a.gradeId === g.id)}
+                    onPaseAsignatura={(g) => { setPaseAsig(g); setPaseAsigOpen(true) }}
                   />
 
                   <div style={{ marginTop: '18px' }}>
@@ -1086,6 +1093,17 @@ Si falta información, complétala según el Diseño Curricular del MINERD para 
         onClose={() => setHistOpen(false)}
         course={seleccion ? seleccion.records[0] : null}
         totalEstudiantes={estudiantesAula.length}
+      />
+
+      <PaseListaModal
+        open={paseAsigOpen}
+        onClose={() => setPaseAsigOpen(false)}
+        course={paseAsig}
+        estudiantes={estudiantesAula}
+        periodId={activePeriodId}
+        tomadoPor={user?.displayName ?? ''}
+        subjectId={paseAsig ? asignaturaDe(paseAsig) : ''}
+        subjectName={paseAsig ? asignaturaDe(paseAsig) : undefined}
       />
 
       <ModalForm
