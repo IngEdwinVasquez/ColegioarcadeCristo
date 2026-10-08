@@ -1,9 +1,10 @@
 import { useState } from 'react'
-import { Badge, Button, Checkbox, Combobox, Input, Option, Select, Spinner, Table, TableBody, TableCell, TableHeader, TableHeaderCell, TableRow, Text, Toolbar, ToolbarButton, useToastController, makeStyles } from '@fluentui/react-components'
+import { Badge, Button, Checkbox, Input, Select, Spinner, Table, TableBody, TableCell, TableHeader, TableHeaderCell, TableRow, Text, Toolbar, ToolbarButton, useToastController, makeStyles } from '@fluentui/react-components'
 import { AddRegular, ArrowDownloadRegular, DeleteRegular, EditRegular, OpenRegular, PeopleTeamRegular, VideoRegular, PrintRegular, DocumentRegular, CopyRegular } from '@fluentui/react-icons'
 import { PageHeader } from '../../components/shared/PageHeader'
 import { ModalForm } from '../../components/shared/ModalForm'
 import { FormField, FieldRow } from '../../components/shared/form'
+import { SubjectPickerModal } from '../../components/shared/SubjectPickerModal'
 import { MultiSelect } from '../../components/shared/MultiSelect'
 import { useApp } from '../../context/useApp'
 import { dataService } from '../../services/dataService'
@@ -48,11 +49,7 @@ export function AcademicaTecPage() {
   const [nivelFilter, setNivelFilter] = useState('')
   const [cursoFilter, setCursoFilter] = useState('')
   const [duplicarDe, setDuplicarDe] = useState<string | null>(null)
-
-  // Asignatura: filtrado del combo y detección de "no existe" para ofrecer crearla.
-  const asigQ = (editing?.asignatura ?? '').trim()
-  const asigMatches = subjects.filter((s) => !asigQ || normNombre(s.name).includes(normNombre(asigQ)))
-  const asigEsNueva = !!asigQ && !subjects.some((s) => normNombre(s.name) === normNombre(asigQ))
+  const [asigOpen, setAsigOpen] = useState(false)
 
   /** Abre el asistente de importación y carga los equipos existentes de Teams. */
   const openImport = async () => {
@@ -544,24 +541,11 @@ export function AcademicaTecPage() {
                 </Select>
               </FormField>
             </FieldRow>
-            <FormField label="Asignatura" hint="Escribe para filtrar una asignatura existente, o elige «Crear nueva asignatura».">
-              <Combobox
-                freeform
-                value={editing.asignatura ?? ''}
-                placeholder="Ej. Matemática"
-                onChange={(e) => setEditing({ ...editing, asignatura: e.target.value })}
-                onOptionSelect={(_, d) => setEditing({ ...editing, asignatura: d.optionValue || editing.asignatura || '' })}
-              >
-                {asigEsNueva && (
-                  <Option key="__nueva" value={asigQ} text={asigQ}>
-                    ➕ Crear nueva asignatura: «{asigQ}»
-                  </Option>
-                )}
-                {asigMatches.map((s) => <Option key={s.id} value={s.name}>{s.name}</Option>)}
-                {!asigQ && subjects.length === 0 && (
-                  <Option key="__vacio" value="" disabled>No hay asignaturas registradas</Option>
-                )}
-              </Combobox>
+            <FormField label="Asignatura" hint="Elige una asignatura existente o crea una nueva.">
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                <Input readOnly value={editing.asignatura ?? ''} placeholder="Sin asignatura" style={{ flex: 1, cursor: 'pointer' }} onClick={() => setAsigOpen(true)} />
+                <Button appearance="secondary" onClick={() => setAsigOpen(true)}>Elegir asignatura</Button>
+              </div>
             </FormField>
             <FormField label="Nombre del curso" hint="Se construye automáticamente con grado + sección (ej. 1ro.A). Puede ajustarlo.">
               <Input value={editing.name} onChange={(_, d) => setEditing({ ...editing, name: d.value })} placeholder="Ej. 1ro.A" />
@@ -576,6 +560,13 @@ export function AcademicaTecPage() {
           </div>
         )}
       </ModalForm>
+
+      <SubjectPickerModal
+        open={asigOpen}
+        onClose={() => setAsigOpen(false)}
+        selectedName={editing?.asignatura}
+        onPick={(nombre) => setEditing((e) => (e ? { ...e, asignatura: nombre } : e))}
+      />
     </div>
   )
 }
