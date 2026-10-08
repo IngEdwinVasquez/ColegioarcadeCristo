@@ -3,9 +3,10 @@ import { useNavigate } from 'react-router-dom'
 import {
   Button, Card, Checkbox, Dialog, DialogActions, DialogBody, DialogContent, DialogSurface, DialogTitle,
   Input, Select, Spinner, Text, Textarea, useToastController, makeStyles, tokens,
+  Badge, Table, TableBody, TableCell, TableHeader, TableHeaderCell, TableRow,
 } from '@fluentui/react-components'
 import {
-  VideoRegular, ArrowRightRegular, ImageRegular, AddRegular, DeleteRegular, BookOpenRegular, ArrowUploadRegular, SparkleRegular, ArrowDownloadRegular, CheckmarkCircleRegular, EditRegular,
+  VideoRegular, ArrowRightRegular, ImageRegular, AddRegular, DeleteRegular, BookOpenRegular, ArrowUploadRegular, SparkleRegular, ArrowDownloadRegular, CheckmarkCircleRegular, EditRegular, PeopleTeamRegular,
 } from '@fluentui/react-icons'
 import { PageHeader } from '../../components/shared/PageHeader'
 import { EmptyStateView } from '../../components/shared/EmptyStateView'
@@ -25,7 +26,7 @@ import { renderPdfFirstPageToBlob, extractPdfText } from '../../services/pdf'
 import { htmlToPdfBlob, downloadPlanPdf } from '../../services/planPdf'
 import { aiChat } from '../../services/ai'
 import { genId } from '../../utils/helpers'
-import type { AsignaturaLog, Enrollment, GradeRegister, GradeSection, RegistroStudent, SubjectPlan, TeacherAssignment } from '../../types'
+import type { AsignaturaLog, Enrollment, EnrollmentLogEntry, GradeRegister, GradeSection, RegistroStudent, SubjectPlan, TeacherAssignment } from '../../types'
 
 export const AULA_IMAGENES = [
   '/aulas/aula1.svg', '/aulas/aula2.svg', '/aulas/aula3.svg',
@@ -603,6 +604,7 @@ export function AulasView({ scope, subtitle, pageTitle = 'Aulas', onOpenSubject 
   const gradesCol = useCollection<GradeSection>(dataService.getGrades, dataService.saveGrade)
   const assignmentsCol = useCollection<TeacherAssignment>(dataService.getTeacherAssignments)
   const enrollmentsCol = useCollection<Enrollment>(dataService.getEnrollments)
+  const enrollmentLogCol = useCollection<EnrollmentLogEntry>(dataService.getEnrollmentLog, dataService.saveEnrollmentLog)
   const registrosCol = useCollection<GradeRegister>(dataService.getGradeRegisters, dataService.saveGradeRegister)
   const [selected, setSelected] = useState<string | null>(null)
   const [imgAula, setImgAula] = useState<Aula | null>(null)
@@ -646,6 +648,10 @@ export function AulasView({ scope, subtitle, pageTitle = 'Aulas', onOpenSubject 
   const [guiaBusy, setGuiaBusy] = useState(false)
   const [guiaOpen, setGuiaOpen] = useState(false)
   const [guiaSel, setGuiaSel] = useState('')
+  const [addStudentOpen, setAddStudentOpen] = useState(false)
+  const [addStudentQuery, setAddStudentQuery] = useState('')
+  const [logOpen, setLogOpen] = useState(false)
+  const [agregando, setAgregando] = useState<string | null>(null)
   const [paseOpen, setPaseOpen] = useState(false)
   const [histOpen, setHistOpen] = useState(false)
   const [paseAsigOpen, setPaseAsigOpen] = useState(false)
@@ -715,6 +721,25 @@ export function AulasView({ scope, subtitle, pageTitle = 'Aulas', onOpenSubject 
   /** Docente encargado (Maestro Guía) del curso. */
   const maestroGuia = seleccion ? teacherById(seleccion.records.find((r) => r.leadTeacherId)?.leadTeacherId) : undefined
 
+  /** Registra en el historial de estudiantes un movimiento (agregado/eliminado) con fecha y usuario. */
+  const registrarMovimiento = async (studentId: string, action: 'agregado' | 'eliminado') => {
+    if (!seleccion) return
+    const nombre = students.find((s) => s.id === studentId)?.fullName ?? studentId
+    await dataService.saveEnrollmentLog({
+      id: genId('enrlog'),
+      studentId,
+      studentName: nombre,
+      gradeId: seleccion.records[0]?.id ?? '',
+      curso: seleccion.curso,
+      action,
+      date: new Date().toISOString().slice(0, 10),
+      byUserId: user?.id,
+      byName: user?.displayName,
+      at: new Date().toISOString(),
+    })
+    await enrollmentLogCol.refresh()
+  }
+
   /** Agrega un estudiante al curso (matrícula) para que aparezca en el pase de lista. */
   const agregarAlCurso = async (studentId: string) => {
     if (!seleccion) return
@@ -722,6 +747,7 @@ export function AulasView({ scope, subtitle, pageTitle = 'Aulas', onOpenSubject 
     const ya = enrollmentsCol.items.some((e) => e.studentId === studentId && e.gradeId === gradeId)
     if (!ya) await dataService.saveEnrollment({ id: genId('enr'), studentId, gradeId, periodId: activePeriodId })
     await Promise.all([enrollmentsCol.refresh(), refreshCatalogs()])
+    await registrarMovimiento(studentId, 'agregado')
   }
 
   /** Quita un estudiante del curso (matrícula y asignación de grado). */
@@ -734,6 +760,20 @@ export function AulasView({ scope, subtitle, pageTitle = 'Aulas', onOpenSubject 
     const st = students.find((s) => s.id === studentId)
     if (st && ids.has(st.gradeId)) await dataService.saveStudent({ ...st, gradeId: '' })
     await Promise.all([enrollmentsCol.refresh(), refreshCatalogs()])
+    await registrarMovimiento(studentId, 'eliminado')
+  }
+
+  /** Agrega un estudiante desde el modal y refresca. */
+  const agregarDesdeModal = async (studentId: string) => {
+    setAgregando(studentId)
+    try {
+      await agregarAlCurso(studentId)
+      toaster.dispatchToast('Estudiante agregado al aula.', { intent: 'success' })
+    } catch (e) {
+      toaster.dispatchToast(graphErrorMessage(e), { intent: 'error' })
+    } finally {
+      setAgregando(null)
+    }
   }
 
   /** Nombre del Maestro Guía de un aula (para mostrarlo en la tarjeta). */
@@ -749,6 +789,22 @@ export function AulasView({ scope, subtitle, pageTitle = 'Aulas', onOpenSubject 
       .map((s) => ({ id: s.id, fullName: s.fullName }))
       .sort((a, b) => a.fullName.localeCompare(b.fullName))
   }, [seleccion, students, enrollmentsCol.items])
+
+  /** Estudiantes que NO están en el aula (para agregarlos), filtrados por búsqueda. */
+  const disponiblesAula = useMemo(() => {
+    const enAula = new Set(estudiantesAula.map((e) => e.id))
+    const q = addStudentQuery.trim().toLowerCase()
+    return students
+      .filter((s) => !enAula.has(s.id) && (!q || s.fullName.toLowerCase().includes(q)))
+      .map((s) => ({ id: s.id, fullName: s.fullName, gradeId: s.gradeId }))
+      .sort((a, b) => a.fullName.localeCompare(b.fullName))
+  }, [students, estudiantesAula, addStudentQuery])
+
+  /** Movimientos de estudiantes del aula (agregados/eliminados), más recientes primero. */
+  const movimientosAula = useMemo(
+    () => enrollmentLogCol.items.filter((l) => l.curso === seleccion?.curso).sort((a, b) => b.at.localeCompare(a.at)),
+    [enrollmentLogCol.items, seleccion],
+  )
 
   const activePeriodId = periods.find((p) => p.isActive)?.id ?? periods[0]?.id ?? ''
 
@@ -1060,6 +1116,8 @@ Si falta información, complétala según el Diseño Curricular del MINERD para 
                       {canManage && <Button appearance="secondary" icon={<ImageRegular />} onClick={() => setImgAula(seleccion)}>Cambiar imagen</Button>}
                       {canManage && <Button appearance="primary" icon={<CheckmarkCircleRegular />} onClick={() => setPaseOpen(true)}>Pase de asistencia</Button>}
                       {canManage && <Button appearance="secondary" icon={<BookOpenRegular />} onClick={() => setHistOpen(true)}>Historial de asistencia</Button>}
+                      {canManage && <Button appearance="secondary" icon={<AddRegular />} onClick={() => { setAddStudentQuery(''); setAddStudentOpen(true) }}>Agregar estudiante</Button>}
+                      {canManage && <Button appearance="secondary" icon={<PeopleTeamRegular />} onClick={() => setLogOpen(true)}>Estudiantes agregados/eliminados</Button>}
                     </div>
                   </div>
                   <AulaSubjectsPanel
@@ -1191,6 +1249,76 @@ Si falta información, complétala según el Diseño Curricular del MINERD para 
             {teachers.map((t) => <option key={t.id} value={t.id}>{t.fullName}</option>)}
           </Select>
         </FormField>
+      </ModalForm>
+
+      <ModalForm
+        open={addStudentOpen}
+        onOpenChange={(o) => { if (!o) setAddStudentOpen(false) }}
+        title="Agregar estudiante al aula"
+        subtitle={`Curso ${seleccion?.curso ?? ''}. Queda registrada la fecha y el usuario que realiza la acción.`}
+        width={640}
+        actions={<Button appearance="secondary" onClick={() => setAddStudentOpen(false)}>Cerrar</Button>}
+      >
+        <FormField label="Buscar estudiante">
+          <Input value={addStudentQuery} onChange={(_, d) => setAddStudentQuery(d.value)} placeholder="Nombre del estudiante…" />
+        </FormField>
+        <div style={{ maxHeight: '360px', overflowY: 'auto', marginTop: '8px' }}>
+          {disponiblesAula.length === 0 ? (
+            <Text size={200} style={{ color: 'var(--texto-suave)' }}>No hay estudiantes para agregar (todos están en el aula o no coinciden con la búsqueda).</Text>
+          ) : (
+            <Table size="small">
+              <TableBody>
+                {disponiblesAula.map((s) => (
+                  <TableRow key={s.id}>
+                    <TableCell><Text weight="semibold">{s.fullName}</Text></TableCell>
+                    <TableCell><Text size={200} style={{ color: 'var(--texto-suave)' }}>{s.gradeId ? (gradeById(s.gradeId)?.name ?? '') : 'Sin curso'}</Text></TableCell>
+                    <TableCell align="right">
+                      <Button size="small" appearance="primary" icon={agregando === s.id ? <Spinner size="tiny" /> : <AddRegular />} disabled={!!agregando} onClick={() => void agregarDesdeModal(s.id)}>Agregar</Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </div>
+      </ModalForm>
+
+      <ModalForm
+        open={logOpen}
+        onOpenChange={(o) => { if (!o) setLogOpen(false) }}
+        title="Estudiantes agregados y eliminados"
+        subtitle={`Historial del aula ${seleccion?.curso ?? ''}.`}
+        width={760}
+        actions={<Button appearance="secondary" onClick={() => setLogOpen(false)}>Cerrar</Button>}
+      >
+        {movimientosAula.length === 0 ? (
+          <Text size={200} style={{ color: 'var(--texto-suave)' }}>Aún no hay movimientos registrados para este aula.</Text>
+        ) : (
+          <Table size="small">
+            <TableHeader>
+              <TableRow>
+                <TableHeaderCell>Estudiante</TableHeaderCell>
+                <TableHeaderCell>Acción</TableHeaderCell>
+                <TableHeaderCell>Fecha</TableHeaderCell>
+                <TableHeaderCell>Usuario</TableHeaderCell>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {movimientosAula.map((l) => (
+                <TableRow key={l.id}>
+                  <TableCell><Text weight="semibold">{l.studentName}</Text></TableCell>
+                  <TableCell>
+                    <Badge appearance="filled" color={l.action === 'agregado' ? 'success' : 'danger'}>
+                      {l.action === 'agregado' ? 'Agregado' : 'Eliminado'}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>{l.date}</TableCell>
+                  <TableCell>{l.byName ?? '—'}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
       </ModalForm>
 
       <ModalForm
