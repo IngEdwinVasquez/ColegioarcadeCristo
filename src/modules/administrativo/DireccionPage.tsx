@@ -20,6 +20,7 @@ import { PageHeader } from '../../components/shared/PageHeader'
 import { StatCard } from '../../components/shared/StatCard'
 import { GruposPersonas } from './GruposPersonas'
 import { AsistenciaDashboard } from '../asistencia/AsistenciaDashboard'
+import { AulaActividadDashboard } from '../dashboard/AulaActividadDashboard'
 import { StaffAsistenciaPanel } from '../asistencia/StaffAsistenciaPanel'
 import { PortalesActividad } from './PortalesActividad'
 import { ModalForm } from '../../components/shared/ModalForm'
@@ -239,6 +240,8 @@ export function DireccionPage() {
       />
 
       <AsistenciaDashboard level={levelFilter || undefined} />
+
+      <AulaActividadDashboard level={levelFilter || undefined} />
 
       <StaffAsistenciaPanel />
 

@@ -57,7 +57,7 @@ export function AcompanamientosPage() {
   }, [plansCol.items, dailyCol.items, classesCol.items, subjectById])
 
   const filtered = useMemo(() => {
-    const arr = col.items.filter((a) => a.level === level)
+    const arr = level ? col.items.filter((a) => a.level === level) : col.items
     return teacherFilter ? arr.filter((a) => a.teacherId === teacherFilter) : arr
   }, [col.items, level, teacherFilter])
 
