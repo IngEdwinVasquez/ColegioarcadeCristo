@@ -5,7 +5,7 @@ import {
   Input, Select, Spinner, Text, Textarea, useToastController, makeStyles, tokens,
 } from '@fluentui/react-components'
 import {
-  VideoRegular, ArrowRightRegular, ImageRegular, AddRegular, DeleteRegular, BookOpenRegular, ArrowUploadRegular, SparkleRegular, ArrowDownloadRegular, CheckmarkCircleRegular,
+  VideoRegular, ArrowRightRegular, ImageRegular, AddRegular, DeleteRegular, BookOpenRegular, ArrowUploadRegular, SparkleRegular, ArrowDownloadRegular, CheckmarkCircleRegular, EditRegular,
 } from '@fluentui/react-icons'
 import { PageHeader } from '../../components/shared/PageHeader'
 import { EmptyStateView } from '../../components/shared/EmptyStateView'
@@ -644,6 +644,8 @@ export function AulasView({ scope, subtitle, pageTitle = 'Aulas', onOpenSubject 
   const canManage = scope.kind !== 'estudiante'
   const [normalizando, setNormalizando] = useState(false)
   const [guiaBusy, setGuiaBusy] = useState(false)
+  const [guiaOpen, setGuiaOpen] = useState(false)
+  const [guiaSel, setGuiaSel] = useState('')
   const [paseOpen, setPaseOpen] = useState(false)
   const [histOpen, setHistOpen] = useState(false)
   const [paseAsigOpen, setPaseAsigOpen] = useState(false)
@@ -712,6 +714,27 @@ export function AulasView({ scope, subtitle, pageTitle = 'Aulas', onOpenSubject 
 
   /** Docente encargado (Maestro Guía) del curso. */
   const maestroGuia = seleccion ? teacherById(seleccion.records.find((r) => r.leadTeacherId)?.leadTeacherId) : undefined
+
+  /** Agrega un estudiante al curso (matrícula) para que aparezca en el pase de lista. */
+  const agregarAlCurso = async (studentId: string) => {
+    if (!seleccion) return
+    const gradeId = seleccion.records[0].id
+    const ya = enrollmentsCol.items.some((e) => e.studentId === studentId && e.gradeId === gradeId)
+    if (!ya) await dataService.saveEnrollment({ id: genId('enr'), studentId, gradeId, periodId: activePeriodId })
+    await Promise.all([enrollmentsCol.refresh(), refreshCatalogs()])
+  }
+
+  /** Quita un estudiante del curso (matrícula y asignación de grado). */
+  const quitarDelCurso = async (studentId: string) => {
+    if (!seleccion) return
+    const ids = new Set(seleccion.records.map((r) => r.id))
+    for (const e of enrollmentsCol.items.filter((x) => x.studentId === studentId && ids.has(x.gradeId))) {
+      await dataService.deleteEnrollment(e.id)
+    }
+    const st = students.find((s) => s.id === studentId)
+    if (st && ids.has(st.gradeId)) await dataService.saveStudent({ ...st, gradeId: '' })
+    await Promise.all([enrollmentsCol.refresh(), refreshCatalogs()])
+  }
 
   /** Nombre del Maestro Guía de un aula (para mostrarlo en la tarjeta). */
   const maestroGuiaDe = (a: Aula) => teacherById(a.records.find((r) => r.leadTeacherId)?.leadTeacherId)?.fullName ?? ''
@@ -1018,20 +1041,20 @@ Si falta información, complétala según el Diseño Curricular del MINERD para 
                     <div>
                       <Text weight="semibold" size={500} block>{seleccion.curso}</Text>
                       <Text size={200} style={{ color: 'var(--texto-suave)' }}>{seleccion.nivel} · {seleccion.records.length} asignatura(s)</Text>
-                      {canManage ? (
-                        <Select
-                          aria-label="Maestro Guía"
-                          value={seleccion.records.find((r) => r.leadTeacherId)?.leadTeacherId ?? ''}
-                          onChange={(_, d) => void asignarMaestroGuia(d.value)}
-                          disabled={guiaBusy}
-                          style={{ minWidth: '240px', marginTop: '4px' }}
-                        >
-                          <option value="">— Asignar Maestro Guía —</option>
-                          {teachers.map((t) => <option key={t.id} value={t.id}>{t.fullName}</option>)}
-                        </Select>
-                      ) : (
-                        <Text size={200} block><strong>Maestro Guía:</strong> {maestroGuia?.fullName ?? '—'}</Text>
-                      )}
+                      <Text size={200} block style={{ marginTop: '4px' }}>
+                        <strong>Maestro Guía:</strong> {maestroGuia?.fullName ?? '—'}
+                        {canManage && (
+                          <Button
+                            size="small"
+                            appearance="subtle"
+                            icon={<EditRegular />}
+                            style={{ marginLeft: '6px' }}
+                            onClick={() => { setGuiaSel(seleccion.records.find((r) => r.leadTeacherId)?.leadTeacherId ?? ''); setGuiaOpen(true) }}
+                          >
+                            Cambiar
+                          </Button>
+                        )}
+                      </Text>
                     </div>
                     <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                       {canManage && <Button appearance="secondary" icon={<ImageRegular />} onClick={() => setImgAula(seleccion)}>Cambiar imagen</Button>}
@@ -1121,6 +1144,9 @@ Si falta información, complétala según el Diseño Curricular del MINERD para 
         estudiantes={estudiantesAula}
         periodId={activePeriodId}
         tomadoPor={user?.displayName ?? ''}
+        todosEstudiantes={students.map((s) => ({ id: s.id, fullName: s.fullName }))}
+        onAgregarEstudiante={agregarAlCurso}
+        onQuitarEstudiante={quitarDelCurso}
       />
 
       <HistorialAsistenciaModal
@@ -1139,7 +1165,33 @@ Si falta información, complétala según el Diseño Curricular del MINERD para 
         tomadoPor={user?.displayName ?? ''}
         subjectId={paseAsig ? asignaturaDe(paseAsig) : ''}
         subjectName={paseAsig ? asignaturaDe(paseAsig) : undefined}
+        todosEstudiantes={students.map((s) => ({ id: s.id, fullName: s.fullName }))}
+        onAgregarEstudiante={agregarAlCurso}
+        onQuitarEstudiante={quitarDelCurso}
       />
+
+      <ModalForm
+        open={guiaOpen}
+        onOpenChange={(o) => { if (!o) setGuiaOpen(false) }}
+        title="Maestro Guía del aula"
+        subtitle={`Docente encargado del curso ${seleccion?.curso ?? ''}.`}
+        width={460}
+        actions={
+          <>
+            <Button appearance="secondary" onClick={() => setGuiaOpen(false)} disabled={guiaBusy}>Cancelar</Button>
+            <Button appearance="primary" disabled={guiaBusy} onClick={async () => { await asignarMaestroGuia(guiaSel); setGuiaOpen(false) }}>
+              {guiaBusy ? 'Guardando…' : 'Guardar'}
+            </Button>
+          </>
+        }
+      >
+        <FormField label="Docente">
+          <Select value={guiaSel} onChange={(_, d) => setGuiaSel(d.value)}>
+            <option value="">— Sin asignar —</option>
+            {teachers.map((t) => <option key={t.id} value={t.id}>{t.fullName}</option>)}
+          </Select>
+        </FormField>
+      </ModalForm>
 
       <ModalForm
         open={planOpen}

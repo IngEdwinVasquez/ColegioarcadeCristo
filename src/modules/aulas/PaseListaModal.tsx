@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Button, Input, Select, Spinner, Table, TableBody, TableCell, TableHeader, TableHeaderCell, TableRow, Text, useToastController } from '@fluentui/react-components'
-import { CheckmarkCircleRegular } from '@fluentui/react-icons'
+import { CheckmarkCircleRegular, AddRegular, DeleteRegular } from '@fluentui/react-icons'
 import { ModalForm } from '../../components/shared/ModalForm'
 import { FormField, FieldRow } from '../../components/shared/form'
 import { dataService } from '../../services/dataService'
@@ -24,7 +24,7 @@ interface Alumno { id: string; fullName: string }
  * Pase de lista diario de un aula (curso). Registra la asistencia de todos los
  * estudiantes y forma parte del registro de asistencia del año escolar.
  */
-export function PaseListaModal({ open, onClose, course, estudiantes, periodId, tomadoPor, subjectId = '', subjectName }: {
+export function PaseListaModal({ open, onClose, course, estudiantes, periodId, tomadoPor, subjectId = '', subjectName, todosEstudiantes, onAgregarEstudiante, onQuitarEstudiante }: {
   open: boolean
   onClose: () => void
   course: GradeSection | null
@@ -33,12 +33,52 @@ export function PaseListaModal({ open, onClose, course, estudiantes, periodId, t
   tomadoPor: string
   subjectId?: string
   subjectName?: string
+  /** Todos los estudiantes disponibles para agregar al curso. */
+  todosEstudiantes?: Alumno[]
+  onAgregarEstudiante?: (studentId: string) => Promise<void>
+  onQuitarEstudiante?: (studentId: string) => Promise<void>
 }) {
   const toaster = useToastController()
   const col = useCollection<AttendanceRecord>(dataService.getAttendance, dataService.saveAttendance)
   const [fecha, setFecha] = useState(todayIso())
   const [entries, setEntries] = useState<Record<string, { status: AttendanceStatus; note: string }>>({})
   const [saving, setSaving] = useState(false)
+  const [nuevoId, setNuevoId] = useState('')
+  const [gestion, setGestion] = useState(false)
+
+  const gestionaRoster = !!(onAgregarEstudiante || onQuitarEstudiante)
+  const disponibles = useMemo(
+    () => (todosEstudiantes ?? []).filter((s) => !estudiantes.some((e) => e.id === s.id)),
+    [todosEstudiantes, estudiantes],
+  )
+
+  const agregar = async () => {
+    if (!onAgregarEstudiante || !nuevoId) return
+    setGestion(true)
+    try {
+      await onAgregarEstudiante(nuevoId)
+      setNuevoId('')
+      toaster.dispatchToast('Estudiante agregado al curso.', { intent: 'success' })
+    } catch (e) {
+      toaster.dispatchToast(e instanceof Error ? e.message : 'No se pudo agregar el estudiante.', { intent: 'error' })
+    } finally {
+      setGestion(false)
+    }
+  }
+
+  const quitar = async (s: Alumno) => {
+    if (!onQuitarEstudiante) return
+    if (!window.confirm(`¿Quitar a ${s.fullName} del curso? Dejará de aparecer en el pase de lista.`)) return
+    setGestion(true)
+    try {
+      await onQuitarEstudiante(s.id)
+      toaster.dispatchToast('Estudiante quitado del curso.', { intent: 'success' })
+    } catch (e) {
+      toaster.dispatchToast(e instanceof Error ? e.message : 'No se pudo quitar el estudiante.', { intent: 'error' })
+    } finally {
+      setGestion(false)
+    }
+  }
 
   const existente = useMemo(
     () => (course ? col.items.find((a) => a.gradeId === course.id && a.date === fecha && (a.subjectId ?? '') === subjectId) : undefined),
@@ -126,6 +166,16 @@ export function PaseListaModal({ open, onClose, course, estudiantes, periodId, t
           <Button key={s.value} size="small" appearance="secondary" onClick={() => marcarTodos(s.value)}>Marcar todos «{s.label}»</Button>
         ))}
       </div>
+      {gestionaRoster && (
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap', marginBottom: '10px' }}>
+          <Select value={nuevoId} onChange={(_, d) => setNuevoId(d.value)} disabled={gestion} style={{ minWidth: '260px' }}>
+            <option value="">— Agregar estudiante al curso —</option>
+            {disponibles.map((s) => <option key={s.id} value={s.id}>{s.fullName}</option>)}
+          </Select>
+          <Button appearance="secondary" icon={<AddRegular />} disabled={gestion || !nuevoId} onClick={() => void agregar()}>Agregar al curso</Button>
+          {disponibles.length === 0 && <Text size={200} style={{ color: 'var(--texto-suave)' }}>Todos los estudiantes ya están en el curso.</Text>}
+        </div>
+      )}
       {estudiantes.length === 0 ? (
         <Text size={200} style={{ color: 'var(--texto-suave)' }}>Este curso no tiene estudiantes matriculados.</Text>
       ) : (
@@ -136,6 +186,7 @@ export function PaseListaModal({ open, onClose, course, estudiantes, periodId, t
                 <TableHeaderCell>Estudiante</TableHeaderCell>
                 <TableHeaderCell>Estado</TableHeaderCell>
                 <TableHeaderCell>Nota</TableHeaderCell>
+                {gestionaRoster && <TableHeaderCell>Acciones</TableHeaderCell>}
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -150,6 +201,13 @@ export function PaseListaModal({ open, onClose, course, estudiantes, periodId, t
                   <TableCell>
                     <Input value={entries[s.id]?.note ?? ''} onChange={(_, d) => set(s.id, { note: d.value })} placeholder="Nota (opcional)" />
                   </TableCell>
+                  {gestionaRoster && (
+                    <TableCell>
+                      {onQuitarEstudiante && (
+                        <Button size="small" appearance="subtle" icon={<DeleteRegular />} disabled={gestion} onClick={() => void quitar(s)}>Quitar del curso</Button>
+                      )}
+                    </TableCell>
+                  )}
                 </TableRow>
               ))}
             </TableBody>
