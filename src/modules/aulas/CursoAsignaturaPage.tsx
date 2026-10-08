@@ -13,7 +13,7 @@ import { htmlToPdfBlob, downloadPlanPdf } from '../../services/planPdf'
 import { aiChat } from '../../services/ai'
 import { createClassModule } from '../../services/teamsEdu'
 import { graphErrorMessage } from '../../services/graph'
-import { genId } from '../../utils/helpers'
+import { genId, todayIso } from '../../utils/helpers'
 import { cursoNombre, asignaturaDe } from '../../utils/academic'
 import type { CoursePage, CursoActividad, CursoEntrega, CursoLabel, CursoRecurso, CursoRecursoTipo, CursoUnidad, Enrollment, GradeRegister, GradeSection, SubjectPlan } from '../../types'
 
@@ -90,6 +90,7 @@ export function CursoAsignaturaPage() {
   const [creandoModulo, setCreandoModulo] = useState(false)
   const [planesUnidad, setPlanesUnidad] = useState<Record<string, string>>({})
   const [planUnidadId, setPlanUnidadId] = useState<string | null>(null)
+  const [informeUnidad, setInformeUnidad] = useState<{ unidadId: string; texto: string } | null>(null)
   const [datosUnidad, setDatosUnidad] = useState<{ unidadId: string; tema: string; descripcion: string } | null>(null)
   const [unidadBusy, setUnidadBusy] = useState(false)
   const [planForm, setPlanForm] = useState({ periodo: 'Año escolar completo (Períodos I, II, III y IV)', observaciones: '' })
@@ -316,6 +317,26 @@ export function CursoAsignaturaPage() {
     setDraft({ ...draft, units: draft.units.map((u) => (u.id === uid ? { ...u, ...patch } : u)) })
   }
   const delUnidad = (uid: string) => draft && setDraft({ ...draft, units: draft.units.filter((u) => u.id !== uid) })
+
+  const registrarInformeUnidad = async (uid: string, texto: string) => {
+    if (!draft) return
+    setBusy(true)
+    try {
+      const next = {
+        ...draft,
+        updatedAt: new Date().toISOString(),
+        units: draft.units.map((u) => (u.id === uid ? { ...u, informe: texto, informeFecha: todayIso() } : u)),
+      }
+      await pagesCol.save(next)
+      savedRef.current = JSON.stringify({ ...next, updatedAt: '' })
+      setDraft(next)
+      toaster.dispatchToast('Informe de ejecución guardado.', { intent: 'success' })
+    } catch (e) {
+      toaster.dispatchToast(graphErrorMessage(e), { intent: 'error' })
+    } finally {
+      setBusy(false)
+    }
+  }
 
   const addRecurso = () => {
     if (!draft || !nuevoRecurso) return
@@ -607,6 +628,7 @@ Basa el contenido en el tema de la unidad. Devuelve ÚNICAMENTE el HTML del docu
       ], { temperature: 0.4, maxTokens: 3200 })).replace(/```html?/gi, '').replace(/```/g, '').trim()
       if (!html) throw new Error('La IA no devolvió contenido. Revisa la configuración de IA.')
       setPlanesUnidad((p) => ({ ...p, [u.id]: html }))
+      setUnidad(u.id, { planHtml: html, planFecha: todayIso() })
       setPlanUnidadId(u.id)
       toaster.dispatchToast('Planificación de la unidad generada.', { intent: 'success' })
     } catch (error) {
@@ -793,16 +815,20 @@ Incluye una introducción, al menos 3 recursos variando el tipo según la necesi
               {editable && (
                 <div className={styles.actions}>
                   <Button appearance="secondary" icon={unidadBusy ? <Spinner size="tiny" /> : <SparkleRegular />} disabled={unidadBusy} onClick={() => abrirPlanUnidad(u)}>
-                    {planesUnidad[u.id] ? 'Regenerar planificación de unidad con IA' : 'Crear planificación de unidad con IA'}
+                    {(planesUnidad[u.id] || u.planHtml) ? 'Regenerar planificación de unidad con IA' : 'Crear planificación de unidad con IA'}
                   </Button>
-                  {planesUnidad[u.id] && (
+                  {(planesUnidad[u.id] || u.planHtml) && (
                     <Button appearance="secondary" icon={<BookOpenRegular />} onClick={() => setPlanUnidadId(u.id)}>Ver planificación</Button>
                   )}
                   <Button appearance="primary" icon={unidadBusy ? <Spinner size="tiny" /> : <SparkleRegular />} disabled={unidadBusy || !planesUnidad[u.id]} onClick={() => void crearUnidadIA(u)}>
                     {u.aiCreated ? 'Modificar unidad de aprendizaje con IA' : 'Crear unidad con IA'}
                   </Button>
+                  <Button appearance="secondary" icon={<EditRegular />} onClick={() => setInformeUnidad({ unidadId: u.id, texto: u.informe ?? '' })}>
+                    {u.informe ? 'Ver / editar informe' : 'Registrar informe'}
+                  </Button>
                 </div>
               )}
+              {u.planFecha && <Text size={200} block style={{ color: 'var(--texto-suave)' }}>Planificación: {u.planFecha}{u.informeFecha ? ` · Informe de ejecución: ${u.informeFecha}` : ' · sin informe de ejecución'}</Text>}
               {u.introduccion !== undefined && (
                 <FormField label="Introducción de la unidad">
                   <Textarea value={u.introduccion} disabled={!editable} resize="vertical" onChange={(_, d) => setUnidad(u.id, { introduccion: d.value })} />
@@ -1099,7 +1125,7 @@ Incluye una introducción, al menos 3 recursos variando el tipo según la necesi
             <Button
               appearance="primary"
               icon={unidadBusy ? <Spinner size="tiny" /> : <SparkleRegular />}
-              disabled={unidadBusy || !planUnidadId || !planesUnidad[planUnidadId]}
+              disabled={unidadBusy || !planUnidadId || !(planesUnidad[planUnidadId] || draft.units.find((x) => x.id === planUnidadId)?.planHtml)}
               onClick={() => { const u = draft.units.find((x) => x.id === planUnidadId); if (u) void crearUnidadIA(u) }}
             >
               {unidadBusy ? 'Creando…' : 'Crear unidad con IA'}
@@ -1107,7 +1133,7 @@ Incluye una introducción, al menos 3 recursos variando el tipo según la necesi
           </>
         }
       >
-        <div id="plan-unidad-html" style={{ maxHeight: '60vh', overflow: 'auto', border: '1px solid var(--borde)', borderRadius: '8px', padding: '16px' }} dangerouslySetInnerHTML={{ __html: (planUnidadId && planesUnidad[planUnidadId]) || '<p>Sin contenido.</p>' }} />
+        <div id="plan-unidad-html" style={{ maxHeight: '60vh', overflow: 'auto', border: '1px solid var(--borde)', borderRadius: '8px', padding: '16px' }} dangerouslySetInnerHTML={{ __html: (planUnidadId && (planesUnidad[planUnidadId] || draft.units.find((x) => x.id === planUnidadId)?.planHtml)) || '<p>Sin contenido.</p>' }} />
       </ModalForm>
 
       <ModalForm
@@ -1128,6 +1154,46 @@ Incluye una introducción, al menos 3 recursos variando el tipo según la necesi
         <Button appearance="primary" icon={busy ? <Spinner size="tiny" /> : <ArrowUploadRegular />} disabled={busy || !entregaEstudiante} onClick={() => entregaFileRef.current?.click()}>
           {busy ? 'Subiendo…' : 'Seleccionar archivo y registrar'}
         </Button>
+      </ModalForm>
+
+      <ModalForm
+        open={!!informeUnidad}
+        onOpenChange={(o) => { if (!o) setInformeUnidad(null) }}
+        title="Informe de ejecución de la unidad"
+        subtitle="Describe cómo se desarrolló la unidad y el nivel de cumplimiento de la planificación."
+        width={720}
+        actions={
+          <>
+            <Button appearance="secondary" onClick={() => setInformeUnidad(null)} disabled={busy}>Cerrar</Button>
+            <Button
+              appearance="primary"
+              icon={<SaveRegular />}
+              disabled={busy || !informeUnidad}
+              onClick={() => {
+                const target = informeUnidad
+                if (!target) return
+                setInformeUnidad(null)
+                void registrarInformeUnidad(target.unidadId, target.texto)
+              }}
+            >
+              Guardar informe
+            </Button>
+          </>
+        }
+      >
+        <FormField label="Informe de ejecución">
+          <Textarea
+            value={informeUnidad?.texto ?? ''}
+            resize="vertical"
+            rows={10}
+            placeholder="¿Se cumplió lo planificado? Actividades realizadas, ajustes, evidencias, porcentaje de avance…"
+            onChange={(_, d) => setInformeUnidad((s) => (s ? { ...s, texto: d.value } : s))}
+          />
+        </FormField>
+        {informeUnidad && (() => {
+          const u = draft?.units.find((x) => x.id === informeUnidad.unidadId)
+          return u?.informeFecha ? <Text size={200} block style={{ color: 'var(--texto-suave)' }}>Último informe: {u.informeFecha}</Text> : null
+        })()}
       </ModalForm>
     </div>
   )

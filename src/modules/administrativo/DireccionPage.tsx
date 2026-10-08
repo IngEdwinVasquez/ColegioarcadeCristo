@@ -26,8 +26,8 @@ import { ModalForm } from '../../components/shared/ModalForm'
 import { useApp } from '../../context/useApp'
 import { dataService } from '../../services/dataService'
 import { useCollection } from '../../hooks/useCollection'
-import type { ClassPlan, SchoolClassRecord, AttendanceRecord, Activity, Grade, VirtualMeeting, TeacherAssignment, GradeSection } from '../../types'
-import { formatDate, pct } from '../../utils/helpers'
+import type { AttendanceRecord, Activity, Grade, VirtualMeeting, TeacherAssignment, GradeSection, CoursePage, CursoUnidad } from '../../types'
+import { formatDate, pct, todayIso } from '../../utils/helpers'
 import { cursoNombre, detectLevel, ordenarCursos } from '../../utils/academic'
 
 const useStyles = makeStyles({
@@ -40,13 +40,12 @@ const useStyles = makeStyles({
 export function DireccionPage() {
   const styles = useStyles()
   const { subjects, grades, teacherById, subjectById, gradeById, studentById, teachers } = useApp()
-  const plansCol = useCollection<ClassPlan>(dataService.getClassPlans)
-  const classesCol = useCollection<SchoolClassRecord>(dataService.getClasses)
   const attendanceCol = useCollection<AttendanceRecord>(dataService.getAttendance)
   const activitiesCol = useCollection<Activity>(dataService.getActivities)
   const scoresCol = useCollection<Grade>(dataService.getScores)
   const meetingsCol = useCollection<VirtualMeeting>(dataService.getMeetings)
   const assignmentsCol = useCollection<TeacherAssignment>(dataService.getTeacherAssignments)
+  const coursePagesCol = useCollection<CoursePage>(dataService.getCoursePages)
 
   const [gradeFilter, setGradeFilter] = useState('')
   const [levelFilter, setLevelFilter] = useState('')
@@ -82,26 +81,65 @@ export function DireccionPage() {
   }, [grades, levelFilter])
   const inScope = (gradeId?: string) => !scopeIds || (!!gradeId && scopeIds.has(gradeId))
 
-  const planned = useMemo(() => plansCol.items.filter((p) => inScope(p.gradeId)), [plansCol.items, scopeIds])
-  const completed = useMemo(() => classesCol.items.filter((c) => c.status === 'completada' && inScope(c.gradeId)), [classesCol.items, scopeIds])
-  const attendance = useMemo(() => attendanceCol.items.filter((a) => inScope(a.gradeId)), [attendanceCol.items, scopeIds])
+  /** Pase de lista diario del aula (sin asignatura): matriculados vs asistieron. */
+  const attendanceDiaria = useMemo(() => attendanceCol.items.filter((a) => !a.subjectId && inScope(a.gradeId)), [attendanceCol.items, scopeIds])
   const activities = useMemo(() => activitiesCol.items.filter((a) => inScope(a.gradeId)), [activitiesCol.items, scopeIds])
   const scores = useMemo(() => {
     const actGrade = new Map(activitiesCol.items.map((a) => [a.id, a.gradeId]))
     return scoresCol.items.filter((s) => inScope(actGrade.get(s.activityId)))
   }, [scoresCol.items, activitiesCol.items, scopeIds])
 
-  const cumplimiento = planned.length ? pct(completed.length, planned.length) : 0
+  /**
+   * Cumplimiento de planificación: de las unidades de aprendizaje planificadas (aula virtual)
+   * cuyo período ya venció (o cuya planificación fue creada), cuántas cuentan con informe de ejecución.
+   */
+  const planiUnidades = useMemo(() => {
+    const hoy = todayIso()
+    const teacherOf = new Map<string, string>()
+    for (const a of assignmentsCol.items) {
+      const k = `${a.gradeId}|${a.subjectId}`
+      if (!teacherOf.has(k)) teacherOf.set(k, a.teacherId)
+    }
+    type Row = { subjectId: string; gradeId: string; teacherId: string; planificadas: number; vencidas: number; informes: number }
+    const rows = new Map<string, Row>()
+    const ensure = (subjectId: string, gradeId: string): Row => {
+      const teacherId = teacherOf.get(`${gradeId}|${subjectId}`) ?? ''
+      const key = `${gradeId}|${subjectId}|${teacherId}`
+      if (!rows.has(key)) rows.set(key, { subjectId, gradeId, teacherId, planificadas: 0, vencidas: 0, informes: 0 })
+      return rows.get(key) as Row
+    }
+    const detalle: { unidad: CursoUnidad; page: CoursePage; vencida: boolean; conInforme: boolean }[] = []
+    let planificadas = 0
+    let vencidas = 0
+    let informes = 0
+    for (const p of coursePagesCol.items.filter((x) => inScope(x.gradeId))) {
+      for (const u of p.units) {
+        const planificada = !!u.planFecha || !!u.planHtml
+        if (!planificada) continue
+        const vencida = u.hasta ? u.hasta < hoy : u.desde ? u.desde <= hoy : true
+        planificadas++
+        const r = ensure(p.subjectId, p.gradeId)
+        r.planificadas++
+        if (vencida) { vencidas++; r.vencidas++ }
+        const conInforme = !!u.informeFecha
+        if (conInforme) { informes++; r.informes++ }
+        if (vencida) detalle.push({ unidad: u, page: p, vencida, conInforme })
+      }
+    }
+    return { planificadas, vencidas, informes, rows: [...rows.values()], detalle }
+  }, [coursePagesCol.items, assignmentsCol.items, scopeIds])
+
+  const cumplimiento = pct(planiUnidades.informes, planiUnidades.vencidas || planiUnidades.planificadas)
 
   const avgAttendance = useMemo(() => {
     let total = 0
     let presentes = 0
-    for (const rec of attendance) {
+    for (const rec of attendanceDiaria) {
       total += rec.entries.length
       presentes += rec.entries.filter((e) => e.status === 'presente').length
     }
     return pct(presentes, total)
-  }, [attendance])
+  }, [attendanceDiaria])
 
   const avgAcademic = useMemo(() => {
     if (!scores.length) return 0
@@ -114,22 +152,27 @@ export function DireccionPage() {
   }, [scores, activitiesCol.items])
 
   const bySubject = useMemo(() => {
-    return subjects.map((s) => {
-      const p = planned.filter((x) => x.subjectId === s.id).length
-      const c = completed.filter((x) => x.subjectId === s.id).length
-      return { name: s.shortName, Planificadas: p, Impartidas: c }
-    })
-  }, [subjects, planned, completed])
+    const map = new Map<string, { name: string; Planificadas: number; 'Con informe': number }>()
+    for (const r of planiUnidades.rows) {
+      const name = subjectById(r.subjectId)?.shortName ?? r.subjectId
+      const e = map.get(r.subjectId) ?? { name, Planificadas: 0, 'Con informe': 0 }
+      e.Planificadas += r.planificadas
+      e['Con informe'] += r.informes
+      map.set(r.subjectId, e)
+    }
+    return [...map.values()]
+  }, [planiUnidades.rows, subjectById])
 
   const byTeacher = useMemo(() => {
-    return planned
-      .reduce<Record<string, { plan: number; hecho: number }>>((acc, p) => {
-        acc[p.teacherId] = acc[p.teacherId] ?? { plan: 0, hecho: 0 }
-        acc[p.teacherId].plan++
-        if (completed.some((c) => c.planId === p.id)) acc[p.teacherId].hecho++
-        return acc
-      }, {})
-  }, [planned, completed])
+    return planiUnidades.rows.reduce<Record<string, { plan: number; vencidas: number; informes: number }>>((acc, r) => {
+      if (!r.teacherId) return acc
+      acc[r.teacherId] = acc[r.teacherId] ?? { plan: 0, vencidas: 0, informes: 0 }
+      acc[r.teacherId].plan += r.planificadas
+      acc[r.teacherId].vencidas += r.vencidas
+      acc[r.teacherId].informes += r.informes
+      return acc
+    }, {})
+  }, [planiUnidades.rows])
 
   const avgBySubject = useMemo(() => {
     return subjects.map((s) => {
@@ -146,7 +189,7 @@ export function DireccionPage() {
 
   const dayTrend = useMemo(() => {
     const map = new Map<string, { date: string; p: number; t: number }>()
-    for (const rec of attendance) {
+    for (const rec of attendanceDiaria) {
       const e = map.get(rec.date) ?? { date: rec.date, p: 0, t: 0 }
       e.t += rec.entries.length
       e.p += rec.entries.filter((x) => x.status === 'presente').length
@@ -155,7 +198,7 @@ export function DireccionPage() {
     return [...map.values()]
       .map((d) => ({ ...d, asistencia: pct(d.p, d.t) }))
       .sort((a, b) => (a.date < b.date ? -1 : 1))
-  }, [attendance])
+  }, [attendanceDiaria])
 
   const pendingAgreements = useMemo(() => {
     const teacherIds = scopeIds ? new Set(teachers.filter((t) => t.grades.some((g) => scopeIds.has(g))).map((t) => t.id)) : null
@@ -164,29 +207,28 @@ export function DireccionPage() {
       .flatMap((m) => (m.record?.agreements ?? []).filter((a) => a.status !== 'completado')).length
   }, [meetingsCol.items, scopeIds, teachers])
 
-  // Reporte por asignatura asignada: todo lo realizado por el docente en esa asignatura.
+  // Reporte por asignatura asignada: planificación (unidades) e interacción del docente.
   const detalleAsignaturas = useMemo(() => {
-    type Row = { key: string; subjectId: string; gradeId: string; teacherId: string; plan: number; imp: number; act: number; asi: number; cal: number }
+    type Row = { key: string; subjectId: string; gradeId: string; teacherId: string; plan: number; venc: number; inf: number; act: number; asi: number; cal: number }
     const map = new Map<string, Row>()
     const keyOf = (subjectId: string, gradeId: string, teacherId: string) => `${subjectId}|${gradeId}|${teacherId}`
     const ensure = (subjectId: string, gradeId: string, teacherId: string) => {
       const key = keyOf(subjectId, gradeId, teacherId)
-      if (!map.has(key)) map.set(key, { key, subjectId, gradeId, teacherId, plan: 0, imp: 0, act: 0, asi: 0, cal: 0 })
+      if (!map.has(key)) map.set(key, { key, subjectId, gradeId, teacherId, plan: 0, venc: 0, inf: 0, act: 0, asi: 0, cal: 0 })
       return map.get(key) as Row
     }
-    const completedIds = new Set(classesCol.items.filter((c) => c.status === 'completada').map((c) => c.planId))
     for (const a of assignmentsCol.items.filter((x) => inScope(x.gradeId))) ensure(a.subjectId, a.gradeId, a.teacherId)
-    for (const p of plansCol.items.filter((x) => inScope(x.gradeId))) { const e = ensure(p.subjectId, p.gradeId, p.teacherId); e.plan += 1; if (completedIds.has(p.id)) e.imp += 1 }
+    for (const r of planiUnidades.rows) { const e = ensure(r.subjectId, r.gradeId, r.teacherId); e.plan += r.planificadas; e.venc += r.vencidas; e.inf += r.informes }
     for (const a of activitiesCol.items.filter((x) => inScope(x.gradeId))) ensure(a.subjectId, a.gradeId, a.teacherId).act += 1
     const actSubject = new Map(activitiesCol.items.map((a) => [a.id, a]))
     for (const s of scoresCol.items) { const act = actSubject.get(s.activityId); if (act && inScope(act.gradeId)) ensure(act.subjectId, act.gradeId, act.teacherId).cal += 1 }
-    for (const r of attendanceCol.items.filter((x) => inScope(x.gradeId))) for (const e of map.values()) if (e.subjectId === r.subjectId && e.gradeId === r.gradeId) e.asi += 1
+    for (const r of attendanceCol.items.filter((x) => x.subjectId && inScope(x.gradeId))) for (const e of map.values()) if (e.subjectId === r.subjectId && e.gradeId === r.gradeId) e.asi += 1
     return [...map.values()].sort((a, b) => (subjectById(a.subjectId)?.name ?? a.subjectId).localeCompare(subjectById(b.subjectId)?.name ?? b.subjectId))
-  }, [assignmentsCol.items, plansCol.items, classesCol.items, activitiesCol.items, scoresCol.items, attendanceCol.items, subjectById, scopeIds])
+  }, [assignmentsCol.items, planiUnidades.rows, activitiesCol.items, scoresCol.items, attendanceCol.items, subjectById, scopeIds])
 
   const pieCumplimiento = [
-    { name: 'Impartidas', value: completed.length, color: '#004D6B' },
-    { name: 'Pendientes', value: Math.max(planned.length - completed.length, 0), color: '#E30613' },
+    { name: 'Con informe de ejecución', value: planiUnidades.informes, color: '#004D6B' },
+    { name: 'Vencidas sin informe', value: Math.max(planiUnidades.vencidas - planiUnidades.informes, 0), color: '#E30613' },
   ].filter((d) => d.value > 0)
 
   return (
@@ -216,8 +258,8 @@ export function DireccionPage() {
       </div>
 
       <div className={styles.kpis}>
-        <StatCard title="Cumplimiento de planificación" value={`${cumplimiento}%`} icon={<CalendarCheckmarkRegular />} color="#EF6C00" sub={`${completed.length} clases impartidas de ${planned.length} planificadas`} action={<Button appearance="subtle" size="small" onClick={() => setDetalle('cumplimiento')}>Verificar detalle</Button>} />
-        <StatCard title="Asistencia promedio" value={`${avgAttendance}%`} icon={<NotebookRegular />} color="#0084B3" sub="Basado en el registro por asignatura" action={<Button appearance="subtle" size="small" onClick={() => setDetalle('asistencia')}>Verificar detalle</Button>} />
+        <StatCard title="Cumplimiento de planificación" value={`${cumplimiento}%`} icon={<CalendarCheckmarkRegular />} color="#EF6C00" sub={`${planiUnidades.informes} informes de ejecución de ${planiUnidades.vencidas} planificaciones vencidas`} action={<Button appearance="subtle" size="small" onClick={() => setDetalle('cumplimiento')}>Verificar detalle</Button>} />
+        <StatCard title="Asistencia promedio" value={`${avgAttendance}%`} icon={<NotebookRegular />} color="#0084B3" sub="Pase de lista de cada aula: matriculados vs asistieron" action={<Button appearance="subtle" size="small" onClick={() => setDetalle('asistencia')}>Verificar detalle</Button>} />
         <StatCard title="Rendimiento académico" value={`${avgAcademic}/100`} icon={<StarRegular />} color="#AD1457" sub="Promedio normalizado de actividades" action={<Button appearance="subtle" size="small" onClick={() => setDetalle('rendimiento')}>Verificar detalle</Button>} />
         <StatCard title="Acuerdos pendientes" value={pendingAgreements} icon={<CalendarCheckmarkRegular />} color="#7D1D24" sub="Derivados de encuentros virtuales" action={<Button appearance="subtle" size="small" onClick={() => setDetalle('acuerdos')}>Verificar detalle</Button>} />
       </div>
@@ -234,7 +276,7 @@ export function DireccionPage() {
 
       <div className={styles.grid}>
         <Card className={styles.card}>
-          <Text weight="semibold" size={400} block>Planificación vs. clases impartidas</Text>
+          <Text weight="semibold" size={400} block>Unidades de aprendizaje planificadas vs. informes de ejecución</Text>
           <ResponsiveContainer width="100%" height={260}>
             <BarChart data={bySubject}>
               <CartesianGrid strokeDasharray="3 3" />
@@ -243,7 +285,7 @@ export function DireccionPage() {
               <RTooltip />
               <Legend />
               <Bar dataKey="Planificadas" fill="#004D6B" radius={[4, 4, 0, 0]} />
-              <Bar dataKey="Impartidas" fill="#E30613" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="Con informe" fill="#E30613" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </Card>
@@ -295,8 +337,9 @@ export function DireccionPage() {
             <TableHeader>
               <TableRow>
                 <TableHeaderCell>Docente</TableHeaderCell>
-                <TableHeaderCell>Clases planificadas</TableHeaderCell>
-                <TableHeaderCell>Impartidas</TableHeaderCell>
+                <TableHeaderCell>Unidades planificadas</TableHeaderCell>
+                <TableHeaderCell>Vencidas</TableHeaderCell>
+                <TableHeaderCell>Informes de ejecución</TableHeaderCell>
                 <TableHeaderCell>Cumplimiento</TableHeaderCell>
               </TableRow>
             </TableHeader>
@@ -305,7 +348,8 @@ export function DireccionPage() {
                 <TableRow key={teacherId}>
                   <TableCell>{teacherById(teacherId)?.fullName ?? '—'}</TableCell>
                   <TableCell>{v.plan}</TableCell>
-                  <TableCell>{v.hecho}</TableCell>
+                  <TableCell>{v.vencidas}</TableCell>
+                  <TableCell>{v.informes}</TableCell>
                   <TableCell>
                     <span
                       style={{
@@ -313,11 +357,11 @@ export function DireccionPage() {
                         borderRadius: '999px',
                         fontSize: '12px',
                         fontWeight: 600,
-                        background: pct(v.hecho, v.plan) >= 90 ? '#2E7D32' : pct(v.hecho, v.plan) >= 60 ? '#EF6C00' : '#C8102E',
+                        background: pct(v.informes, v.vencidas || v.plan) >= 90 ? '#2E7D32' : pct(v.informes, v.vencidas || v.plan) >= 60 ? '#EF6C00' : '#C8102E',
                         color: '#fff',
                       }}
                     >
-                      {pct(v.hecho, v.plan)}%
+                      {pct(v.informes, v.vencidas || v.plan)}%
                     </span>
                   </TableCell>
                 </TableRow>
@@ -347,8 +391,9 @@ export function DireccionPage() {
                 <TableHeaderCell>Asignatura</TableHeaderCell>
                 <TableHeaderCell>Curso</TableHeaderCell>
                 <TableHeaderCell>Docente</TableHeaderCell>
-                <TableHeaderCell>Planificadas</TableHeaderCell>
-                <TableHeaderCell>Impartidas</TableHeaderCell>
+                <TableHeaderCell>Unidades planificadas</TableHeaderCell>
+                <TableHeaderCell>Vencidas</TableHeaderCell>
+                <TableHeaderCell>Informes de ejecución</TableHeaderCell>
                 <TableHeaderCell>Actividades</TableHeaderCell>
                 <TableHeaderCell>Asistencia</TableHeaderCell>
                 <TableHeaderCell>Calificaciones</TableHeaderCell>
@@ -364,11 +409,12 @@ export function DireccionPage() {
                     <TableCell>{g ? cursoNombre(g) : r.gradeId}</TableCell>
                     <TableCell>{teacherById(r.teacherId)?.fullName ?? '—'}</TableCell>
                     <TableCell>{r.plan}</TableCell>
-                    <TableCell>{r.imp}</TableCell>
+                    <TableCell>{r.venc}</TableCell>
+                    <TableCell>{r.inf}</TableCell>
                     <TableCell>{r.act}</TableCell>
                     <TableCell>{r.asi}</TableCell>
                     <TableCell>{r.cal}</TableCell>
-                    <TableCell>{r.plan ? `${pct(r.imp, r.plan)}%` : '—'}</TableCell>
+                    <TableCell>{(r.venc || r.plan) ? `${pct(r.inf, r.venc || r.plan)}%` : '—'}</TableCell>
                   </TableRow>
                 )
               })}
@@ -381,23 +427,21 @@ export function DireccionPage() {
             <TableHeader>
               <TableRow>
                 <TableHeaderCell>Fecha</TableHeaderCell>
-                <TableHeaderCell>Curso</TableHeaderCell>
-                <TableHeaderCell>Asignatura</TableHeaderCell>
+                <TableHeaderCell>Curso / Aula</TableHeaderCell>
                 <TableHeaderCell>Presentes</TableHeaderCell>
-                <TableHeaderCell>Total</TableHeaderCell>
+                <TableHeaderCell>Matriculados</TableHeaderCell>
                 <TableHeaderCell>%</TableHeaderCell>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {attendance.map((rec) => {
+              {attendanceDiaria.map((rec) => {
                 const total = rec.entries.length
                 const presentes = rec.entries.filter((e) => e.status === 'presente').length
                 const g = gradeById(rec.gradeId)
                 return (
                   <TableRow key={rec.id}>
                     <TableCell>{formatDate(rec.date)}</TableCell>
-                    <TableCell>{g ? cursoNombre(g) : rec.gradeId}</TableCell>
-                    <TableCell>{subjectById(rec.subjectId)?.name ?? rec.subjectId}</TableCell>
+                    <TableCell>{g ? cursoNombre(g) : '—'}</TableCell>
                     <TableCell>{presentes}</TableCell>
                     <TableCell>{total}</TableCell>
                     <TableCell>{pct(presentes, total)}%</TableCell>
