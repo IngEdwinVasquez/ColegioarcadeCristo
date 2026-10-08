@@ -15,6 +15,7 @@
   },
   "routes": [
     { "route": "/sw.js", "headers": { "Cache-Control": "no-cache" } },
+    { "route": "/version.json", "headers": { "Cache-Control": "no-cache" } },
     { "route": "/index.html", "headers": { "Cache-Control": "no-cache" } },
     { "route": "/assets/*", "headers": { "Cache-Control": "no-cache" } }
   ],
