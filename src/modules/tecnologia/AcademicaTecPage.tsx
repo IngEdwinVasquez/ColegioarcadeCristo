@@ -49,6 +49,11 @@ export function AcademicaTecPage() {
   const [cursoFilter, setCursoFilter] = useState('')
   const [duplicarDe, setDuplicarDe] = useState<string | null>(null)
 
+  // Asignatura: filtrado del combo y detección de "no existe" para ofrecer crearla.
+  const asigQ = (editing?.asignatura ?? '').trim()
+  const asigMatches = subjects.filter((s) => !asigQ || normNombre(s.name).includes(normNombre(asigQ)))
+  const asigEsNueva = !!asigQ && !subjects.some((s) => normNombre(s.name) === normNombre(asigQ))
+
   /** Abre el asistente de importación y carga los equipos existentes de Teams. */
   const openImport = async () => {
     setImportOpen(true)
@@ -539,7 +544,7 @@ export function AcademicaTecPage() {
                 </Select>
               </FormField>
             </FieldRow>
-            <FormField label="Asignatura" hint="Escribe para filtrar una asignatura existente, o escribe una nueva para crearla.">
+            <FormField label="Asignatura" hint="Escribe para filtrar una asignatura existente, o elige «Crear nueva asignatura».">
               <Combobox
                 freeform
                 value={editing.asignatura ?? ''}
@@ -547,7 +552,15 @@ export function AcademicaTecPage() {
                 onChange={(e) => setEditing({ ...editing, asignatura: e.target.value })}
                 onOptionSelect={(_, d) => setEditing({ ...editing, asignatura: d.optionValue || editing.asignatura || '' })}
               >
-                {subjects.map((s) => <Option key={s.id} value={s.name}>{s.name}</Option>)}
+                {asigEsNueva && (
+                  <Option key="__nueva" value={asigQ} text={asigQ}>
+                    ➕ Crear nueva asignatura: «{asigQ}»
+                  </Option>
+                )}
+                {asigMatches.map((s) => <Option key={s.id} value={s.name}>{s.name}</Option>)}
+                {!asigQ && subjects.length === 0 && (
+                  <Option key="__vacio" value="" disabled>No hay asignaturas registradas</Option>
+                )}
               </Combobox>
             </FormField>
             <FormField label="Nombre del curso" hint="Se construye automáticamente con grado + sección (ej. 1ro.A). Puede ajustarlo.">
