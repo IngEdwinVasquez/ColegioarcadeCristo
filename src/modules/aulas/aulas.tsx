@@ -1034,9 +1034,9 @@ Si falta información, complétala según el Diseño Curricular del MINERD para 
                       )}
                     </div>
                     <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                      {canManage && <Button appearance="primary" icon={<CheckmarkCircleRegular />} onClick={() => setPaseOpen(true)}>Pase de lista</Button>}
-                      {canManage && <Button appearance="secondary" icon={<BookOpenRegular />} onClick={() => setHistOpen(true)}>Historial de asistencia</Button>}
                       {canManage && <Button appearance="secondary" icon={<ImageRegular />} onClick={() => setImgAula(seleccion)}>Cambiar imagen</Button>}
+                      {canManage && <Button appearance="primary" icon={<CheckmarkCircleRegular />} onClick={() => setPaseOpen(true)}>Pase de asistencia</Button>}
+                      {canManage && <Button appearance="secondary" icon={<BookOpenRegular />} onClick={() => setHistOpen(true)}>Historial de asistencia</Button>}
                     </div>
                   </div>
                   <AulaSubjectsPanel
