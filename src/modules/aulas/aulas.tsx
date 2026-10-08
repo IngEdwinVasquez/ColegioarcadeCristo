@@ -5,7 +5,7 @@ import {
   Input, Select, Spinner, Text, Textarea, useToastController, makeStyles, tokens,
 } from '@fluentui/react-components'
 import {
-  VideoRegular, ArrowRightRegular, ImageRegular, AddRegular, DeleteRegular, BookOpenRegular, ArrowUploadRegular, SparkleRegular, ArrowDownloadRegular,
+  VideoRegular, ArrowRightRegular, ImageRegular, AddRegular, DeleteRegular, BookOpenRegular, ArrowUploadRegular, SparkleRegular, ArrowDownloadRegular, CheckmarkCircleRegular,
 } from '@fluentui/react-icons'
 import { PageHeader } from '../../components/shared/PageHeader'
 import { EmptyStateView } from '../../components/shared/EmptyStateView'
@@ -14,6 +14,7 @@ import { FormField, FieldRow } from '../../components/shared/form'
 import { useApp } from '../../context/useApp'
 import { dataService } from '../../services/dataService'
 import { normalizarCursos } from '../../services/courseNormalize'
+import { PaseListaModal } from './PaseListaModal'
 import { useCollection } from '../../hooks/useCollection'
 import { cursoNombre, nivelShort, ordenarCursos, asignaturaDe, isRealSubject, gradoDe, seccionDe, esGradoValido, GRADOS, SECCIONES, INICIAL_GRADOS, cicloFromGrade } from '../../utils/academic'
 import { createClassTeam, listTenantTeams, resolveTeamUrl } from '../../services/teamsEdu'
@@ -594,7 +595,7 @@ export function AulasView({ scope, subtitle, pageTitle = 'Aulas', onOpenSubject 
 }) {
   const styles = useStyles()
   const toaster = useToastController()
-  const { grades, studentById, gradeById, students, periods, refreshCatalogs } = useApp()
+  const { user, grades, studentById, gradeById, students, periods, teacherById, refreshCatalogs } = useApp()
   const gradesCol = useCollection<GradeSection>(dataService.getGrades, dataService.saveGrade)
   const assignmentsCol = useCollection<TeacherAssignment>(dataService.getTeacherAssignments)
   const enrollmentsCol = useCollection<Enrollment>(dataService.getEnrollments)
@@ -638,6 +639,7 @@ export function AulasView({ scope, subtitle, pageTitle = 'Aulas', onOpenSubject 
 
   const canManage = scope.kind !== 'estudiante'
   const [normalizando, setNormalizando] = useState(false)
+  const [paseOpen, setPaseOpen] = useState(false)
   const [nuevoCursoOpen, setNuevoCursoOpen] = useState(false)
   const [nuevoCurso, setNuevoCurso] = useState({ nivel: 'Nivel Primario', grado: '', seccion: 'A' })
 
@@ -682,6 +684,22 @@ export function AulasView({ scope, subtitle, pageTitle = 'Aulas', onOpenSubject 
     }
   }
   const seleccion = aulas.find((a) => a.curso === selected) ?? null
+
+  /** Docente encargado (Maestro Guía) del curso. */
+  const maestroGuia = seleccion ? teacherById(seleccion.records.find((r) => r.leadTeacherId)?.leadTeacherId) : undefined
+
+  /** Estudiantes matriculados en el aula. */
+  const estudiantesAula = useMemo(() => {
+    if (!seleccion) return []
+    const ids = new Set(seleccion.records.map((r) => r.id))
+    const enrolled = new Set(enrollmentsCol.items.filter((e) => ids.has(e.gradeId)).map((e) => e.studentId))
+    return students
+      .filter((s) => ids.has(s.gradeId) || enrolled.has(s.id))
+      .map((s) => ({ id: s.id, fullName: s.fullName }))
+      .sort((a, b) => a.fullName.localeCompare(b.fullName))
+  }, [seleccion, students, enrollmentsCol.items])
+
+  const activePeriodId = periods.find((p) => p.isActive)?.id ?? periods[0]?.id ?? ''
 
   const registroDe = (curso?: string) => (curso ? registrosCol.items.find((r) => r.curso === curso) : undefined)
 
@@ -971,8 +989,12 @@ Si falta información, complétala según el Diseño Curricular del MINERD para 
                     <div>
                       <Text weight="semibold" size={500} block>{seleccion.curso}</Text>
                       <Text size={200} style={{ color: 'var(--texto-suave)' }}>{seleccion.nivel} · {seleccion.records.length} asignatura(s)</Text>
+                      <Text size={200} block><strong>Maestro Guía:</strong> {maestroGuia?.fullName ?? '—'}</Text>
                     </div>
-                    {canManage && <Button appearance="secondary" icon={<ImageRegular />} onClick={() => setImgAula(seleccion)}>Cambiar imagen</Button>}
+                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                      {canManage && <Button appearance="primary" icon={<CheckmarkCircleRegular />} onClick={() => setPaseOpen(true)}>Pase de lista</Button>}
+                      {canManage && <Button appearance="secondary" icon={<ImageRegular />} onClick={() => setImgAula(seleccion)}>Cambiar imagen</Button>}
+                    </div>
                   </div>
                   <AulaSubjectsPanel
                     subjects={seleccion.records}
@@ -1046,6 +1068,15 @@ Si falta información, complétala según el Diseño Curricular del MINERD para 
       </Dialog>
 
       <AulaImagenModal aula={imgAula} open={!!imgAula} onClose={() => setImgAula(null)} onSaved={() => { void gradesCol.refresh() }} />
+
+      <PaseListaModal
+        open={paseOpen}
+        onClose={() => setPaseOpen(false)}
+        course={seleccion ? seleccion.records[0] : null}
+        estudiantes={estudiantesAula}
+        periodId={activePeriodId}
+        tomadoPor={user?.displayName ?? ''}
+      />
 
       <ModalForm
         open={planOpen}
