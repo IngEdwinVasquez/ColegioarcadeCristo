@@ -6,6 +6,7 @@ import type {
   AdmissionRequest,
   Announcement,
   AttendanceRecord,
+  AttendanceDayNote,
   AsignaturaLog,
   CargaHorariaRegistro,
   ChatMessage,
@@ -109,6 +110,7 @@ export const collections = {
     cargaHoraria: collection<CargaHorariaRegistro>(SPO_LISTS.cargaHoraria),
     asignaturaLog: collection<AsignaturaLog>(SPO_LISTS.asignaturaLog),
     ticGestion: collection<TicGestionItem>(SPO_LISTS.ticGestion),
+    attendanceNotes: collection<AttendanceDayNote>(SPO_LISTS.attendanceNotes),
 }
 
 export const dataService = {
@@ -269,6 +271,10 @@ export const dataService = {
   getTicGestion: collections.ticGestion.getAll,
   saveTicGestion: collections.ticGestion.save,
   deleteTicGestion: collections.ticGestion.remove,
+  // Marcas de días sin pase de lista (feriado/comentario)
+  getAttendanceNotes: collections.attendanceNotes.getAll,
+  saveAttendanceNote: collections.attendanceNotes.save,
+  deleteAttendanceNote: collections.attendanceNotes.remove,
 }
 
 export type DataService = typeof dataService

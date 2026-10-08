@@ -358,6 +358,16 @@ export interface AttendanceRecord {
   takenAt: string
 }
 
+/** Marca de un día sin pase de lista (feriado y/o comentario) para un aula. */
+export interface AttendanceDayNote {
+  id: string
+  gradeId: string
+  date: string
+  feriado: boolean
+  comentario?: string
+  updatedAt: string
+}
+
 export type ActivityType = 'tarea' | 'quiz' | 'proyecto' | 'evaluacion' | 'lectura' | 'foro'
 
 export type ActivityStatus = 'borrador' | 'publicada' | 'cerrada'
