@@ -15,6 +15,7 @@ import { useApp } from '../../context/useApp'
 import { dataService } from '../../services/dataService'
 import { normalizarCursos } from '../../services/courseNormalize'
 import { PaseListaModal } from './PaseListaModal'
+import { HistorialAsistenciaModal } from './HistorialAsistenciaModal'
 import { useCollection } from '../../hooks/useCollection'
 import { cursoNombre, nivelShort, ordenarCursos, asignaturaDe, isRealSubject, gradoDe, seccionDe, esGradoValido, GRADOS, SECCIONES, INICIAL_GRADOS, cicloFromGrade } from '../../utils/academic'
 import { createClassTeam, listTenantTeams, resolveTeamUrl } from '../../services/teamsEdu'
@@ -640,6 +641,7 @@ export function AulasView({ scope, subtitle, pageTitle = 'Aulas', onOpenSubject 
   const canManage = scope.kind !== 'estudiante'
   const [normalizando, setNormalizando] = useState(false)
   const [paseOpen, setPaseOpen] = useState(false)
+  const [histOpen, setHistOpen] = useState(false)
   const [nuevoCursoOpen, setNuevoCursoOpen] = useState(false)
   const [nuevoCurso, setNuevoCurso] = useState({ nivel: 'Nivel Primario', grado: '', seccion: 'A' })
 
@@ -993,6 +995,7 @@ Si falta información, complétala según el Diseño Curricular del MINERD para 
                     </div>
                     <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                       {canManage && <Button appearance="primary" icon={<CheckmarkCircleRegular />} onClick={() => setPaseOpen(true)}>Pase de lista</Button>}
+                      {canManage && <Button appearance="secondary" icon={<BookOpenRegular />} onClick={() => setHistOpen(true)}>Historial de asistencia</Button>}
                       {canManage && <Button appearance="secondary" icon={<ImageRegular />} onClick={() => setImgAula(seleccion)}>Cambiar imagen</Button>}
                     </div>
                   </div>
@@ -1076,6 +1079,13 @@ Si falta información, complétala según el Diseño Curricular del MINERD para 
         estudiantes={estudiantesAula}
         periodId={activePeriodId}
         tomadoPor={user?.displayName ?? ''}
+      />
+
+      <HistorialAsistenciaModal
+        open={histOpen}
+        onClose={() => setHistOpen(false)}
+        course={seleccion ? seleccion.records[0] : null}
+        totalEstudiantes={estudiantesAula.length}
       />
 
       <ModalForm
