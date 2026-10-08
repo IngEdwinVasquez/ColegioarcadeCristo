@@ -1,9 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import { Button, Card, Label, Tab, TabList, Text, Textarea, makeStyles, tokens, useToastController } from '@fluentui/react-components'
 import {
   ArrowLeftRegular,
-  CalendarCheckmarkRegular,
   CheckmarkCircleRegular,
   DocumentTextRegular,
   EditRegular,
@@ -58,7 +57,6 @@ export function ClaseDetail() {
   const styles = useStyles()
   const { id } = useParams()
   const navigate = useNavigate()
-  const [params] = useSearchParams()
   const { subjectById, gradeById, teacherById, role } = useApp()
 
   const classesCol = useCollection<SchoolClassRecord>(dataService.getClasses, dataService.saveClassRecord, dataService.deleteClassRecord)
@@ -77,9 +75,8 @@ export function ClaseDetail() {
       setBefore(clase.before)
       setDuring(clase.during)
       setAfter(clase.after)
-      if (params.get('tomar')) setTab('asistencia')
     }
-  }, [clase, params])
+  }, [clase])
 
   const basePath = role === 'admin' ? '/administrativo' : '/docentes'
 
@@ -154,7 +151,6 @@ td,th{border:1px solid #ccc;padding:8px;text-align:left;vertical-align:top}
             {clase.planId && (
               <Button appearance="outline" icon={<LinkRegular />} onClick={() => navigate(`${basePath}/planificacion`)}>Planificación</Button>
             )}
-            <Button appearance="outline" icon={<CalendarCheckmarkRegular />} onClick={() => navigate(`${basePath}/asistencia?classId=${clase.id}`)}>Tomar asistencia</Button>
             <Button appearance="outline" icon={<VideoRegular />} onClick={() => navigate(`${basePath}/aulas?classId=${clase.id}`)}>Actividad en aula</Button>
             <Button appearance="outline" icon={<DocumentTextRegular />} onClick={openReport}>Reporte</Button>
             {clase.status !== 'completada' ? (
@@ -223,15 +219,6 @@ td,th{border:1px solid #ccc;padding:8px;text-align:left;vertical-align:top}
             fields={['Reflexión docente', 'Logros alcanzados', 'Aspectos a mejorar', 'Informe de la actividad realizada']}
             onEdit={(v) => setAfter({ ...after, reflection: v[0], achieved: v[1], toImprove: v[2], report: v[3] })}
           />
-        </Card>
-      )}
-
-      {tab === 'asistencia' && (
-        <Card className={styles.phaseCard}>
-          <Text>Para registrar la asistencia de esta clase utilice el módulo de Asistencia.</Text>
-          <Button appearance="primary" icon={<CalendarCheckmarkRegular />} onClick={() => navigate(`${basePath}/asistencia?classId=${clase.id}`)}>
-            Ir a control de asistencia
-          </Button>
         </Card>
       )}
 

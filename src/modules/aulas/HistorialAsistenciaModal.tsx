@@ -89,9 +89,11 @@ export function HistorialAsistenciaModal({ open, onClose, course, totalEstudiant
   }
 
   const resumen = (rec: AttendanceRecord) => {
-    const c = { presente: 0, ausente: 0, tarde: 0, justificado: 0 }
-    for (const e of rec.entries) c[e.status]++
-    return `P: ${c.presente} · A: ${c.ausente} · T: ${c.tarde} · J: ${c.justificado}`
+    let p = 0
+    let a = 0
+    let x = 0
+    for (const e of rec.entries) { if (e.status === 'presente') p++; else if (e.status === 'justificado') x++; else a++ }
+    return `P: ${p} · A: ${a} · E: ${x}`
   }
 
   return (

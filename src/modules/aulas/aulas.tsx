@@ -599,7 +599,7 @@ export function AulasView({ scope, subtitle, pageTitle = 'Aulas', onOpenSubject 
 }) {
   const styles = useStyles()
   const toaster = useToastController()
-  const { user, grades, studentById, gradeById, students, periods, teacherById, refreshCatalogs } = useApp()
+  const { user, grades, studentById, gradeById, students, periods, teacherById, teachers, refreshCatalogs } = useApp()
   const gradesCol = useCollection<GradeSection>(dataService.getGrades, dataService.saveGrade)
   const assignmentsCol = useCollection<TeacherAssignment>(dataService.getTeacherAssignments)
   const enrollmentsCol = useCollection<Enrollment>(dataService.getEnrollments)
@@ -643,6 +643,7 @@ export function AulasView({ scope, subtitle, pageTitle = 'Aulas', onOpenSubject 
 
   const canManage = scope.kind !== 'estudiante'
   const [normalizando, setNormalizando] = useState(false)
+  const [guiaBusy, setGuiaBusy] = useState(false)
   const [paseOpen, setPaseOpen] = useState(false)
   const [histOpen, setHistOpen] = useState(false)
   const [paseAsigOpen, setPaseAsigOpen] = useState(false)
@@ -692,8 +693,28 @@ export function AulasView({ scope, subtitle, pageTitle = 'Aulas', onOpenSubject 
   }
   const seleccion = aulas.find((a) => a.curso === selected) ?? null
 
+  /** Asigna (o cambia) el Maestro Guía del curso, guardándolo en sus registros. */
+  const asignarMaestroGuia = async (teacherId: string) => {
+    if (!seleccion) return
+    setGuiaBusy(true)
+    try {
+      for (const r of seleccion.records) {
+        await gradesCol.save({ ...r, leadTeacherId: teacherId || undefined })
+      }
+      await Promise.all([gradesCol.refresh(), refreshCatalogs()])
+      toaster.dispatchToast(teacherId ? 'Maestro Guía asignado.' : 'Maestro Guía eliminado.', { intent: 'success' })
+    } catch (e) {
+      toaster.dispatchToast(graphErrorMessage(e), { intent: 'error' })
+    } finally {
+      setGuiaBusy(false)
+    }
+  }
+
   /** Docente encargado (Maestro Guía) del curso. */
   const maestroGuia = seleccion ? teacherById(seleccion.records.find((r) => r.leadTeacherId)?.leadTeacherId) : undefined
+
+  /** Nombre del Maestro Guía de un aula (para mostrarlo en la tarjeta). */
+  const maestroGuiaDe = (a: Aula) => teacherById(a.records.find((r) => r.leadTeacherId)?.leadTeacherId)?.fullName ?? ''
 
   /** Estudiantes matriculados en el aula. */
   const estudiantesAula = useMemo(() => {
@@ -975,6 +996,7 @@ Si falta información, complétala según el Diseño Curricular del MINERD para 
                       <span className={styles.chip}>{a.nivel}</span>
                       <span className={styles.chip}>{a.records.length} asignatura(s)</span>
                     </div>
+                    <Text size={200} block style={{ color: 'var(--texto-suave)' }}>Maestro Guía: {maestroGuiaDe(a) || '—'}</Text>
                     <span className={styles.link}>Abrir aula <ArrowRightRegular /></span>
                   </div>
                 </Card>
@@ -996,7 +1018,20 @@ Si falta información, complétala según el Diseño Curricular del MINERD para 
                     <div>
                       <Text weight="semibold" size={500} block>{seleccion.curso}</Text>
                       <Text size={200} style={{ color: 'var(--texto-suave)' }}>{seleccion.nivel} · {seleccion.records.length} asignatura(s)</Text>
-                      <Text size={200} block><strong>Maestro Guía:</strong> {maestroGuia?.fullName ?? '—'}</Text>
+                      {canManage ? (
+                        <Select
+                          aria-label="Maestro Guía"
+                          value={seleccion.records.find((r) => r.leadTeacherId)?.leadTeacherId ?? ''}
+                          onChange={(_, d) => void asignarMaestroGuia(d.value)}
+                          disabled={guiaBusy}
+                          style={{ minWidth: '240px', marginTop: '4px' }}
+                        >
+                          <option value="">— Asignar Maestro Guía —</option>
+                          {teachers.map((t) => <option key={t.id} value={t.id}>{t.fullName}</option>)}
+                        </Select>
+                      ) : (
+                        <Text size={200} block><strong>Maestro Guía:</strong> {maestroGuia?.fullName ?? '—'}</Text>
+                      )}
                     </div>
                     <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                       {canManage && <Button appearance="primary" icon={<CheckmarkCircleRegular />} onClick={() => setPaseOpen(true)}>Pase de lista</Button>}

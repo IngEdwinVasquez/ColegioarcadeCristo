@@ -13,7 +13,6 @@ import { CursoAsignaturaPage } from '../modules/aulas/CursoAsignaturaPage'
 import { ClaseDocenteDetail } from '../modules/docente/ClaseDocenteDetail'
 import { RecursosPage } from '../modules/docente/RecursosPage'
 import { PortafolioPage } from '../modules/docente/PortafolioPage'
-import { AsistenciaPage } from '../modules/asistencia/AsistenciaPage'
 import { EncuentrosPage } from '../modules/encuentros/EncuentrosPage'
 import { EncuentroDetail } from '../modules/encuentros/EncuentroDetail'
 import { Comunicados } from '../modules/dashboard/Comunicados'
@@ -55,7 +54,6 @@ export function DocentesPortal() {
         <Route path="planificador" element={<PlanificadorSemanal />} />
         <Route path="planificador-ia" element={<PlanificadorPage />} />
         <Route path="grados-secciones" element={<GradosSeccionesPage />} />
-        <Route path="asistencia" element={<AsistenciaPage />} />
         <Route path="recursos" element={<RecursosPage />} />
         <Route path="portafolio" element={<PortafolioPage />} />
         <Route path="encuentros" element={<EncuentrosPage />} />
