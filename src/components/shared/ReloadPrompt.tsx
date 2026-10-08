@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { useRegisterSW } from 'virtual:pwa-register/react'
 import { Button, Text, makeStyles } from '@fluentui/react-components'
 import { ArrowSyncRegular } from '@fluentui/react-icons'
@@ -33,10 +34,10 @@ export function ReloadPrompt() {
   } = useRegisterSW({
     onRegisteredSW(_url, reg) {
       if (reg) {
-        // Comprueba si hay actualizaciones cada 15 minutos y al volver a la pestaña.
+        // Comprueba si hay actualizaciones cada 2 minutos y al volver a la pestaña.
         setInterval(() => {
           void reg.update?.()
-        }, 15 * 60 * 1000)
+        }, 2 * 60 * 1000)
         const check = () => {
           if (document.visibilityState === 'visible') void reg.update?.()
         }
@@ -51,6 +52,13 @@ export function ReloadPrompt() {
 
   const close = () => setOfflineReady(false)
 
+  // Aplica la nueva versión automáticamente para que nadie quede atrapado en una versión antigua.
+  useEffect(() => {
+    if (!needRefresh) return
+    const t = window.setTimeout(() => { void updateServiceWorker(true) }, 2000)
+    return () => window.clearTimeout(t)
+  }, [needRefresh, updateServiceWorker])
+
   if (offlineReady) {
     return (
       <div className={styles.bar}>
@@ -63,9 +71,9 @@ export function ReloadPrompt() {
   if (needRefresh) {
     return (
       <div className={styles.bar}>
-        <Text className={styles.text}>Hay una nueva versión del sitio disponible.</Text>
+        <Text className={styles.text}>Nueva versión disponible. Actualizando…</Text>
         <Button size="small" appearance="primary" icon={<ArrowSyncRegular />} onClick={() => updateServiceWorker(true)}>
-          Recargar
+          Recargar ahora
         </Button>
       </div>
     )
