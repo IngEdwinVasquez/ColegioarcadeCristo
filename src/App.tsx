@@ -9,7 +9,6 @@ import { msalInstance } from './services/msal'
 import { M365Login } from './auth/M365Login'
 import { AccessPending, AuthLoading, SetupError } from './auth/AuthStatus'
 import { PortalSelector } from './auth/PortalSelector'
-import { ReloadPrompt } from './components/shared/ReloadPrompt'
 import './index.css'
 
 const DocentesPortal = lazy(() => import('./portals/DocentesPortal').then((m) => ({ default: m.DocentesPortal })))
@@ -67,7 +66,6 @@ export default function App() {
         <AppProvider>
           <AppRoutes />
           <Toaster position="top-end" />
-          <ReloadPrompt />
         </AppProvider>
       </FluentProvider>
     </MsalProvider>
