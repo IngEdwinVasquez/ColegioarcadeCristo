@@ -5,6 +5,7 @@ import { PeopleTeamRegular, ShieldPersonRegular, PersonWarningRegular, DatabaseR
 import { WelcomeHero } from '../../components/shared/WelcomeHero'
 import { StatCard } from '../../components/shared/StatCard'
 import { useApp } from '../../context/useApp'
+import { AsistenciaDashboard } from '../asistencia/AsistenciaDashboard'
 import { dataService } from '../../services/dataService'
 import { useCollection } from '../../hooks/useCollection'
 import { getDirectoryUsers } from '../../services/userLinks'
@@ -91,6 +92,8 @@ export function TecnologiaDashboard() {
         <StatCard title="Fichas sin cuenta M365" value={sinCuenta} icon={<PersonWarningRegular />} color="#EA580C" gradient={gradientes.naranja} sub="Requieren vincular una cuenta de Entra ID" />
         <StatCard title="Cuentas sin rol" value={sinRol} icon={<PersonWarningRegular />} color="#C8102E" gradient={gradientes.rojo} sub="Han iniciado sesión sin acceso asignado" />
       </div>
+
+      <AsistenciaDashboard />
 
       <div className={styles.grid}>
         <Card className={styles.card}>
