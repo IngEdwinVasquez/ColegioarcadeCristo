@@ -18,6 +18,7 @@ import type {
   DocumentRequest,
   DocumentType,
   Enrollment,
+  EnrollmentLogEntry,
   Grade,
   GradeSection,
   GradeRegister,
@@ -113,6 +114,7 @@ export const collections = {
     ticGestion: collection<TicGestionItem>(SPO_LISTS.ticGestion),
     attendanceNotes: collection<AttendanceDayNote>(SPO_LISTS.attendanceNotes),
     staffAttendance: collection<StaffAttendanceRecord>(SPO_LISTS.staffAttendance),
+    enrollmentLog: collection<EnrollmentLogEntry>(SPO_LISTS.enrollmentLog),
 }
 
 export const dataService = {
@@ -281,6 +283,9 @@ export const dataService = {
   getStaffAttendance: collections.staffAttendance.getAll,
   saveStaffAttendance: collections.staffAttendance.save,
   deleteStaffAttendance: collections.staffAttendance.remove,
+  // Auditoría de estudiantes agregados/eliminados de un curso
+  getEnrollmentLog: collections.enrollmentLog.getAll,
+  saveEnrollmentLog: collections.enrollmentLog.save,
 }
 
 export type DataService = typeof dataService
