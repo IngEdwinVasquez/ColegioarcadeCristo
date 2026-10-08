@@ -10,8 +10,12 @@ import {
   Text,
   makeStyles,
 } from '@fluentui/react-components'
-import { NavigationRegular, SignOutRegular, HomeRegular, ChevronRightRegular, LightbulbFilamentRegular } from '@fluentui/react-icons'
+import { NavigationRegular, SignOutRegular, HomeRegular, ChevronRightRegular, LightbulbFilamentRegular, PersonRegular } from '@fluentui/react-icons'
 import { useApp } from '../../context/useApp'
+import { dataService } from '../../services/dataService'
+import { useCollection } from '../../hooks/useCollection'
+import { StaffAttendanceModal } from '../../modules/asistencia/StaffAttendanceModal'
+import type { Persona } from '../../types'
 import { appConfig, isAdminEmail } from '../../config/appConfig'
 import { PORTALS } from '../../portals/portals'
 import { initials } from '../../utils/helpers'
@@ -190,10 +194,22 @@ interface AppShellProps {
 
 export function AppShell({ nav }: AppShellProps) {
   const styles = useStyles()
-  const { user, logout } = useApp()
+  const { user, logout, teachers } = useApp()
   const navigate = useNavigate()
   const location = useLocation()
   const [mobileOpen, setMobileOpen] = useState(false)
+  const personasCol = useCollection<Persona>(dataService.getPersonas)
+  const [myAttOpen, setMyAttOpen] = useState(false)
+
+  // Ficha de personal del usuario conectado (docente o personal). Los estudiantes no reportan asistencia.
+  const miFicha = useMemo<{ id: string; name: string; kind: 'docente' | 'persona' } | null>(() => {
+    if (!user) return null
+    const t = teachers.find((x) => x.userId === user.id) ?? teachers.find((x) => x.id === user.teacherId)
+    if (t) return { id: t.id, name: t.fullName, kind: 'docente' }
+    const p = personasCol.items.find((x) => x.userId === user.id) ?? personasCol.items.find((x) => (x.email ?? '').toLowerCase() === (user.email ?? '').toLowerCase())
+    if (p) return { id: p.id, name: p.fullName, kind: 'persona' }
+    return null
+  }, [user, teachers, personasCol.items])
 
   // Mantiene las preferencias de IA asociadas al usuario conectado.
   useEffect(() => {
@@ -260,6 +276,16 @@ export function AppShell({ nav }: AppShellProps) {
             <div className={styles.profileRole}>{portal?.shortTitle}</div>
           </div>
         </div>
+        {miFicha && (
+          <Button
+            appearance="subtle"
+            icon={<PersonRegular />}
+            style={{ color: 'rgba(255,255,255,0.85)', justifyContent: 'flex-start', width: '100%' }}
+            onClick={() => setMyAttOpen(true)}
+          >
+            Mi asistencia
+          </Button>
+        )}
         <InstallPWA />
         <GuidedTour steps={tourSteps}>
           <Button
@@ -331,6 +357,16 @@ export function AppShell({ nav }: AppShellProps) {
       </div>
 
       <GlobalAiAssistant />
+
+      {miFicha && (
+        <StaffAttendanceModal
+          open={myAttOpen}
+          onClose={() => setMyAttOpen(false)}
+          personId={miFicha.id}
+          personName={miFicha.name}
+          kind={miFicha.kind}
+        />
+      )}
     </div>
   )
 }

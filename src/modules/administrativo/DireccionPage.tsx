@@ -20,6 +20,7 @@ import { PageHeader } from '../../components/shared/PageHeader'
 import { StatCard } from '../../components/shared/StatCard'
 import { GruposPersonas } from './GruposPersonas'
 import { AsistenciaDashboard } from '../asistencia/AsistenciaDashboard'
+import { StaffAsistenciaPanel } from '../asistencia/StaffAsistenciaPanel'
 import { PortalesActividad } from './PortalesActividad'
 import { ModalForm } from '../../components/shared/ModalForm'
 import { useApp } from '../../context/useApp'
@@ -196,6 +197,8 @@ export function DireccionPage() {
       />
 
       <AsistenciaDashboard level={levelFilter || undefined} />
+
+      <StaffAsistenciaPanel />
 
       <div className={styles.filterRow}>
         <Select value={gradeFilter} onChange={(_, d) => setGradeFilter(d.value)} style={{ minWidth: '180px' }}>
