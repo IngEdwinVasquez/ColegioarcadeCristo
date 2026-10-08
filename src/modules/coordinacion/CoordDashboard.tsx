@@ -16,6 +16,7 @@ import { WelcomeHero } from '../../components/shared/WelcomeHero'
 import { gradientes } from '../../theme'
 import { useApp } from '../../context/useApp'
 import { AsistenciaDashboard } from '../asistencia/AsistenciaDashboard'
+import { AulaActividadDashboard } from '../dashboard/AulaActividadDashboard'
 import { dataService } from '../../services/dataService'
 import { useCollection } from '../../hooks/useCollection'
 import { NivelSelector } from './NivelSelector'
@@ -86,6 +87,8 @@ export function CoordDashboard() {
       </div>
 
       <AsistenciaDashboard level={level || undefined} />
+
+      <AulaActividadDashboard level={level || undefined} />
 
       <div className={styles.kpis}>
         <StatCard title="Docentes del nivel" value={levelTeachers.length} icon={<PersonSupportRegular />} color="#0082AD" gradient={gradientes.azul} sub={`En ${levelGradeIds.length} curso(s)`} />
