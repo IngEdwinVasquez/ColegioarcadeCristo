@@ -1167,6 +1167,14 @@ export interface CursoUnidad {
   aiCreated?: boolean
   /** Id. de la imagen relacionada con el tema de la unidad. */
   imageRef?: string
+  /** Planificación de la unidad generada (HTML persistido). */
+  planHtml?: string
+  /** Fecha en que se creó/actualizó la planificación de la unidad. */
+  planFecha?: string
+  /** Informe de ejecución de la planificación de la unidad. */
+  informe?: string
+  /** Fecha del informe de ejecución. */
+  informeFecha?: string
   desde?: string
   hasta?: string
   recursos: CursoRecurso[]
