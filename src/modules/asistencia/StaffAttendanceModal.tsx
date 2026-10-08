@@ -46,6 +46,10 @@ export function StaffAttendanceModal({ open, onClose, personId, personName, kind
   }, [open, date, personId])
 
   const guardar = async () => {
+    if (status === 'ausente_evidencia' && !file && !existente?.evidenceRef) {
+      toaster.dispatchToast('Debes subir el documento o la imagen de la evidencia para registrar la ausencia.', { intent: 'error' })
+      return
+    }
     setBusy(true)
     try {
       let evidenceRef = existente?.evidenceRef
