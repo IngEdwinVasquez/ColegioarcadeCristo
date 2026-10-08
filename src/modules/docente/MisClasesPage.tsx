@@ -100,7 +100,7 @@ export function MisClasesPage() {
       <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '16px' }}>
         <Button appearance="outline" size="small" icon={<CalendarLtrRegular />} onClick={() => navigate('/docentes/planificaciones')}>Planificación Anual</Button>
         <Button appearance="outline" size="small" icon={<CalendarLtrRegular />} onClick={() => navigate('/docentes/planificador')}>Planificador semanal</Button>
-        <Button appearance="outline" size="small" icon={<CalendarCheckmarkRegular />} onClick={() => navigate('/docentes/asistencia')}>Asistencia</Button>
+        <Button appearance="outline" size="small" icon={<CalendarCheckmarkRegular />} onClick={() => navigate('/docentes/aulas')}>Asistencia</Button>
         <Button appearance="outline" size="small" icon={<FolderRegular />} onClick={() => navigate('/docentes/recursos')}>Recursos</Button>
       </div>
 
