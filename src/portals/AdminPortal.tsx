@@ -9,7 +9,6 @@ import { AcademicaTecPage } from '../modules/tecnologia/AcademicaTecPage'
 import { AnualPlanPage } from '../modules/anualPlan/AnualPlanPage'
 import { ClasesPage } from '../modules/clases/ClasesPage'
 import { ClaseDetail } from '../modules/clases/ClaseDetail'
-import { AsistenciaPage } from '../modules/asistencia/AsistenciaPage'
 import { PersonasPage } from '../modules/administrativo/PersonasPage'
 import { SigerdPage } from '../modules/tecnologia/SigerdPage'
 import { UsuariosPage } from '../modules/administrativo/UsuariosPage'
@@ -83,7 +82,6 @@ export function AdminPortal() {
         <Route path="planificacion" element={<AnualPlanPage />} />
         <Route path="clases" element={<ClasesPage />} />
         <Route path="clases/:id" element={<ClaseDetail />} />
-        <Route path="asistencia" element={<AsistenciaPage />} />
         <Route path="aulas" element={<AulasPage />} />
         <Route path="aulas-curso" element={<AulasViewManagement base="/administrativo/aulas-curso" scope={{ kind: 'todos' }} pageTitle="Aulas por curso" subtitle="Todas las aulas del colegio con sus asignaturas y aulas de Teams." />} />
         <Route path="aulas-curso/:gradeId/:section/:subjectId/virtual" element={<CursoAsignaturaPage />} />

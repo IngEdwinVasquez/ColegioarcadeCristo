@@ -88,8 +88,7 @@ export function AsistenciaDashboard({ level, teacherId }: { level?: string; teac
                 <TableHeaderCell>Pases</TableHeaderCell>
                 <TableHeaderCell>Presentes</TableHeaderCell>
                 <TableHeaderCell>Ausentes</TableHeaderCell>
-                <TableHeaderCell>Tardanzas</TableHeaderCell>
-                <TableHeaderCell>Justificados</TableHeaderCell>
+                <TableHeaderCell>Excusas</TableHeaderCell>
                 <TableHeaderCell>% Asistencia</TableHeaderCell>
               </TableRow>
             </TableHeader>
@@ -100,7 +99,6 @@ export function AsistenciaDashboard({ level, teacherId }: { level?: string; teac
                   <TableCell>{f.dias}</TableCell>
                   <TableCell>{f.presente}</TableCell>
                   <TableCell>{f.ausente}</TableCell>
-                  <TableCell>{f.tarde}</TableCell>
                   <TableCell>{f.justificado}</TableCell>
                   <TableCell><Badge appearance="filled" color={f.total && f.presente / f.total >= 0.85 ? 'success' : 'warning'}>{f.total ? Math.round((f.presente / f.total) * 100) : 0}%</Badge></TableCell>
                 </TableRow>

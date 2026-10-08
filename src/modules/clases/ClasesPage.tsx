@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Button, Input, Select, Table, TableBody, TableCell, TableHeader, TableHeaderCell, TableRow, Text, Toolbar, ToolbarButton, makeStyles, tokens } from '@fluentui/react-components'
-import { AddRegular, NotebookRegular, OpenRegular, SearchRegular, CalendarCheckmarkRegular } from '@fluentui/react-icons'
+import { AddRegular, NotebookRegular, OpenRegular, SearchRegular } from '@fluentui/react-icons'
 import { PageHeader } from '../../components/shared/PageHeader'
 import { StatusBadge } from '../../components/shared/StatusBadge'
 import { EmptyStateView } from '../../components/shared/EmptyStateView'
@@ -116,9 +116,6 @@ export function ClasesPage() {
               <TableCell className={styles.cell}>
                 <Toolbar size="small">
                   <ToolbarButton icon={<OpenRegular />} onClick={() => navigate(`${basePath}/clases/${clase.id}`)}>Abrir</ToolbarButton>
-                  {clase.status !== 'completada' && (
-                    <ToolbarButton icon={<CalendarCheckmarkRegular />} onClick={() => navigate(`${basePath}/clases/${clase.id}?tomar=1`)}>Asistencia</ToolbarButton>
-                  )}
                 </Toolbar>
               </TableCell>
             </TableRow>
