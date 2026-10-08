@@ -4,7 +4,7 @@ import { ResponsiveContainer, PieChart, Pie, Cell, Legend, Tooltip as RTooltip, 
 import { useApp } from '../../context/useApp'
 import { dataService } from '../../services/dataService'
 import { useCollection } from '../../hooks/useCollection'
-import { backfillStaffAbsent, type PersonalRef } from '../../services/staffAttendance'
+import { backfillStaffAbsent, diasHabiles, type PersonalRef } from '../../services/staffAttendance'
 import { todayIso } from '../../utils/helpers'
 import type { Persona, StaffAttendanceRecord } from '../../types'
 
@@ -55,43 +55,43 @@ export function StaffAsistenciaPanel() {
   }, [personasCol.loading, attCol.loading, staff.length, listo])
 
   const { desde, hasta } = rango(periodo, todayIso())
-  const filtrados = useMemo(
-    () => attCol.items
-      .filter((r) => r.date >= desde && r.date <= hasta)
-      .filter((r) => !docente || r.personId === docente),
-    [attCol.items, desde, hasta, docente],
+
+  // Personal en alcance según el filtro «docentes».
+  const staffFiltrado = useMemo(
+    () => staff.filter((p) => !docente || p.id === docente),
+    [staff, docente],
   )
 
-  const conteo = useMemo(() => {
+  // Recorre cada día laboral del período por persona. Si no hay reporte, cuenta como AUSENTE,
+  // de modo que los gráficos reflejen a TODO el personal del filtro (no solo a quien reportó).
+  const { conteo, porFecha } = useMemo(() => {
+    const hoy = todayIso()
+    const dias = diasHabiles(desde, hasta).filter((d) => d <= hoy)
+    const recMap = new Map(attCol.items.map((r) => [`${r.personId}|${r.date}`, r]))
     const c = { presente: 0, ausente_evidencia: 0, ausente: 0 }
-    for (const r of filtrados) {
-      const k = r.status === 'presente' ? 'presente' : r.status === 'ausente_evidencia' ? 'ausente_evidencia' : 'ausente'
-      c[k]++
+    const map = new Map<string, { key: string; presente: number; ausente_evidencia: number; ausente: number }>()
+    for (const p of staffFiltrado) {
+      for (const d of dias) {
+        const st = recMap.get(`${p.id}|${d}`)?.status ?? 'ausente'
+        const k = st === 'presente' ? 'presente' : st === 'ausente_evidencia' ? 'ausente_evidencia' : 'ausente'
+        c[k]++
+        let key: string
+        if (periodo === 'anio') key = d.slice(0, 4)
+        else if (periodo === 'mes') key = MESES[Number(d.slice(5, 7)) - 1]
+        else key = d.slice(5)
+        const e = map.get(key) ?? { key, presente: 0, ausente_evidencia: 0, ausente: 0 }
+        e[k]++
+        map.set(key, e)
+      }
     }
-    return c
-  }, [filtrados])
+    return { conteo: c, porFecha: [...map.values()].sort((a, b) => a.key.localeCompare(b.key)) }
+  }, [staffFiltrado, attCol.items, desde, hasta, periodo])
 
   const pieData = [
     { name: 'Presentes', value: conteo.presente, fill: COLORS.presente },
     { name: 'Ausentes con evidencia', value: conteo.ausente_evidencia, fill: COLORS.ausente_evidencia },
     { name: 'Ausentes', value: conteo.ausente, fill: COLORS.ausente },
   ].filter((d) => d.value > 0)
-
-  const porFecha = useMemo(() => {
-    const map = new Map<string, { key: string; presente: number; ausente_evidencia: number; ausente: number }>()
-    for (const r of filtrados) {
-      let key: string
-      if (periodo === 'anio') key = `${r.date.slice(0, 4)}`
-      else if (periodo === 'mes') key = `${MESES[Number(r.date.slice(5, 7)) - 1]}`
-      else key = r.date.slice(5)
-      const e = map.get(key) ?? { key, presente: 0, ausente_evidencia: 0, ausente: 0 }
-      if (r.status === 'presente') e.presente++
-      else if (r.status === 'ausente_evidencia') e.ausente_evidencia++
-      else e.ausente++
-      map.set(key, e)
-    }
-    return [...map.values()].sort((a, b) => a.key.localeCompare(b.key))
-  }, [filtrados, periodo])
 
   return (
     <Card className={styles.card}>
