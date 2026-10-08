@@ -160,7 +160,7 @@ export function DocenteDashboard() {
       <Button appearance="secondary" icon={<PlayRegular />} style={{ background: '#fff', color: 'var(--azul)', fontWeight: 600 }} onClick={() => navigate('/docentes/planificaciones')}>
         Impartir clase
       </Button>
-      <Button appearance="secondary" icon={<CalendarCheckmarkRegular />} style={{ background: 'rgba(255,255,255,0.14)', color: '#fff', fontWeight: 600 }} onClick={() => navigate('/docentes/asistencia')}>
+      <Button appearance="secondary" icon={<CalendarCheckmarkRegular />} style={{ background: 'rgba(255,255,255,0.14)', color: '#fff', fontWeight: 600 }} onClick={() => navigate('/docentes/aulas')}>
         Tomar asistencia
       </Button>
       <Button appearance="secondary" icon={<AddRegular />} style={{ background: 'rgba(255,255,255,0.14)', color: '#fff', fontWeight: 600 }} onClick={() => navigate('/docentes/planificaciones')}>
