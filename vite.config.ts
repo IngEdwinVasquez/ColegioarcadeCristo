@@ -1,11 +1,32 @@
-import { defineConfig } from 'vite'
+import { defineConfig, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
+
+/**
+ * Genera un id único por build, lo inyecta como `__BUILD_ID__` en la app y emite
+ * `/version.json` en el sitio. La app consulta ese archivo para avisar cuando hay
+ * una versión nueva (sin Service Worker).
+ */
+function buildVersion(): Plugin {
+  const id = Date.now().toString(36)
+  return {
+    name: 'arca-build-version',
+    config: () => ({ define: { __BUILD_ID__: JSON.stringify(id) } }),
+    generateBundle() {
+      this.emitFile({
+        type: 'asset',
+        fileName: 'version.json',
+        source: JSON.stringify({ id, builtAt: new Date().toISOString() }),
+      })
+    },
+  }
+}
 
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [
     react(),
+    buildVersion(),
     VitePWA({
       // PWA / caché offline DESACTIVADA.
       // Se genera un service worker que se autodestruye y limpia las cachés de las
