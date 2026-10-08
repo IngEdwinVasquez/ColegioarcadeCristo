@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Button, Input, Select, Spinner, Tab, TabList, Text, makeStyles, useToastController } from '@fluentui/react-components'
-import { CloudArrowDownRegular, DeleteRegular, ArrowSyncRegular, CheckmarkCircleRegular } from '@fluentui/react-icons'
+import { CloudArrowDownRegular, DeleteRegular, ArrowSyncRegular, CheckmarkCircleRegular, PersonRegular } from '@fluentui/react-icons'
 import { PageHeader } from '../../components/shared/PageHeader'
 import { EntityCrud, type CrudColumn } from '../../components/shared/EntityCrud'
 import { FormField, FieldRow } from '../../components/shared/form'
@@ -19,6 +19,7 @@ import { entraEmail, getDirectoryUsers, linkUserRole, syncTeacherAssignments, un
 import { graphErrorMessage } from '../../services/graph'
 import { syncPersonsWithEntra, repairStudentNames } from '../../services/syncPersons'
 import { normalizarCursos } from '../../services/courseNormalize'
+import { StaffAttendanceModal } from '../asistencia/StaffAttendanceModal'
 
 const useStyles = makeStyles({
   tabs: { marginBottom: '16px' },
@@ -82,6 +83,7 @@ export function PersonasPage() {
   const [importOpen, setImportOpen] = useState(false)
   const [deduping, setDeduping] = useState(false)
   const [syncing, setSyncing] = useState(false)
+  const [attPerson, setAttPerson] = useState<{ id: string; name: string; kind: 'docente' | 'persona' } | null>(null)
   const [soloActivos, setSoloActivos] = useState(true)
   const [activeIds, setActiveIds] = useState<Set<string> | null>(null)
 
@@ -408,6 +410,7 @@ export function PersonasPage() {
       header: 'Asignaturas',
       render: (t) => <span>{t.subjects.map((id) => subjects.find((s) => s.id === id)?.shortName ?? id).join(', ')}</span>,
     },
+    { header: 'Asistencia', render: (t) => <Button size="small" appearance="secondary" icon={<PersonRegular />} onClick={() => setAttPerson({ id: t.id, name: t.fullName, kind: 'docente' })}>Asistencia</Button> },
   ]
 
   const personaColumns: CrudColumn<Persona>[] = [
@@ -415,6 +418,7 @@ export function PersonasPage() {
     { header: 'Correo', render: (p) => p.email || '—' },
     { header: 'Tipo', render: (p) => <StatusBadge status={p.tipo}>{labelOf(p.tipo)}</StatusBadge> },
     { header: 'Cambiar a', render: (p) => tipoCell(p.tipo, p) },
+    { header: 'Asistencia', render: (p) => <Button size="small" appearance="secondary" icon={<PersonRegular />} onClick={() => setAttPerson({ id: p.id, name: p.fullName, kind: 'persona' })}>Asistencia</Button> },
   ]
 
   /** Mantenimiento de personal (Personas) filtrado por categoría. */
@@ -515,6 +519,15 @@ export function PersonasPage() {
         }
       />
       <ImportPersonasWizard open={importOpen} onOpenChange={setImportOpen} />
+      {attPerson && (
+        <StaffAttendanceModal
+          open={!!attPerson}
+          onClose={() => setAttPerson(null)}
+          personId={attPerson.id}
+          personName={attPerson.name}
+          kind={attPerson.kind}
+        />
+      )}
       <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px', flexWrap: 'wrap' }}>
         <Text size={200} weight="semibold">Mostrar:</Text>
         <Select value={soloActivos ? 'activos' : 'todos'} onChange={(_, d) => setSoloActivos(d.value === 'activos')} style={{ maxWidth: '260px' }}>

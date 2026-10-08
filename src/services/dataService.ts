@@ -7,6 +7,7 @@ import type {
   Announcement,
   AttendanceRecord,
   AttendanceDayNote,
+  StaffAttendanceRecord,
   AsignaturaLog,
   CargaHorariaRegistro,
   ChatMessage,
@@ -111,6 +112,7 @@ export const collections = {
     asignaturaLog: collection<AsignaturaLog>(SPO_LISTS.asignaturaLog),
     ticGestion: collection<TicGestionItem>(SPO_LISTS.ticGestion),
     attendanceNotes: collection<AttendanceDayNote>(SPO_LISTS.attendanceNotes),
+    staffAttendance: collection<StaffAttendanceRecord>(SPO_LISTS.staffAttendance),
 }
 
 export const dataService = {
@@ -275,6 +277,10 @@ export const dataService = {
   getAttendanceNotes: collections.attendanceNotes.getAll,
   saveAttendanceNote: collections.attendanceNotes.save,
   deleteAttendanceNote: collections.attendanceNotes.remove,
+  // Asistencia del personal
+  getStaffAttendance: collections.staffAttendance.getAll,
+  saveStaffAttendance: collections.staffAttendance.save,
+  deleteStaffAttendance: collections.staffAttendance.remove,
 }
 
 export type DataService = typeof dataService

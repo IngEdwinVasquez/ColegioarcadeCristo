@@ -368,6 +368,27 @@ export interface AttendanceDayNote {
   updatedAt: string
 }
 
+/** Estado de asistencia del personal (docentes y personal institucional). */
+export type StaffAttendanceStatus = 'presente' | 'ausente' | 'ausente_evidencia'
+
+/** Reporte de asistencia del personal (con evidencia cuando está ausente). */
+export interface StaffAttendanceRecord {
+  id: string
+  personId: string
+  personName: string
+  kind: 'docente' | 'persona'
+  date: string
+  status: StaffAttendanceStatus
+  evidenceRef?: string
+  evidenceName?: string
+  evidenceUrl?: string
+  note?: string
+  reportedBy?: string
+  /** Marcado automáticamente por no reportar (día laboral transcurrido). */
+  auto?: boolean
+  updatedAt: string
+}
+
 export type ActivityType = 'tarea' | 'quiz' | 'proyecto' | 'evaluacion' | 'lectura' | 'foro'
 
 export type ActivityStatus = 'borrador' | 'publicada' | 'cerrada'
