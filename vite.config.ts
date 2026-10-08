@@ -7,9 +7,12 @@ export default defineConfig({
   plugins: [
     react(),
     VitePWA({
-      registerType: 'prompt',
+      // PWA / caché offline DESACTIVADA.
+      // Se genera un service worker que se autodestruye y limpia las cachés de las
+      // versiones anteriores, para que ningún equipo quede atrapado en contenido viejo.
+      // Las nuevas cargas ya no registran service worker (no hay precache).
+      selfDestroying: true,
       injectRegister: false,
-      includeAssets: ['favicon.svg', 'icons/apple-touch-icon-180x180.png'],
       manifest: {
         name: 'Arca de Cristo',
         short_name: 'Arca de Cristo',
@@ -28,27 +31,6 @@ export default defineConfig({
           { src: '/icons/pwa-512x512.png', sizes: '512x512', type: 'image/png' },
           { src: '/icons/pwa-maskable-512x512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
         ],
-      },
-      workbox: {
-        globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
-        navigateFallback: '/index.html',
-        cleanupOutdatedCaches: true,
-        runtimeCaching: [
-          {
-            urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
-            handler: 'StaleWhileRevalidate',
-            options: { cacheName: 'google-fonts' },
-          },
-          {
-            urlPattern: /^https:\/\/fonts\.gstatic\.com\/.*/i,
-            handler: 'StaleWhileRevalidate',
-            options: { cacheName: 'google-fonts-static' },
-          },
-        ],
-      },
-      devOptions: {
-        enabled: true,
-        type: 'module',
       },
     }),
   ],
