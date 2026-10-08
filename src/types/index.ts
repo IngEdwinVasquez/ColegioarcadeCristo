@@ -489,6 +489,22 @@ export interface Enrollment {
   periodId: string
 }
 
+/** Auditoría de estudiantes agregados/eliminados de un curso (aula). */
+export interface EnrollmentLogEntry {
+  id: string
+  studentId: string
+  studentName: string
+  gradeId: string
+  curso: string
+  action: 'agregado' | 'eliminado'
+  /** Fecha del movimiento (ISO yyyy-mm-dd). */
+  date: string
+  /** Usuario que realizó la acción. */
+  byUserId?: string
+  byName?: string
+  at: string
+}
+
 export interface TeacherAssignment {
   id: string
   teacherId: string
