@@ -12,17 +12,19 @@ import { AulasViewManagement } from '../modules/aulas/aulas'
 import { CursoAsignaturaPage } from '../modules/aulas/CursoAsignaturaPage'
 import { RegistroGradoPage } from '../modules/registro/RegistroGradoPage'
 import { CargaHorariaPage } from '../modules/administrativo/CargaHorariaPage'
+import { AcompanamientosPage } from '../modules/coordinacion/AcompanamientosPage'
 import { UsuariosPage } from '../modules/administrativo/UsuariosPage'
 import { RolesPage } from '../modules/administrativo/RolesPage'
 import { ChatPage } from '../modules/chat/ChatPage'
 import { CopilotPage } from '../modules/copilot/CopilotPage'
-import { DeveloperBoardRegular, PeopleTeamRegular, ShieldPersonRegular, ShieldCheckmarkRegular, ChatRegular, SparkleRegular, ClipboardTaskRegular, BookRegular, BookOpenRegular, LinkSquareRegular, ArrowUpRegular, VideoRegular, DocumentPdfRegular } from '@fluentui/react-icons'
+import { DeveloperBoardRegular, PeopleTeamRegular, ShieldPersonRegular, ShieldCheckmarkRegular, ChatRegular, SparkleRegular, ClipboardTaskRegular, BookRegular, BookOpenRegular, LinkSquareRegular, ArrowUpRegular, VideoRegular, DocumentPdfRegular, HeartPulseRegular } from '@fluentui/react-icons'
 
 const NAV: NavItem[] = [
   { to: '/tecnologia', label: 'Panel de Tecnología', icon: <DeveloperBoardRegular />, end: true, group: 'General' },
   { to: '/tecnologia/gestion-tic', label: 'Planificación TIC', icon: <ClipboardTaskRegular />, group: 'Coordinación TIC' },
   { to: '/tecnologia/gestion-dep-tecnologia', label: 'Gestión Dep. Tecnología', icon: <ClipboardTaskRegular />, group: 'Coordinación TIC' },
   { to: '/tecnologia/academica', label: 'Gestión académica', icon: <BookRegular />, group: 'Coordinación TIC' },
+  { to: '/tecnologia/acompanamientos', label: 'Acompañamiento Virtual', icon: <HeartPulseRegular />, group: 'Coordinación TIC' },
   { to: '/tecnologia/asignaciones', label: 'Asignaciones', icon: <LinkSquareRegular />, group: 'Académico' },
   { to: '/tecnologia/aulas', label: 'Aulas por curso', icon: <VideoRegular />, group: 'Académico' },
   { to: '/tecnologia/registro-grado', label: 'Registro de Grado', icon: <BookRegular />, group: 'Académico' },
@@ -44,6 +46,7 @@ export function TecnologiaPortal() {
         <Route path="gestion-tic" element={<GestionTicPage />} />
         <Route path="gestion-dep-tecnologia" element={<GestionDepTecnologia />} />
         <Route path="academica" element={<AcademicaTecPage />} />
+        <Route path="acompanamientos" element={<AcompanamientosPage />} />
         <Route path="asignaciones" element={<AsignacionesPage />} />
         <Route path="aulas" element={<AulasViewManagement base="/tecnologia/aulas" scope={{ kind: 'todos' }} pageTitle="Aulas por curso" subtitle="Todas las aulas del colegio con sus asignaturas y aulas de Teams." />} />
         <Route path="aulas/:gradeId/:section/:subjectId/virtual" element={<CursoAsignaturaPage />} />

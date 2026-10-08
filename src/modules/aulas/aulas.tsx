@@ -398,6 +398,15 @@ export function AulaSubjectsPanel({ subjects, canManage, onOpenSubject, onPlanif
         ciclo: base.ciclo,
         asignatura: nombre,
       })
+      await dataService.saveAsignaturaLog({
+        id: genId('alg'),
+        curso: subjects[0] ? cursoNombre(subjects[0]) : cursoNombre(base),
+        asignatura: nombre,
+        action: 'agregado',
+        userId: user?.id,
+        userName: user?.displayName ?? user?.email ?? '—',
+        fecha: new Date().toISOString(),
+      })
       await Promise.all([refreshCatalogs(), Promise.resolve(onChanged())])
       toaster.dispatchToast(`Asignatura "${nombre}" agregada al curso.`, { intent: 'success' })
       setAddOpen(false)
@@ -421,6 +430,7 @@ export function AulaSubjectsPanel({ subjects, canManage, onOpenSubject, onPlanif
         id: genId('alg'),
         curso: subjects[0] ? cursoNombre(subjects[0]) : '',
         asignatura: asig,
+        action: 'eliminado',
         userId: user?.id,
         userName: user?.displayName ?? user?.email ?? '—',
         fecha: new Date().toISOString(),
@@ -452,7 +462,7 @@ export function AulaSubjectsPanel({ subjects, canManage, onOpenSubject, onPlanif
         <div className={styles.actions} style={{ marginBottom: '10px' }}>
           <Button appearance="primary" icon={<AddRegular />} onClick={abrirAdd}>Agregar asignatura al curso</Button>
           <Button appearance="secondary" icon={<DeleteRegular />} onClick={() => setDelOpen(true)}>Eliminar asignatura del curso</Button>
-          <Button appearance="subtle" icon={<BookOpenRegular />} onClick={() => void abrirLog()}>Ver asignaturas eliminadas</Button>
+          <Button appearance="subtle" icon={<BookOpenRegular />} onClick={() => void abrirLog()}>Movimiento de asignaturas</Button>
           <Text size={200} style={{ color: 'var(--texto-suave)' }}>{subjects.length} asignatura(s)</Text>
         </div>
       )}
@@ -550,19 +560,24 @@ export function AulaSubjectsPanel({ subjects, canManage, onOpenSubject, onPlanif
       <ModalForm
         open={logOpen}
         onOpenChange={(o) => { if (!o) setLogOpen(false) }}
-        title="Asignaturas eliminadas"
-        subtitle="Historial de asignaturas quitadas de los cursos y quién las eliminó."
+        title="Movimiento de asignaturas"
+        subtitle="Historial de asignaturas agregadas y eliminadas de los cursos, con fecha y usuario."
         width={640}
         actions={<Button appearance="secondary" onClick={() => setLogOpen(false)}>Cerrar</Button>}
       >
         {logItems.length === 0 ? (
-          <Text size={200} style={{ color: 'var(--texto-suave)' }}>No hay asignaturas eliminadas registradas.</Text>
+          <Text size={200} style={{ color: 'var(--texto-suave)' }}>No hay movimientos de asignaturas registrados.</Text>
         ) : (
           <div style={{ maxHeight: '420px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '6px' }}>
             {logItems.map((l) => (
               <div key={l.id} style={{ border: '1px solid var(--borde)', borderRadius: '8px', padding: '8px 12px' }}>
-                <Text size={200} block><strong>{l.asignatura}</strong> — {l.curso}</Text>
-                <Text size={200} block style={{ color: 'var(--texto-suave)' }}>Eliminada por: {l.userName} · {l.fecha.slice(0, 10)}</Text>
+                <Text size={200} block>
+                  <Badge appearance="filled" color={l.action === 'agregado' ? 'success' : 'danger'} style={{ marginRight: '6px' }}>
+                    {l.action === 'agregado' ? 'Agregada' : 'Eliminada'}
+                  </Badge>
+                  <strong>{l.asignatura}</strong> — {l.curso}
+                </Text>
+                <Text size={200} block style={{ color: 'var(--texto-suave)' }}>{l.action === 'agregado' ? 'Agregada' : 'Eliminada'} por: {l.userName} · {l.fecha.slice(0, 10)}</Text>
               </div>
             ))}
           </div>

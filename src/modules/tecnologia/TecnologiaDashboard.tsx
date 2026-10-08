@@ -6,6 +6,7 @@ import { WelcomeHero } from '../../components/shared/WelcomeHero'
 import { StatCard } from '../../components/shared/StatCard'
 import { useApp } from '../../context/useApp'
 import { AsistenciaDashboard } from '../asistencia/AsistenciaDashboard'
+import { AulaActividadDashboard } from '../dashboard/AulaActividadDashboard'
 import { dataService } from '../../services/dataService'
 import { useCollection } from '../../hooks/useCollection'
 import { getDirectoryUsers } from '../../services/userLinks'
@@ -94,6 +95,7 @@ export function TecnologiaDashboard() {
       </div>
 
       <AsistenciaDashboard />
+      <AulaActividadDashboard />
 
       <div className={styles.grid}>
         <Card className={styles.card}>

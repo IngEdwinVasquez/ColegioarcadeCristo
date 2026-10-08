@@ -1101,6 +1101,8 @@ export interface AsignaturaLog {
   id: string
   curso: string
   asignatura: string
+  /** Acción realizada sobre la asignatura del curso. */
+  action?: 'agregado' | 'eliminado'
   userId?: string
   userName: string
   fecha: string
