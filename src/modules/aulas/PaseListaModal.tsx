@@ -21,13 +21,15 @@ interface Alumno { id: string; fullName: string }
  * Pase de lista diario de un aula (curso). Registra la asistencia de todos los
  * estudiantes y forma parte del registro de asistencia del año escolar.
  */
-export function PaseListaModal({ open, onClose, course, estudiantes, periodId, tomadoPor }: {
+export function PaseListaModal({ open, onClose, course, estudiantes, periodId, tomadoPor, subjectId = '', subjectName }: {
   open: boolean
   onClose: () => void
   course: GradeSection | null
   estudiantes: Alumno[]
   periodId: string
   tomadoPor: string
+  subjectId?: string
+  subjectName?: string
 }) {
   const toaster = useToastController()
   const col = useCollection<AttendanceRecord>(dataService.getAttendance, dataService.saveAttendance)
@@ -36,8 +38,8 @@ export function PaseListaModal({ open, onClose, course, estudiantes, periodId, t
   const [saving, setSaving] = useState(false)
 
   const existente = useMemo(
-    () => (course ? col.items.find((a) => a.gradeId === course.id && a.date === fecha && !a.subjectId) : undefined),
-    [col.items, course, fecha],
+    () => (course ? col.items.find((a) => a.gradeId === course.id && a.date === fecha && (a.subjectId ?? '') === subjectId) : undefined),
+    [col.items, course, fecha, subjectId],
   )
 
   // Inicializa las marcas de la fecha seleccionada.
@@ -68,7 +70,7 @@ export function PaseListaModal({ open, onClose, course, estudiantes, periodId, t
       const rec: AttendanceRecord = {
         id: existente?.id ?? genId('att'),
         classId: '',
-        subjectId: '',
+        subjectId,
         gradeId: course.id,
         date: fecha,
         period: periodId,
@@ -96,8 +98,8 @@ export function PaseListaModal({ open, onClose, course, estudiantes, periodId, t
     <ModalForm
       open={open}
       onOpenChange={(o) => { if (!o) onClose() }}
-      title={`Pase de lista · ${course?.name ?? ''}`}
-      subtitle="Asistencia diaria del aula. Se registra en el historial de asistencia del año escolar."
+      title={subjectName ? `Pase de lista · ${subjectName}` : `Pase de lista · ${course?.name ?? ''}`}
+      subtitle={subjectName ? `Asistencia por asignatura (${subjectName}) · ${course?.name ?? ''}. Registro del docente.` : 'Asistencia diaria del aula. Se registra en el historial de asistencia del año escolar.'}
       width={820}
       actions={
         <>

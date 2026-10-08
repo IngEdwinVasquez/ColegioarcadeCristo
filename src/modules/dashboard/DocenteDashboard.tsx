@@ -17,6 +17,7 @@ import { StatusBadge } from '../../components/shared/StatusBadge'
 import { WelcomeHero } from '../../components/shared/WelcomeHero'
 import { gradientes } from '../../theme'
 import { useApp } from '../../context/useApp'
+import { AsistenciaDashboard } from '../asistencia/AsistenciaDashboard'
 import { dataService } from '../../services/dataService'
 import { useCollection } from '../../hooks/useCollection'
 import { ROLE_LABELS } from '../../types/roles'
@@ -190,6 +191,8 @@ export function DocenteDashboard() {
         />
         <StatCard title="Pendientes / Alertas" value={pendientes} icon={<AlertRegular />} color="#EA580C" gradient={gradientes.naranja} sub="Clases vencidas o en progreso" />
       </div>
+
+      <AsistenciaDashboard teacherId={teacher?.id} />
 
       <div className={styles.grid}>
         <div className="panel">
