@@ -11,9 +11,12 @@ import type { AttendanceEntry, AttendanceRecord, AttendanceStatus, GradeSection 
 const STATUS: Array<{ value: AttendanceStatus; label: string }> = [
   { value: 'presente', label: 'Presente' },
   { value: 'ausente', label: 'Ausente' },
-  { value: 'tarde', label: 'Tarde' },
-  { value: 'justificado', label: 'Justificado' },
+  { value: 'justificado', label: 'Excusas' },
 ]
+
+/** Normaliza estados antiguos (p. ej. «tarde») a los tres estados actuales. */
+const normalizaEstado = (s?: AttendanceStatus): 'presente' | 'ausente' | 'justificado' =>
+  s === 'presente' || s === 'justificado' ? s : 'ausente'
 
 interface Alumno { id: string; fullName: string }
 
@@ -48,7 +51,7 @@ export function PaseListaModal({ open, onClose, course, estudiantes, periodId, t
     const base: Record<string, { status: AttendanceStatus; note: string }> = {}
     for (const s of estudiantes) {
       const prev = existente?.entries.find((e) => e.studentId === s.id)
-      base[s.id] = { status: prev?.status ?? 'presente', note: prev?.note ?? '' }
+      base[s.id] = { status: normalizaEstado(prev?.status), note: prev?.note ?? '' }
     }
     setEntries(base)
   }, [open, course, fecha, existente, estudiantes])
@@ -89,8 +92,8 @@ export function PaseListaModal({ open, onClose, course, estudiantes, periodId, t
   }
 
   const resumen = useMemo(() => {
-    const c = { presente: 0, ausente: 0, tarde: 0, justificado: 0 }
-    for (const s of estudiantes) c[entries[s.id]?.status ?? 'presente']++
+    const c = { presente: 0, ausente: 0, justificado: 0 }
+    for (const s of estudiantes) c[normalizaEstado(entries[s.id]?.status)]++
     return c
   }, [entries, estudiantes])
 
@@ -115,7 +118,7 @@ export function PaseListaModal({ open, onClose, course, estudiantes, periodId, t
           <Input type="date" value={fecha} onChange={(_, d) => setFecha(d.value)} max={todayIso()} />
         </FormField>
         <FormField label="Resumen">
-          <Text size={200} block>Presentes: {resumen.presente} · Ausentes: {resumen.ausente} · Tardanzas: {resumen.tarde} · Justificados: {resumen.justificado}</Text>
+          <Text size={200} block>Presentes: {resumen.presente} · Ausentes: {resumen.ausente} · Excusas: {resumen.justificado}</Text>
         </FormField>
       </FieldRow>
       <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '10px' }}>
