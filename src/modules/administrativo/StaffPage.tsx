@@ -106,6 +106,7 @@ export function StaffPage({ kind, extra }: { kind: keyof typeof STAFF_TIPOS; ext
             </FormField>
             <EntraUserPicker
               value={p.userId}
+              defaultName={p.fullName}
               takenIds={takenUsers}
               onChange={(u) => set({ ...p, userId: u?.id, email: u ? entraEmail(u) : '', fullName: u?.displayName ?? p.fullName })}
               hint={`Obligatorio. La cuenta recibirá el rol ${cfg.rol === 'admin' ? 'Administrativo' : cfg.rol}.`}
