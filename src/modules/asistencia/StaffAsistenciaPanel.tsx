@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Card, Select, Spinner, Tab, TabList, Text, makeStyles } from '@fluentui/react-components'
+import { Badge, Card, Select, Spinner, Tab, TabList, Table, TableBody, TableCell, TableHeader, TableHeaderCell, TableRow, Text, makeStyles } from '@fluentui/react-components'
 import { ResponsiveContainer, PieChart, Pie, Cell, Legend, Tooltip as RTooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts'
 import { useApp } from '../../context/useApp'
 import { dataService } from '../../services/dataService'
@@ -54,6 +54,7 @@ export function StaffAsistenciaPanel() {
   const [funcion, setFuncion] = useState('docentes')
   const [periodo, setPeriodo] = useState('mes')
   const [persona, setPersona] = useState('')
+  const [vista, setVista] = useState<'todos' | 'asistieron' | 'no'>('todos')
   const [listo, setListo] = useState(false)
 
   const staff = useMemo<StaffRef[]>(() => [
@@ -85,17 +86,20 @@ export function StaffAsistenciaPanel() {
 
   // Recorre cada día laboral del período por persona. Si no hay reporte, cuenta como AUSENTE,
   // de modo que los gráficos reflejen a TODA la función (no solo a quien reportó).
-  const { conteo, porFecha } = useMemo(() => {
+  const { conteo, porFecha, porPersona } = useMemo(() => {
     const hoy = todayIso()
     const dias = diasHabiles(desde, hasta).filter((d) => d <= hoy)
     const recMap = new Map(attCol.items.map((r) => [`${r.personId}|${r.date}`, r]))
     const c = { presente: 0, ausente_evidencia: 0, ausente: 0 }
     const map = new Map<string, { key: string; presente: number; ausente_evidencia: number; ausente: number }>()
+    const porPersona = new Map<string, { id: string; name: string; presente: number; ausente_evidencia: number; ausente: number }>()
     for (const p of staffFiltrado) {
+      const row = { id: p.id, name: p.name, presente: 0, ausente_evidencia: 0, ausente: 0 }
       for (const d of dias) {
         const st = recMap.get(`${p.id}|${d}`)?.status ?? 'ausente'
         const k = st === 'presente' ? 'presente' : st === 'ausente_evidencia' ? 'ausente_evidencia' : 'ausente'
         c[k]++
+        row[k]++
         let key: string
         if (periodo === 'anio') key = d.slice(0, 4)
         else if (periodo === 'mes') key = MESES[Number(d.slice(5, 7)) - 1]
@@ -104,9 +108,16 @@ export function StaffAsistenciaPanel() {
         e[k]++
         map.set(key, e)
       }
+      porPersona.set(p.id, row)
     }
-    return { conteo: c, porFecha: [...map.values()].sort((a, b) => a.key.localeCompare(b.key)) }
+    return {
+      conteo: c,
+      porFecha: [...map.values()].sort((a, b) => a.key.localeCompare(b.key)),
+      porPersona: [...porPersona.values()].sort((a, b) => a.name.localeCompare(b.name)),
+    }
   }, [staffFiltrado, attCol.items, desde, hasta, periodo])
+
+  const personaFiltrada = porPersona.filter((p) => vista === 'todos' ? true : vista === 'asistieron' ? p.presente > 0 : p.presente === 0)
 
   const pieData = [
     { name: 'Presentes', value: conteo.presente, fill: COLORS.presente },
@@ -135,6 +146,11 @@ export function StaffAsistenciaPanel() {
         <Select value={persona} onChange={(_, d) => setPersona(d.value)} style={{ minWidth: '240px' }}>
           <option value="">Todos ({grupoActual.label})</option>
           {staffFuncion.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+        </Select>
+        <Select value={vista} onChange={(_, d) => setVista(d.value as 'todos' | 'asistieron' | 'no')} style={{ minWidth: '190px' }}>
+          <option value="todos">Todos</option>
+          <option value="asistieron">Solo los que asistieron</option>
+          <option value="no">Solo los que no asistieron</option>
         </Select>
       </div>
 
@@ -181,6 +197,38 @@ export function StaffAsistenciaPanel() {
               )}
             </div>
           </div>
+
+          <Text weight="semibold" size={300} block style={{ marginTop: '16px', marginBottom: '6px' }}>Detalle por persona · {grupoActual.label}</Text>
+          {personaFiltrada.length === 0 ? (
+            <Text size={200} style={{ color: 'var(--texto-suave)' }}>No hay personas que coincidan con el filtro.</Text>
+          ) : (
+            <div style={{ maxHeight: '360px', overflowY: 'auto' }}>
+              <Table size="small">
+                <TableHeader>
+                  <TableRow>
+                    <TableHeaderCell>Persona</TableHeaderCell>
+                    <TableHeaderCell>Presentes</TableHeaderCell>
+                    <TableHeaderCell>Con evidencia</TableHeaderCell>
+                    <TableHeaderCell>Ausentes</TableHeaderCell>
+                    <TableHeaderCell>Situación</TableHeaderCell>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {personaFiltrada.map((p) => (
+                    <TableRow key={p.id}>
+                      <TableCell><Text weight="semibold">{p.name}</Text></TableCell>
+                      <TableCell>{p.presente}</TableCell>
+                      <TableCell>{p.ausente_evidencia}</TableCell>
+                      <TableCell>{p.ausente}</TableCell>
+                      <TableCell>
+                        {p.presente > 0 ? <Badge appearance="filled" color="success">Asistió</Badge> : <Badge appearance="filled" color="danger">No asistió</Badge>}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
         </>
       )}
     </Card>
