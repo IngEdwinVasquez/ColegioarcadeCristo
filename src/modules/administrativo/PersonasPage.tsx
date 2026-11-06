@@ -29,8 +29,8 @@ const PERSON_TYPES = [
   { value: 'estudiante', label: 'Estudiante' },
   { value: 'docente', label: 'Docente' },
   { value: 'padre', label: 'Padre / Tutor' },
-  { value: 'coordinador', label: 'Coordinador pedagógico' },
-  { value: 'tic', label: 'Tecnología (TIC)' },
+  { value: 'coordinador', label: 'Coordinación Pedagógica' },
+  { value: 'tic', label: 'Tecnología' },
   { value: 'director', label: 'Director' },
   { value: 'administrador', label: 'Administrativo' },
   { value: 'siger', label: 'SIGERD' },
@@ -63,13 +63,25 @@ const LINK_OF: Record<TipoOp, (id: string) => LinkTarget> = {
 }
 const labelOf = (t: TipoOp) => PERSON_TYPES.find((p) => p.value === t)?.label ?? t
 
-/** Agrupa los tipos de persona por categoría para el selector. */
-const TIPO_GROUPS: Array<{ label: string; values: TipoOp[] }> = [
-  { label: 'Estudiantes', values: ['estudiante'] },
-  { label: 'Docentes', values: ['docente'] },
-  { label: 'Personal', values: ['coordinador', 'tic', 'director', 'administrador', 'siger', 'apoyo', 'psicologia', 'prometacom', 'pasante', 'registros', 'externo'] },
-  { label: 'Familias', values: ['padre'] },
+/** Opciones de categoría, una por pestaña/función (mismos nombres que las pestañas). */
+const CATEGORY_OPTIONS: Array<{ value: TipoOp; label: string }> = [
+  { value: 'estudiante', label: 'Estudiante' },
+  { value: 'docente', label: 'Docente' },
+  { value: 'coordinador', label: 'Coordinación Pedagógica' },
+  { value: 'tic', label: 'Tecnología' },
+  { value: 'psicologia', label: 'UOP' },
+  { value: 'registros', label: 'Coordinador de Registros' },
+  { value: 'externo', label: 'Externos' },
+  { value: 'pasante', label: 'Pasante' },
+  { value: 'apoyo', label: 'Personal de apoyo' },
+  { value: 'director', label: 'Director' },
+  { value: 'siger', label: 'SIGERD' },
+  { value: 'administrador', label: 'Administrativo' },
+  { value: 'padre', label: 'Padre / Tutor' },
 ]
+
+/** Categorías de personal (sin estudiantes, docentes ni familias). */
+const STAFF_CATEGORY_OPTIONS = CATEGORY_OPTIONS.filter((o) => o.value !== 'estudiante' && o.value !== 'docente' && o.value !== 'padre')
 
 /** Tipos que representan personal (no estudiantes/docentes/familias). */
 const STAFF_TYPES: TipoOp[] = ['coordinador', 'tic', 'director', 'administrador', 'siger', 'apoyo', 'psicologia', 'prometacom', 'pasante', 'registros', 'externo']
@@ -202,21 +214,20 @@ export function PersonasPage() {
     return personasCol.remove(id)
   }
 
-  /** Columna "Tipo" con selector para cambiar la persona de lista. */
-  const tipoCell = (current: TipoOp, item: BasePerson) => (
-    <Select value={current} onChange={(_, d) => {
-      const t = d.value as TipoOp
-      if (t !== current && window.confirm(`¿Convertir "${item.fullName}" de ${labelOf(current)} a ${labelOf(t)}? Se moverá de la lista actual y se actualizará su rol de acceso.`)) {
-        void convertPersona(item, current, t)
-      }
-    }}>
-      {TIPO_GROUPS.map((g) => (
-        <optgroup key={g.label} label={g.label}>
-          {g.values.map((v) => (<option key={v} value={v}>{labelOf(v)}</option>))}
-        </optgroup>
-      ))}
-    </Select>
-  )
+  /** Columna "Categoría" con selector (una opción por función, con el nombre de la pestaña). */
+  const tipoCell = (current: TipoOp, item: BasePerson) => {
+    const value = current === 'prometacom' ? 'psicologia' : current
+    return (
+      <Select value={value} onChange={(_, d) => {
+        const t = d.value as TipoOp
+        if (t !== value && window.confirm(`¿Convertir "${item.fullName}" de ${labelOf(current)} a ${labelOf(t)}? Se moverá de la lista actual y se actualizará su rol de acceso.`)) {
+          void convertPersona(item, current, t)
+        }
+      }}>
+        {CATEGORY_OPTIONS.map((o) => (<option key={o.value} value={o.value}>{o.label}</option>))}
+      </Select>
+    )
+  }
 
   /** Busca la cuenta de Entra seleccionada; lanza error si falta (vinculación obligatoria). */
   const requireAccount = async (userId: string | undefined, label: string) => {
@@ -479,9 +490,9 @@ export function PersonasPage() {
             onChange={(u) => set({ ...p, userId: u?.id, email: u ? entraEmail(u) : '', fullName: u?.displayName ?? p.fullName })}
             hint="Obligatorio. La cuenta recibirá el rol correspondiente."
           />
-          <FormField label="Posición / Tipo">
-            <Select value={p.tipo} onChange={(_, d) => set({ ...p, tipo: d.value as Persona['tipo'] })}>
-              {tipos.map((t) => (<option key={t} value={t}>{labelOf(t)}</option>))}
+          <FormField label="Categoría">
+            <Select value={p.tipo === 'prometacom' ? 'psicologia' : p.tipo} onChange={(_, d) => set({ ...p, tipo: d.value as Persona['tipo'] })}>
+              {[...new Map(tipos.map((t) => [labelOf(t), t])).values()].map((t) => (<option key={t} value={t}>{labelOf(t)}</option>))}
             </Select>
           </FormField>
           {conNivel && p.tipo === 'coordinador' && (
@@ -539,7 +550,7 @@ export function PersonasPage() {
     <div>
       <PageHeader
         title="Función desempeñada"
-        subtitle="Mantenimiento de estudiantes, docentes, familias y personal institucional. Use la columna 'Tipo' para cambiar la categoría del personal."
+        subtitle="Mantenimiento de estudiantes, docentes, familias y personal institucional. Use la columna 'Categoría' para cambiar la categoría del personal."
         actions={
           <>
             <Button appearance="secondary" icon={<DeleteRegular />} disabled={deduping} onClick={() => void dedupeAll()}>Revisar duplicados</Button>
@@ -781,8 +792,8 @@ export function PersonasPage() {
                 hint="Obligatorio. La cuenta recibirá el rol según el tipo (Coordinación, Tecnología o Administrativo)."
               />
               <FormField label="Categoría">
-                <Select value={p.tipo} onChange={(_, d) => set({ ...p, tipo: d.value as Persona['tipo'] })}>
-                  {['coordinador', 'tic', 'director', 'administrador', 'siger', 'apoyo', 'psicologia', 'prometacom', 'pasante', 'registros', 'externo'].map((t) => (<option key={t} value={t}>{labelOf(t as TipoOp)}</option>))}
+                <Select value={p.tipo === 'prometacom' ? 'psicologia' : p.tipo} onChange={(_, d) => set({ ...p, tipo: d.value as Persona['tipo'] })}>
+                  {STAFF_CATEGORY_OPTIONS.map((o) => (<option key={o.value} value={o.value}>{o.label}</option>))}
                 </Select>
               </FormField>
               {p.tipo === 'coordinador' && (
