@@ -67,6 +67,9 @@ const TIPO_GROUPS: Array<{ label: string; values: TipoOp[] }> = [
   { label: 'Familias', values: ['padre'] },
 ]
 
+/** Tipos que representan personal (no estudiantes/docentes/familias). */
+const STAFF_TYPES: TipoOp[] = ['coordinador', 'tic', 'director', 'administrador', 'siger', 'apoyo', 'psicologia', 'prometacom', 'pasante']
+
 interface BasePerson { id: string; fullName: string; userId?: string }
 
 export function PersonasPage() {
@@ -131,6 +134,28 @@ export function PersonasPage() {
   /** Convierte una persona de un tipo a otro: cambia el registro de lista y su rol de Entra ID. */
   async function convertPersona(base: BasePerson, sourceType: TipoOp, targetType: TipoOp) {
     if (sourceType === targetType) return
+
+    // Personal → personal: actualiza la función en el mismo registro (conserva id e historial de reportes).
+    if (STAFF_TYPES.includes(sourceType) && STAFF_TYPES.includes(targetType)) {
+      const p = personasCol.items.find((x) => x.id === base.id)
+      if (!p) { toaster.dispatchToast('No se encontró la ficha del personal.', { intent: 'error' }); return }
+      try {
+        await personasCol.save({ ...p, tipo: targetType as Persona['tipo'] })
+        if (base.userId) {
+          const account = (await getDirectoryUsers()).find((u) => u.id === base.userId)
+          if (account) {
+            await unlinkUserRole(base.userId, ROLE_OF[sourceType])
+            await linkUserRole(account, ROLE_OF[targetType])
+          }
+        }
+        await refreshCatalogs()
+        toaster.dispatchToast(`Función actualizada a ${labelOf(targetType)}.`, { intent: 'success' })
+      } catch (error) {
+        toaster.dispatchToast(`No se pudo cambiar la función: ${graphErrorMessage(error)}`, { intent: 'error' })
+      }
+      return
+    }
+
     if (!base.userId) {
       toaster.dispatchToast('Esta persona no tiene cuenta de Microsoft 365 vinculada; vincúlela antes de cambiar el tipo.', { intent: 'error' })
       return
@@ -337,14 +362,22 @@ export function PersonasPage() {
   }
 
   const deleteStudent = async (id: string) => { const s = studentsCol.items.find((x) => x.id === id); await unlinkUserRole(s?.userId, 'estudiante', { studentId: id }); await studentsCol.remove(id) }
-  const deleteTeacher = async (id: string) => { const t = teachersCol.items.find((x) => x.id === id); await unlinkUserRole(t?.userId, 'docente', { teacherId: id }); await teachersCol.remove(id) }
+  const deleteTeacher = async (id: string) => {
+    const t = teachersCol.items.find((x) => x.id === id)
+    await unlinkUserRole(t?.userId, 'docente', { teacherId: id })
+    // Limpia sus asignaciones para que los reportes queden actualizados.
+    const assignments = await dataService.getTeacherAssignments()
+    for (const a of assignments.filter((x) => x.teacherId === id)) await dataService.deleteTeacherAssignment(a.id)
+    await teachersCol.remove(id)
+    await refreshCatalogs()
+  }
   const deleteGuardian = async (id: string) => {
     const g = guardiansCol.items.find((x) => x.id === id)
     const others = guardiansCol.items.some((x) => x.id !== id && x.userId && x.userId === g?.userId)
     if (!others) await unlinkUserRole(g?.userId, 'padre')
     await guardiansCol.remove(id)
   }
-  const deletePersona = async (id: string) => { const p = personasCol.items.find((x) => x.id === id); await unlinkUserRole(p?.userId, ROLE_OF[p?.tipo ?? 'coordinador']); await personasCol.remove(id) }
+  const deletePersona = async (id: string) => { const p = personasCol.items.find((x) => x.id === id); await unlinkUserRole(p?.userId, ROLE_OF[p?.tipo ?? 'coordinador']); await personasCol.remove(id); await refreshCatalogs() }
 
   const takenStudentUsers = studentsCol.items.map((x) => x.userId ?? '').filter(Boolean)
   const takenTeacherUsers = teachersCol.items.map((x) => x.userId ?? '').filter(Boolean)
@@ -417,7 +450,7 @@ export function PersonasPage() {
     { header: 'Nombre', render: (p) => <Text weight="semibold">{p.fullName}</Text> },
     { header: 'Correo', render: (p) => p.email || '—' },
     { header: 'Tipo', render: (p) => <StatusBadge status={p.tipo}>{labelOf(p.tipo)}</StatusBadge> },
-    { header: 'Cambiar a', render: (p) => tipoCell(p.tipo, p) },
+    { header: 'Cambiar función', render: (p) => tipoCell(p.tipo, p) },
     { header: 'Asistencia', render: (p) => <Button size="small" appearance="secondary" icon={<PersonRegular />} onClick={() => setAttPerson({ id: p.id, name: p.fullName, kind: 'persona' })}>Asistencia</Button> },
   ]
 
