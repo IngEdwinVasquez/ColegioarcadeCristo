@@ -930,7 +930,7 @@ export interface WorkCronograma {
 
 // ------------------------------ Personas (Coordinación / TIC / Staff) ------------------------------
 
-export type PersonaTipo = 'coordinador' | 'tic' | 'director' | 'administrador' | 'siger' | 'apoyo' | 'psicologia' | 'pasante' | 'prometacom'
+export type PersonaTipo = 'coordinador' | 'tic' | 'director' | 'administrador' | 'siger' | 'apoyo' | 'psicologia' | 'pasante' | 'prometacom' | 'registros' | 'externo'
 
 /**
  * Registro de una persona de staff de coordinación (pedagógica), tecnología (TIC),
