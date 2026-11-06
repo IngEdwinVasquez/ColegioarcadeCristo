@@ -434,7 +434,7 @@ export function PersonasPage() {
         </div>
       )
     } },
-    { header: 'Categor�as', render: (s) => tipoCell('estudiante', s) },
+    { header: 'Categorías', render: (s) => tipoCell('estudiante', s) },
     { header: 'Padre / Tutor', render: (s) => s.parentName || '—' },
     { header: 'Contacto', render: (s) => s.parentEmail || '—', hideMobile: true },
   ]
@@ -442,7 +442,7 @@ export function PersonasPage() {
   const teacherColumns: CrudColumn<Teacher>[] = [
     { header: 'Docente', render: (t) => <Text weight="semibold">{t.fullName}</Text> },
     { header: 'Correo', render: (t) => t.email || '—' },
-    { header: 'Categor�as', render: (t) => tipoCell('docente', t) },
+    { header: 'Categorías', render: (t) => tipoCell('docente', t) },
     {
       header: 'Asignaturas',
       render: (t) => <span>{t.subjects.map((id) => subjects.find((s) => s.id === id)?.shortName ?? id).join(', ')}</span>,
@@ -453,7 +453,7 @@ export function PersonasPage() {
   const personaColumns: CrudColumn<Persona>[] = [
     { header: 'Nombre', render: (p) => <Text weight="semibold">{p.fullName}</Text> },
     { header: 'Correo', render: (p) => p.email || '—' },
-    { header: 'Categor�as', render: (p) => <StatusBadge status={p.tipo}>{labelOf(p.tipo)}</StatusBadge> },
+    { header: 'Categorías', render: (p) => <StatusBadge status={p.tipo}>{labelOf(p.tipo)}</StatusBadge> },
     { header: 'Cambiar función', render: (p) => tipoCell(p.tipo, p) },
     { header: 'Asistencia', render: (p) => <Button size="small" appearance="secondary" icon={<PersonRegular />} onClick={() => setAttPerson({ id: p.id, name: p.fullName, kind: 'persona' })}>Asistencia</Button> },
   ]
@@ -719,7 +719,7 @@ export function PersonasPage() {
           columns={[
             { header: 'Nombre', render: (g) => <Text weight="semibold">{g.fullName}</Text> },
             { header: 'Correo', render: (g) => g.email || '—' },
-            { header: 'Categor�as', render: (g) => tipoCell('padre', g) },
+            { header: 'Categorías', render: (g) => tipoCell('padre', g) },
             { header: 'Teléfono', render: (g) => g.phone || '—' },
             { header: 'Parentesco', render: (g) => <StatusBadge status={g.parentesco}>{g.parentesco}</StatusBadge> },
             { header: 'Estudiante', render: (g) => studentsCol.items.find((s) => s.id === g.studentId)?.fullName ?? '—' },
