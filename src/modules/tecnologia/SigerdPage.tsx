@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Badge, Button, Input, Select, Spinner, Tab, TabList, Table, TableBody, TableCell, TableHeader, TableHeaderCell, TableRow, Text, Toolbar, ToolbarButton, useToastController, makeStyles, tokens } from '@fluentui/react-components'
-import { SearchRegular, DeleteRegular, ArrowSyncRegular, CheckmarkCircleRegular } from '@fluentui/react-icons'
+import { SearchRegular, DeleteRegular, ArrowSyncRegular, CheckmarkCircleRegular, AddRegular } from '@fluentui/react-icons'
 import { PageHeader } from '../../components/shared/PageHeader'
 import { EmptyStateView } from '../../components/shared/EmptyStateView'
 import { ImportarSigerdCard } from '../administrativo/ImportarSigerdCard'
+import { NuevoEstudianteModal } from '../administrativo/NuevoEstudianteModal'
 import { dataService } from '../../services/dataService'
 import { useCollection } from '../../hooks/useCollection'
 import { useApp } from '../../context/useApp'
@@ -60,6 +61,7 @@ export function SigerdPage() {
   const gradesCol = useCollection<GradeSection>(dataService.getGrades, dataService.saveGrade)
 
   const [tab, setTab] = useState('reporte')
+  const [nuevoEstOpen, setNuevoEstOpen] = useState(false)
   const [search, setSearch] = useState('')
   const [reportId, setReportId] = useState('')
   const [cursoDefecto, setCursoDefecto] = useState('')
@@ -338,6 +340,9 @@ export function SigerdPage() {
         subtitle="Importa la relación de estudiantes del SIGERD (PDF), matricula por aulas y gestiona los registros sin duplicar datos."
         actions={
           <>
+            <Button appearance="primary" icon={<AddRegular />} onClick={() => setNuevoEstOpen(true)}>
+              Nuevo estudiante
+            </Button>
             <Button appearance="secondary" icon={<ArrowSyncRegular />} disabled={busy} onClick={() => void reconstruirInicial()}>
               Reconstruir cursos de Inicial
             </Button>
@@ -537,6 +542,12 @@ export function SigerdPage() {
           )}
         </>
       )}
+
+      <NuevoEstudianteModal
+        open={nuevoEstOpen}
+        onClose={() => setNuevoEstOpen(false)}
+        onSaved={() => { void studentsCol.refresh() }}
+      />
     </div>
   )
 }
