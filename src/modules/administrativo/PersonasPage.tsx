@@ -486,6 +486,7 @@ export function PersonasPage() {
           </FormField>
           <EntraUserPicker
             value={p.userId}
+            defaultName={p.fullName}
             takenIds={takenPersonaUsers}
             onChange={(u) => set({ ...p, userId: u?.id, email: u ? entraEmail(u) : '', fullName: u?.displayName ?? p.fullName })}
             hint="Obligatorio. La cuenta recibirá el rol correspondiente."
@@ -630,6 +631,7 @@ export function PersonasPage() {
               </FormField>
               <EntraUserPicker
                 value={s.userId}
+                defaultName={s.fullName}
                 takenIds={takenStudentUsers}
                 onChange={(u) => set({ ...s, userId: u?.id, email: u ? entraEmail(u) : '', fullName: u?.displayName ?? s.fullName })}
                 hint="Obligatorio. La cuenta recibirá el rol Estudiante y verá su Campus Virtual."
@@ -677,6 +679,7 @@ export function PersonasPage() {
               </FormField>
               <EntraUserPicker
                 value={t.userId}
+                defaultName={t.fullName}
                 takenIds={takenTeacherUsers}
                 onChange={(u) => set({ ...t, userId: u?.id, email: u ? entraEmail(u) : '', fullName: u?.displayName ?? t.fullName })}
                 hint="Obligatorio. La cuenta recibirá el rol Docente; el correo institucional se toma de la cuenta."
@@ -752,6 +755,7 @@ export function PersonasPage() {
               </FieldRow>
               <EntraUserPicker
                 value={g.userId}
+                defaultName={g.fullName}
                 onChange={(u) => set({ ...g, userId: u?.id, email: u ? entraEmail(u) : '', fullName: u?.displayName ?? g.fullName })}
                 hint="Obligatorio. La cuenta recibirá el rol Padre / Tutor. Un mismo tutor puede vincularse a varios hijos."
               />
@@ -787,6 +791,7 @@ export function PersonasPage() {
               </FormField>
               <EntraUserPicker
                 value={p.userId}
+                defaultName={p.fullName}
                 takenIds={takenPersonaUsers}
                 onChange={(u) => set({ ...p, userId: u?.id, email: u ? entraEmail(u) : '', fullName: u?.displayName ?? p.fullName })}
                 hint="Obligatorio. La cuenta recibirá el rol según el tipo (Coordinación, Tecnología o Administrativo)."

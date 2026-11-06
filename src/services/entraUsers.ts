@@ -1,5 +1,8 @@
 import { graphGetAll, graphRequest, graphRequestWithScopes } from './graph'
 
+/** Dominio del centro para los correos creados en Microsoft 365. */
+export const M365_DOMAIN = 'arcadecristo.edu.do'
+
 export interface EntraUser {
   id: string
   displayName?: string
