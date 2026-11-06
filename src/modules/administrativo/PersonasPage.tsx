@@ -32,17 +32,19 @@ const PERSON_TYPES = [
   { value: 'coordinador', label: 'Coordinador pedagógico' },
   { value: 'tic', label: 'Tecnología (TIC)' },
   { value: 'director', label: 'Director' },
-  { value: 'administrador', label: 'Administrador' },
+  { value: 'administrador', label: 'Administrativo' },
   { value: 'siger', label: 'SIGERD' },
   { value: 'apoyo', label: 'Personal de apoyo' },
-  { value: 'psicologia', label: 'Orientación y Psicología' },
-  { value: 'prometacom', label: 'Prometacom' },
+  { value: 'psicologia', label: 'UOP' },
+  { value: 'prometacom', label: 'UOP' },
   { value: 'pasante', label: 'Pasante' },
+  { value: 'registros', label: 'Coordinador de Registros' },
+  { value: 'externo', label: 'Externos' },
 ] as const
 
 type TipoOp = (typeof PERSON_TYPES)[number]['value']
 
-const ROLE_OF: Record<TipoOp, Role> = { estudiante: 'estudiante', docente: 'docente', padre: 'padre', coordinador: 'coordinacion', tic: 'tecnologia', director: 'admin', administrador: 'admin', siger: 'admin', apoyo: 'admin', psicologia: 'psicologia', prometacom: 'psicologia', pasante: 'docente' }
+const ROLE_OF: Record<TipoOp, Role> = { estudiante: 'estudiante', docente: 'docente', padre: 'padre', coordinador: 'coordinacion', tic: 'tecnologia', director: 'admin', administrador: 'admin', siger: 'admin', apoyo: 'admin', psicologia: 'psicologia', prometacom: 'psicologia', pasante: 'docente', registros: 'admin', externo: 'admin' }
 const LINK_OF: Record<TipoOp, (id: string) => LinkTarget> = {
   estudiante: (id) => ({ studentId: id }),
   docente: (id) => ({ teacherId: id }),
@@ -56,6 +58,8 @@ const LINK_OF: Record<TipoOp, (id: string) => LinkTarget> = {
   psicologia: () => ({}),
   prometacom: () => ({}),
   pasante: () => ({}),
+  registros: () => ({}),
+  externo: () => ({}),
 }
 const labelOf = (t: TipoOp) => PERSON_TYPES.find((p) => p.value === t)?.label ?? t
 
@@ -63,12 +67,12 @@ const labelOf = (t: TipoOp) => PERSON_TYPES.find((p) => p.value === t)?.label ??
 const TIPO_GROUPS: Array<{ label: string; values: TipoOp[] }> = [
   { label: 'Estudiantes', values: ['estudiante'] },
   { label: 'Docentes', values: ['docente'] },
-  { label: 'Personal', values: ['coordinador', 'tic', 'director', 'administrador', 'siger', 'apoyo', 'psicologia', 'prometacom', 'pasante'] },
+  { label: 'Personal', values: ['coordinador', 'tic', 'director', 'administrador', 'siger', 'apoyo', 'psicologia', 'prometacom', 'pasante', 'registros', 'externo'] },
   { label: 'Familias', values: ['padre'] },
 ]
 
 /** Tipos que representan personal (no estudiantes/docentes/familias). */
-const STAFF_TYPES: TipoOp[] = ['coordinador', 'tic', 'director', 'administrador', 'siger', 'apoyo', 'psicologia', 'prometacom', 'pasante']
+const STAFF_TYPES: TipoOp[] = ['coordinador', 'tic', 'director', 'administrador', 'siger', 'apoyo', 'psicologia', 'prometacom', 'pasante', 'registros', 'externo']
 
 interface BasePerson { id: string; fullName: string; userId?: string }
 
@@ -430,7 +434,7 @@ export function PersonasPage() {
         </div>
       )
     } },
-    { header: 'Tipo', render: (s) => tipoCell('estudiante', s) },
+    { header: 'Categor�as', render: (s) => tipoCell('estudiante', s) },
     { header: 'Padre / Tutor', render: (s) => s.parentName || '—' },
     { header: 'Contacto', render: (s) => s.parentEmail || '—', hideMobile: true },
   ]
@@ -438,7 +442,7 @@ export function PersonasPage() {
   const teacherColumns: CrudColumn<Teacher>[] = [
     { header: 'Docente', render: (t) => <Text weight="semibold">{t.fullName}</Text> },
     { header: 'Correo', render: (t) => t.email || '—' },
-    { header: 'Tipo', render: (t) => tipoCell('docente', t) },
+    { header: 'Categor�as', render: (t) => tipoCell('docente', t) },
     {
       header: 'Asignaturas',
       render: (t) => <span>{t.subjects.map((id) => subjects.find((s) => s.id === id)?.shortName ?? id).join(', ')}</span>,
@@ -449,7 +453,7 @@ export function PersonasPage() {
   const personaColumns: CrudColumn<Persona>[] = [
     { header: 'Nombre', render: (p) => <Text weight="semibold">{p.fullName}</Text> },
     { header: 'Correo', render: (p) => p.email || '—' },
-    { header: 'Tipo', render: (p) => <StatusBadge status={p.tipo}>{labelOf(p.tipo)}</StatusBadge> },
+    { header: 'Categor�as', render: (p) => <StatusBadge status={p.tipo}>{labelOf(p.tipo)}</StatusBadge> },
     { header: 'Cambiar función', render: (p) => tipoCell(p.tipo, p) },
     { header: 'Asistencia', render: (p) => <Button size="small" appearance="secondary" icon={<PersonRegular />} onClick={() => setAttPerson({ id: p.id, name: p.fullName, kind: 'persona' })}>Asistencia</Button> },
   ]
@@ -572,16 +576,17 @@ export function PersonasPage() {
       <TabList className={styles.tabs} selectedValue={tab} onTabSelect={(_, d) => setTab(String(d.value))}>
         <Tab value="estudiantes">Estudiantes ({applyFilter(studentsCol.items).length})</Tab>
         <Tab value="docentes">Docentes ({applyFilter(teachersCol.items).length})</Tab>
-        <Tab value="padres">Familias ({applyFilter(guardiansCol.items).length})</Tab>
-        <Tab value="personas">Personal ({applyFilter(personasCol.items).length})</Tab>
+        <Tab value="personas">Administrativos ({applyFilter(personasCol.items).length})</Tab>
         <Tab value="coordinacion">Coordinación Pedagógica ({applyFilter(personasCol.items.filter((p) => p.tipo === 'coordinador')).length})</Tab>
         <Tab value="tecnologia">Tecnología ({applyFilter(personasCol.items.filter((p) => p.tipo === 'tic')).length})</Tab>
-        <Tab value="psicologia">Psicología y Prometacom ({applyFilter(personasCol.items.filter((p) => p.tipo === 'psicologia' || p.tipo === 'prometacom')).length})</Tab>
+        <Tab value="psicologia">UOP ({applyFilter(personasCol.items.filter((p) => p.tipo === 'psicologia' || p.tipo === 'prometacom')).length})</Tab>
+        <Tab value="registros">Coordinador de Registros ({applyFilter(personasCol.items.filter((p) => p.tipo === 'registros')).length})</Tab>
+        <Tab value="externo">Externos ({applyFilter(personasCol.items.filter((p) => p.tipo === 'externo')).length})</Tab>
         <Tab value="padres-tab">Padres ({applyFilter(guardiansCol.items).length})</Tab>
         <Tab value="pasantes">Pasantes ({applyFilter(personasCol.items.filter((p) => p.tipo === 'pasante')).length})</Tab>
         <Tab value="apoyo">Personal de apoyo ({applyFilter(personasCol.items.filter((p) => p.tipo === 'apoyo')).length})</Tab>
         <Tab value="directores">Directores ({applyFilter(personasCol.items.filter((p) => p.tipo === 'director')).length})</Tab>
-        <Tab value="administradores">Administradores ({applyFilter(personasCol.items.filter((p) => p.tipo === 'administrador')).length})</Tab>
+        <Tab value="administradores">Administrativo ({applyFilter(personasCol.items.filter((p) => p.tipo === 'administrador')).length})</Tab>
       </TabList>
 
       {tab === 'estudiantes' && (
@@ -714,7 +719,7 @@ export function PersonasPage() {
           columns={[
             { header: 'Nombre', render: (g) => <Text weight="semibold">{g.fullName}</Text> },
             { header: 'Correo', render: (g) => g.email || '—' },
-            { header: 'Tipo', render: (g) => tipoCell('padre', g) },
+            { header: 'Categor�as', render: (g) => tipoCell('padre', g) },
             { header: 'Teléfono', render: (g) => g.phone || '—' },
             { header: 'Parentesco', render: (g) => <StatusBadge status={g.parentesco}>{g.parentesco}</StatusBadge> },
             { header: 'Estudiante', render: (g) => studentsCol.items.find((s) => s.id === g.studentId)?.fullName ?? '—' },
@@ -757,12 +762,12 @@ export function PersonasPage() {
 
       {tab === 'personas' && (
         <EntityCrud<Persona>
-          title="Personal"
+          title="Administrativos"
           items={applyFilter(personasCol.items)}
           loading={personasCol.loading}
           columns={personaColumns}
           searchText={(p) => `${p.fullName} ${p.email} ${p.tipo}`}
-          newLabel="Nuevo personal"
+          newLabel="Nuevo administrativo"
           createDefault={() => ({ id: genId('p'), fullName: '', email: '', userId: undefined, tipo: 'coordinador', createdAt: new Date().toISOString() })}
           renderForm={(p, set) => (
             <div>
@@ -775,9 +780,9 @@ export function PersonasPage() {
                 onChange={(u) => set({ ...p, userId: u?.id, email: u ? entraEmail(u) : '', fullName: u?.displayName ?? p.fullName })}
                 hint="Obligatorio. La cuenta recibirá el rol según el tipo (Coordinación, Tecnología o Administrativo)."
               />
-              <FormField label="Posición / Tipo">
+              <FormField label="Categoría">
                 <Select value={p.tipo} onChange={(_, d) => set({ ...p, tipo: d.value as Persona['tipo'] })}>
-                  {['coordinador', 'tic', 'director', 'administrador', 'siger', 'apoyo', 'psicologia'].map((t) => (<option key={t} value={t}>{labelOf(t as TipoOp)}</option>))}
+                  {['coordinador', 'tic', 'director', 'administrador', 'siger', 'apoyo', 'psicologia', 'prometacom', 'pasante', 'registros', 'externo'].map((t) => (<option key={t} value={t}>{labelOf(t as TipoOp)}</option>))}
                 </Select>
               </FormField>
               {p.tipo === 'coordinador' && (
@@ -800,11 +805,13 @@ export function PersonasPage() {
 
       {tab === 'coordinacion' && personaCrud('Coordinación Pedagógica', ['coordinador'], 'coordinador', true)}
       {tab === 'tecnologia' && personaCrud('Tecnología', ['tic'], 'tic')}
-      {tab === 'psicologia' && personaCrud('Psicología y Prometacom', ['psicologia', 'prometacom'], 'psicologia')}
+      {tab === 'psicologia' && personaCrud('UOP', ['psicologia', 'prometacom'], 'psicologia')}
+      {tab === 'registros' && personaCrud('Coordinador de Registros', ['registros'], 'registros')}
+      {tab === 'externo' && personaCrud('Externos', ['externo'], 'externo')}
       {tab === 'pasantes' && personaCrud('Pasantes', ['pasante'], 'pasante')}
       {tab === 'apoyo' && personaCrud('Personal de apoyo', ['apoyo'], 'apoyo')}
       {tab === 'directores' && personaCrud('Directores', ['director'], 'director')}
-      {tab === 'administradores' && personaCrud('Administradores', ['administrador'], 'administrador')}
+      {tab === 'administradores' && personaCrud('Administrativo', ['administrador'], 'administrador')}
     </div>
   )
 }
