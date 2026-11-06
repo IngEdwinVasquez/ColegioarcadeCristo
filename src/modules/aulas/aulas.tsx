@@ -326,6 +326,10 @@ export function AulaSubjectsPanel({ subjects, canManage, onOpenSubject, onPlanif
   const [logOpen, setLogOpen] = useState(false)
   const [logItems, setLogItems] = useState<AsignaturaLog[]>([])
   const [eliminando, setEliminando] = useState(false)
+  const [editAsig, setEditAsig] = useState<GradeSection | null>(null)
+  const [editOpen, setEditOpen] = useState(false)
+  const [editForm, setEditForm] = useState({ name: '', shortName: '', color: '#0082AD' })
+  const [savingEdit, setSavingEdit] = useState(false)
 
   const quitar = async (g: GradeSection) => {
     try {
@@ -456,6 +460,51 @@ export function AulaSubjectsPanel({ subjects, canManage, onOpenSubject, onPlanif
     setLogOpen(true)
   }
 
+  /** Abre la edición de la asignatura (nombre, nombre corto y color). */
+  const abrirEditar = (g: GradeSection) => {
+    const nombre = asignaturaDe(g).trim()
+    const cat = catsSubjects.find((s) => normAsignatura(s.name) === normAsignatura(nombre))
+    setEditForm({ name: cat?.name ?? nombre, shortName: cat?.shortName ?? '', color: cat?.color ?? '#0082AD' })
+    setEditAsig(g)
+    setEditOpen(true)
+  }
+
+  /** Guarda los cambios de la asignatura; si cambia el nombre, se aplica a todos los cursos. */
+  const guardarEditar = async () => {
+    const oldName = editAsig ? asignaturaDe(editAsig).trim() : ''
+    const name = editForm.name.trim()
+    if (!name) { toaster.dispatchToast('Escribe el nombre de la asignatura.', { intent: 'error' }); return }
+    setSavingEdit(true)
+    try {
+      const cat = catsSubjects.find((s) => normAsignatura(s.name) === normAsignatura(oldName))
+      const shortName = editForm.shortName.trim() || name.slice(0, 14)
+      if (cat) await dataService.saveSubject({ ...cat, name, shortName, color: editForm.color })
+      else await dataService.saveSubject({ id: genId('sub'), name, shortName, color: editForm.color })
+
+      if (name !== oldName) {
+        const fresh = await dataService.getGrades()
+        const records = fresh.filter((r) => normAsignatura(asignaturaDe(r)) === normAsignatura(oldName))
+        for (const r of records) await dataService.saveGrade({ ...r, asignatura: name })
+        await dataService.saveAsignaturaLog({
+          id: genId('alg'),
+          curso: subjects[0] ? cursoNombre(subjects[0]) : '',
+          asignatura: name,
+          action: 'agregado',
+          userId: user?.id,
+          userName: user?.displayName ?? user?.email ?? '—',
+          fecha: new Date().toISOString(),
+        })
+      }
+      await Promise.all([refreshCatalogs(), Promise.resolve(onChanged())])
+      toaster.dispatchToast('Asignatura actualizada.', { intent: 'success' })
+      setEditOpen(false)
+    } catch (e) {
+      toaster.dispatchToast(graphErrorMessage(e), { intent: 'error' })
+    } finally {
+      setSavingEdit(false)
+    }
+  }
+
   return (
     <>
       {canManage && (
@@ -492,6 +541,7 @@ export function AulaSubjectsPanel({ subjects, canManage, onOpenSubject, onPlanif
               {onPlanificarIA && <Button size="small" appearance="secondary" icon={<SparkleRegular />} onClick={() => onPlanificarIA(g)} title={g.classPlans?.length ? 'Planificación del curso creada. Ver, editar o regenerar.' : 'Crear la planificación del curso de esta asignatura'}>{g.classPlans?.length ? 'Ver planificación del curso' : 'Planificación del curso'}</Button>}
               {onOpenSubject && <Button size="small" appearance="outline" icon={<ArrowRightRegular />} onClick={() => onOpenSubject(g)}>Abrir</Button>}
               {onPaseAsignatura && (!puedePaseAsignatura || puedePaseAsignatura(g)) && <Button size="small" appearance="secondary" icon={<CheckmarkCircleRegular />} onClick={() => onPaseAsignatura(g)}>Pase de lista</Button>}
+              {canManage && <Button size="small" appearance="secondary" icon={<EditRegular />} onClick={() => abrirEditar(g)}>Editar</Button>}
               {canManage && <Button size="small" appearance="subtle" icon={eliminando ? <Spinner size="tiny" /> : <DeleteRegular />} disabled={eliminando} onClick={() => void eliminarAsignatura(asignaturaDe(g))}>Eliminar</Button>}
             </div>
           </Card>
@@ -531,6 +581,34 @@ export function AulaSubjectsPanel({ subjects, canManage, onOpenSubject, onPlanif
             </FormField>
           </FieldRow>
         )}
+      </ModalForm>
+
+      <ModalForm
+        open={editOpen}
+        onOpenChange={(o) => { if (!o) setEditOpen(false) }}
+        title="Editar asignatura"
+        subtitle="Los cambios se aplican a todos los cursos que usan esta asignatura."
+        width={520}
+        actions={
+          <>
+            <Button appearance="secondary" onClick={() => setEditOpen(false)} disabled={savingEdit}>Cancelar</Button>
+            <Button appearance="primary" icon={savingEdit ? <Spinner size="tiny" /> : <EditRegular />} disabled={savingEdit} onClick={() => void guardarEditar()}>
+              {savingEdit ? 'Guardando…' : 'Guardar'}
+            </Button>
+          </>
+        }
+      >
+        <FormField label="Nombre de la asignatura" required>
+          <Input value={editForm.name} onChange={(_, d) => setEditForm({ ...editForm, name: d.value })} />
+        </FormField>
+        <FieldRow>
+          <FormField label="Nombre corto">
+            <Input value={editForm.shortName} onChange={(_, d) => setEditForm({ ...editForm, shortName: d.value })} />
+          </FormField>
+          <FormField label="Color">
+            <input type="color" value={editForm.color} onChange={(e) => setEditForm({ ...editForm, color: e.target.value })} style={{ width: '56px', height: '32px', border: '1px solid var(--borde)', borderRadius: '6px', background: 'transparent' }} />
+          </FormField>
+        </FieldRow>
       </ModalForm>
 
       <ModalForm
