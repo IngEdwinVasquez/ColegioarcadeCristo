@@ -943,6 +943,8 @@ export interface PlanFolderConfig {
 export interface PlanObservation {
   id: string
   level: PlanNivel
+  /** Período educativo (ej. 2025-2026). */
+  periodo?: string
   teacherName: string
   fileName: string
   webUrl?: string
