@@ -24,6 +24,7 @@ import { extractPdfText } from '../../services/pdf'
 import { generateTicPlanWithAi, generateAnnualPlanDocumentWithAi, parseWeeklySchedulePdf } from '../../services/ticAi'
 import { isAiConfigured } from '../../services/ai'
 import { appConfig } from '../../config/appConfig'
+import { horarioTecnologia, HORARIO_TECNOLOGIA_TITLE } from '../../config/horarioTecnologia'
 import { formatDate, genId, monthLabel, pct, todayIso } from '../../utils/helpers'
 import { gradientes } from '../../theme'
 import type { AnnualPlanDocument, TicActivity, TicCategoryItem, TicScope, TicStage, TicStatus, WeeklySchedule } from '../../types'
@@ -143,6 +144,20 @@ export function GestionTicPage({ title = 'Gestión del Coordinador TIC' }: { tit
     await horCol.save(editHorario)
     toaster.dispatchToast('Horario actualizado.', { intent: 'success' })
     setEditHorario(null)
+  }
+
+  /** Carga el horario semanal del Departamento de Tecnología (si aún no existe). */
+  const cargarHorarioTecnologia = async () => {
+    if (horCol.items.some((h) => h.title === HORARIO_TECNOLOGIA_TITLE)) {
+      toaster.dispatchToast('El horario del Departamento de Tecnología ya está cargado.', { intent: 'info' })
+      return
+    }
+    try {
+      await horCol.save(horarioTecnologia(genId('hor')))
+      toaster.dispatchToast('Horario del Departamento de Tecnología cargado. Los cronogramas se vincularán a él.', { intent: 'success' })
+    } catch (e) {
+      toaster.dispatchToast(`No se pudo cargar el horario: ${e instanceof Error ? e.message : 'error'}`, { intent: 'error' })
+    }
   }
 
   /** Genera con IA la "Planificación Anual" a partir de todas las planificaciones anuales. */
@@ -541,11 +556,16 @@ export function GestionTicPage({ title = 'Gestión del Coordinador TIC' }: { tit
 
       {tab === 'horario' && (
         <>
-          <Button appearance="primary" icon={<DocumentPdfRegular />} onClick={() => { setHorarioOpen(true); setHorarioTitle('Horario de trabajo semanal') }}>
-            Crear horario desde PDF
-          </Button>
+          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+            <Button appearance="primary" icon={<DocumentPdfRegular />} onClick={() => { setHorarioOpen(true); setHorarioTitle('Horario de trabajo semanal') }}>
+              Crear horario desde PDF
+            </Button>
+            <Button appearance="secondary" icon={<CalendarAddRegular />} onClick={() => void cargarHorarioTecnologia()}>
+              Cargar horario del Departamento de Tecnología
+            </Button>
+          </div>
           <Text size={200} block style={{ color: 'var(--texto-suave)', margin: '6px 0 14px' }}>
-            Cargue un PDF con el horario semanal (columnas HOR / LUNES…VIERNES) y la IA lo convierte en una tabla.
+            El horario del Departamento de Tecnología se usa para vincular cada cronograma de actividades (Acompañamiento/Capacitación) a lo programado.
           </Text>
           {horCol.items.length === 0 && !horCol.loading && (
             <EmptyStateView title="Sin horarios" message="Cree su horario de trabajo semanal cargando un PDF." icon={<DocumentPdfRegular />} />
