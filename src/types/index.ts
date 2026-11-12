@@ -928,8 +928,38 @@ export interface WorkCronograma {
   updatedAt?: string
 }
 
-// ------------------------------ Personas (Coordinación / TIC / Staff) ------------------------------
+/** Nivel para las observaciones de planificación. */
+export type PlanNivel = 'Inicial' | 'Primaria' | 'Secundaria'
 
+/** Enlace a la carpeta compartida del coordinador de cada nivel. */
+export interface PlanFolderConfig {
+  id: string
+  level: PlanNivel
+  url: string
+  coordinator?: string
+}
+
+/** Observación/evaluación de la planificación de un docente. */
+export interface PlanObservation {
+  id: string
+  level: PlanNivel
+  teacherName: string
+  fileName: string
+  webUrl?: string
+  date: string
+  tools: string[]
+  resources: string[]
+  score: number
+  summary: string
+  strengths?: string
+  improvements?: string
+  recommendations?: string
+  analyzedAt: string
+  byUserId?: string
+  byName?: string
+}
+
+// ------------------------------ Personas (Coordinación / TIC / Staff) ------------------------------
 export type PersonaTipo = 'coordinador' | 'tic' | 'director' | 'administrador' | 'siger' | 'apoyo' | 'psicologia' | 'pasante' | 'prometacom' | 'registros' | 'externo'
 
 /**
