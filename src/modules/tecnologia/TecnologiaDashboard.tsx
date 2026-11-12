@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Button, Card, Text, makeStyles, tokens } from '@fluentui/react-components'
-import { PeopleTeamRegular, ShieldPersonRegular, PersonWarningRegular, DatabaseRegular, OpenRegular, ArrowRightRegular } from '@fluentui/react-icons'
+import { Button, Card, Text, makeStyles, tokens, useToastController } from '@fluentui/react-components'
+import { PeopleTeamRegular, ShieldPersonRegular, PersonWarningRegular, DatabaseRegular, OpenRegular, ArrowRightRegular, FolderRegular } from '@fluentui/react-icons'
 import { WelcomeHero } from '../../components/shared/WelcomeHero'
 import { StatCard } from '../../components/shared/StatCard'
 import { useApp } from '../../context/useApp'
@@ -10,6 +10,8 @@ import { AulaActividadDashboard } from '../dashboard/AulaActividadDashboard'
 import { dataService } from '../../services/dataService'
 import { useCollection } from '../../hooks/useCollection'
 import { getDirectoryUsers } from '../../services/userLinks'
+import { asegurarCarpetasPlanificacionDocente } from '../../services/onedrive'
+import { graphErrorMessage } from '../../services/graph'
 import { appConfig } from '../../config/appConfig'
 import { ROLE_LABELS } from '../../types/roles'
 import { gradientes } from '../../theme'
@@ -26,6 +28,7 @@ const useStyles = makeStyles({
 export function TecnologiaDashboard() {
   const styles = useStyles()
   const navigate = useNavigate()
+  const toaster = useToastController()
   const { user, roleLabel } = useApp()
   // RM-007: indicadores con datos en vivo del sistema (no la caché del inicio de sesión)
   const usersCol = useCollection(dataService.getUsers)
@@ -38,6 +41,19 @@ export function TecnologiaDashboard() {
   const teachers = teachersCol.items
   const guardians = guardiansCol.items
   const [directoryCount, setDirectoryCount] = useState<number | null>(null)
+  const [creandoCarpetas, setCreandoCarpetas] = useState(false)
+
+  const crearCarpetasPlanificacion = async () => {
+    setCreandoCarpetas(true)
+    try {
+      await asegurarCarpetasPlanificacionDocente()
+      toaster.dispatchToast('Carpetas creadas en OneDrive: «Planificacion docente CP» con Inicial, Primaria y Secundaria.', { intent: 'success' })
+    } catch (e) {
+      toaster.dispatchToast(graphErrorMessage(e), { intent: 'error' })
+    } finally {
+      setCreandoCarpetas(false)
+    }
+  }
 
   useEffect(() => {
     getDirectoryUsers()
@@ -83,6 +99,9 @@ export function TecnologiaDashboard() {
           <>
             <Button appearance="primary" icon={<PeopleTeamRegular />} onClick={() => navigate('/tecnologia/personas')}>Personal</Button>
             <Button appearance="secondary" icon={<ShieldPersonRegular />} onClick={() => navigate('/tecnologia/usuarios')}>Usuarios y roles</Button>
+            <Button appearance="secondary" icon={<FolderRegular />} disabled={creandoCarpetas} onClick={() => void crearCarpetasPlanificacion()}>
+              {creandoCarpetas ? 'Creando carpetas…' : 'Carpetas de planificación (OneDrive)'}
+            </Button>
           </>
         }
       />

@@ -39,6 +39,30 @@ const toRef = (item: DriveItem): DriveFileRef => ({
   lastModifiedDateTime: item.lastModifiedDateTime,
 })
 
+/** Crea (si no existe) una carpeta en la raíz de OneDrive o dentro de `parent` (ruta relativa a la raíz). */
+async function ensureFolder(parent: string, name: string): Promise<void> {
+  const parentPath = parent ? parent.split('/').map(encodeURIComponent).join('/') : ''
+  const endpoint = parentPath ? `/me/drive/root:/${parentPath}:/children` : '/me/drive/root/children'
+  try {
+    await graphRequest(endpoint, 'POST', { name, folder: {}, '@microsoft.graph.conflictBehavior': 'fail' })
+  } catch (e) {
+    const msg = (e instanceof Error ? e.message : String(e)).toLowerCase()
+    if (msg.includes('exist') || msg.includes('existe') || msg.includes('namealreadyexists')) return
+    throw e
+  }
+}
+
+/**
+ * Crea en el OneDrive del usuario conectado la estructura:
+ * «Planificacion docente CP» → Inicial, Primaria, Secundaria.
+ * No falla si ya existen.
+ */
+export async function asegurarCarpetasPlanificacionDocente(): Promise<void> {
+  const root = 'Planificacion docente CP'
+  await ensureFolder('', root)
+  for (const sub of ['Inicial', 'Primaria', 'Secundaria']) await ensureFolder(root, sub)
+}
+
 /**
  * Repositorio documental en OneDrive del usuario conectado.
  * Los archivos se guardan bajo `/<VITE_ONEDRIVE_ROOT_FOLDER>/<folder>/<fileName>`.
