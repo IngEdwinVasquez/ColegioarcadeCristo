@@ -62,8 +62,24 @@ export async function listSharedFiles(driveId: string, itemId: string, maxDepth 
   return out
 }
 
-/** Descarga un archivo compartido como `File` (para extraer texto del PDF). */
-export async function downloadSharedFile(driveId: string, item: SharedItem): Promise<File> {
+/** Busca (hasta `maxDepth`) una subcarpeta cuyo nombre cumpla `match`. */
+export async function findSubfolder(driveId: string, itemId: string, match: (name: string) => boolean, maxDepth = 2): Promise<{ id: string; name: string } | null> {
+  const queue: Array<{ id: string; name: string; depth: number }> = [{ id: itemId, name: '', depth: 0 }]
+  while (queue.length) {
+    const cur = queue.shift() as { id: string; name: string; depth: number }
+    if (cur.depth > 0 && match(cur.name)) return { id: cur.id, name: cur.name }
+    if (cur.depth >= maxDepth) continue
+    let next: string | undefined = `/drives/${driveId}/items/${cur.id}/children?$select=id,name,folder&$top=200`
+    while (next) {
+      const page: ChildrenPage = await graphRequest<ChildrenPage>(next, 'GET')
+      for (const it of page.value ?? []) if (it.folder) queue.push({ id: it.id, name: it.name, depth: cur.depth + 1 })
+      next = page['@odata.nextLink']
+    }
+  }
+  return null
+}
+
+/** Descarga un archivo compartido como `File` (para extraer texto del PDF). */export async function downloadSharedFile(driveId: string, item: SharedItem): Promise<File> {
   let url = item.downloadUrl
   if (!url) {
     const token = await acquireToken()
