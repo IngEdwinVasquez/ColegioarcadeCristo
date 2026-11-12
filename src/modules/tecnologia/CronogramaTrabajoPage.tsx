@@ -16,6 +16,7 @@ import { useApp } from '../../context/useApp'
 import { dataService } from '../../services/dataService'
 import { useCollection } from '../../hooks/useCollection'
 import { generateActivityPlanWithAi } from '../../services/ticAi'
+import { horarioTecnologia } from '../../config/horarioTecnologia'
 import { isAiConfigured } from '../../services/ai'
 import { downloadFileAsDataUrl, uploadAndShare } from '../../services/onedrive'
 import { graphErrorMessage } from '../../services/graph'
@@ -33,12 +34,20 @@ const isEligible = (cell: string) => {
 }
 
 const extractEntries = (horarios: WeeklySchedule[]): WorkPlanEntry[] => {
+  // Incluye siempre el horario del Departamento de Tecnología (y los horarios guardados), sin duplicar.
+  const source = [...horarios, horarioTecnologia()]
+  const seen = new Set<string>()
   const out: WorkPlanEntry[] = []
-  for (const h of horarios) {
+  for (const h of source) {
     for (const row of h.rows) {
       row.cells.forEach((cell, di) => {
         const t = (cell ?? '').trim()
-        if (t && isEligible(t)) out.push({ id: genId('wp'), day: WEEK_DAYS[di % WEEK_DAYS.length], time: row.time, activity: t })
+        if (!t || !isEligible(t)) return
+        const day = WEEK_DAYS[di % WEEK_DAYS.length]
+        const key = `${day}|${row.time}|${t}`
+        if (seen.has(key)) return
+        seen.add(key)
+        out.push({ id: genId('wp'), day, time: row.time, activity: t })
       })
     }
   }
