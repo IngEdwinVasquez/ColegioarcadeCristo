@@ -19,6 +19,8 @@ import type {
   DocumentType,
   Enrollment,
   EnrollmentLogEntry,
+  PlanFolderConfig,
+  PlanObservation,
   Grade,
   GradeSection,
   GradeRegister,
@@ -115,6 +117,8 @@ export const collections = {
     attendanceNotes: collection<AttendanceDayNote>(SPO_LISTS.attendanceNotes),
     staffAttendance: collection<StaffAttendanceRecord>(SPO_LISTS.staffAttendance),
     enrollmentLog: collection<EnrollmentLogEntry>(SPO_LISTS.enrollmentLog),
+    planFolders: collection<PlanFolderConfig>(SPO_LISTS.planFolders),
+    planObservations: collection<PlanObservation>(SPO_LISTS.planObservations),
 }
 
 export const dataService = {
@@ -286,6 +290,13 @@ export const dataService = {
   // Auditoría de estudiantes agregados/eliminados de un curso
   getEnrollmentLog: collections.enrollmentLog.getAll,
   saveEnrollmentLog: collections.enrollmentLog.save,
+  // Observación de planificaciones (carpetas compartidas por nivel + evaluaciones)
+  getPlanFolders: collections.planFolders.getAll,
+  savePlanFolder: collections.planFolders.save,
+  deletePlanFolder: collections.planFolders.remove,
+  getPlanObservations: collections.planObservations.getAll,
+  savePlanObservation: collections.planObservations.save,
+  deletePlanObservation: collections.planObservations.remove,
 }
 
 export type DataService = typeof dataService

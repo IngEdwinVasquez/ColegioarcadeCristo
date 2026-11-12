@@ -1,10 +1,10 @@
-import { graphErrorMessage, graphGetAll, graphRequest } from './graph'
+﻿import { graphErrorMessage, graphGetAll, graphRequest } from './graph'
 import { appConfig } from '../config/appConfig'
 
 /**
- * Listas de SharePoint Online que actúan como base de datos.
+ * Listas de SharePoint Online que actÃºan como base de datos.
  * Cada elemento guarda el registro completo en `json_payload` y su identificador
- * lógico en `app_id` (el `Title` solo facilita la lectura desde SharePoint).
+ * lÃ³gico en `app_id` (el `Title` solo facilita la lectura desde SharePoint).
  */
 export const SPO_LISTS = {
   users: 'ARC_Users',
@@ -52,6 +52,8 @@ export const SPO_LISTS = {
   attendanceNotes: 'ARC_AttendanceNotes',
   staffAttendance: 'ARC_StaffAttendance',
   enrollmentLog: 'ARC_EnrollmentLog',
+  planFolders: 'ARC_PlanFolders',
+  planObservations: 'ARC_PlanObservations',
 } as const
 
 export type SpoListName = (typeof SPO_LISTS)[keyof typeof SPO_LISTS]
@@ -76,7 +78,7 @@ async function resolveHostname(): Promise<string> {
   if (appConfig.m365.siteHostname) return appConfig.m365.siteHostname
   const root = await graphRequest<{ siteCollection?: { hostname?: string }; webUrl?: string }>('/sites/root?$select=siteCollection,webUrl')
   const hostname = root.siteCollection?.hostname ?? (root.webUrl ? new URL(root.webUrl).hostname : '')
-  if (!hostname) throw new SharePointSetupError('No se pudo determinar el tenant de SharePoint.', 'Defina VITE_SPO_HOSTNAME en la configuración.')
+  if (!hostname) throw new SharePointSetupError('No se pudo determinar el tenant de SharePoint.', 'Defina VITE_SPO_HOSTNAME en la configuraciÃ³n.')
   return hostname
 }
 
@@ -96,8 +98,8 @@ export async function resolveSiteId(): Promise<string> {
     const status = (error as { statusCode?: number }).statusCode
     if (status === 404 || status === 403) {
       throw new SharePointSetupError(
-        `No se encontró el sitio de SharePoint https://${hostname}${path} o no tiene acceso a él.`,
-        'Cree el sitio (Centro de administración de SharePoint → Sitios activos → Crear) y conceda acceso a los usuarios, o ajuste VITE_SPO_SITE_PATH.',
+        `No se encontrÃ³ el sitio de SharePoint https://${hostname}${path} o no tiene acceso a Ã©l.`,
+        'Cree el sitio (Centro de administraciÃ³n de SharePoint â†’ Sitios activos â†’ Crear) y conceda acceso a los usuarios, o ajuste VITE_SPO_SITE_PATH.',
       )
     }
     throw error
@@ -122,9 +124,9 @@ interface GraphColumn {
   name: string
 }
 
-const PROVISION_KEY = 'arca_spo_provisioned_v16'
+const PROVISION_KEY = 'arca_spo_provisioned_v17'
 
-/** Nombre de lista → id de SharePoint (se rellena al aprovisionar o a demanda). */
+/** Nombre de lista â†’ id de SharePoint (se rellena al aprovisionar o a demanda). */
 const listIds = new Map<string, string>()
 
 export class ListProvisioningError extends Error {
@@ -148,7 +150,7 @@ async function fetchLists(siteId: string): Promise<Map<string, GraphList>> {
   return byName
 }
 
-/** Devuelve el id de la lista (o su nombre si aún no se conoce el id). */
+/** Devuelve el id de la lista (o su nombre si aÃºn no se conoce el id). */
 async function listRef(listName: string): Promise<string> {
   const cached = listIds.get(listName)
   if (cached) return cached
@@ -162,12 +164,12 @@ const APP_ID_COLUMN = { name: APP_ID_FIELD, indexed: true, text: {} }
 
 /**
  * Crea las listas ARC_* que falten y garantiza las columnas `json_payload` y `app_id`.
- * Requiere Sites.ReadWrite.All (delegado) y permiso de edición en el sitio.
+ * Requiere Sites.ReadWrite.All (delegado) y permiso de ediciÃ³n en el sitio.
  */
 let provisioning: Promise<{ created: string[]; updated: string[] }> | null = null
 
 export function ensureProvisioned(force = false): Promise<{ created: string[]; updated: string[] }> {
-  // Una sola ejecución en vuelo: evita carreras (p. ej. doble efecto de React en desarrollo).
+  // Una sola ejecuciÃ³n en vuelo: evita carreras (p. ej. doble efecto de React en desarrollo).
   if (!provisioning) {
     provisioning = provisionLists(force).finally(() => {
       provisioning = null
@@ -190,7 +192,7 @@ async function provisionLists(force: boolean): Promise<{ created: string[]; upda
       try {
         const createdList = await graphRequest<GraphList>(`/sites/${siteId}/lists`, 'POST', {
           displayName: listName,
-          description: 'Intranet Arca de Cristo — datos de la aplicación',
+          description: 'Intranet Arca de Cristo â€” datos de la aplicaciÃ³n',
           list: { template: 'genericList' },
           columns: [PAYLOAD_COLUMN, APP_ID_COLUMN],
         })
@@ -199,15 +201,15 @@ async function provisionLists(force: boolean): Promise<{ created: string[]; upda
       } catch (error) {
         const status = (error as { statusCode?: number }).statusCode
         if (status === 409) {
-          // Creada por otra ejecución concurrente o por un intento anterior: se reutiliza.
+          // Creada por otra ejecuciÃ³n concurrente o por un intento anterior: se reutiliza.
           const refreshed = await fetchLists(siteId)
           if (refreshed.get(listName)) continue
         }
         throw new ListProvisioningError(
           `No se pudo crear la lista ${listName} en SharePoint (${status ?? 'error'}): ${graphErrorMessage(error)}`,
           status === 403
-            ? 'Crear listas requiere el permiso delegado Sites.Manage.All con consentimiento de administrador (Entra → Registros de aplicaciones → Permisos de API) y que su cuenta sea miembro o propietaria del sitio. Tras concederlo, cierre sesión y vuelva a entrar.'
-            : 'Compruebe los permisos de la aplicación (Sites.ReadWrite.All y Sites.Manage.All) y reintente.',
+            ? 'Crear listas requiere el permiso delegado Sites.Manage.All con consentimiento de administrador (Entra â†’ Registros de aplicaciones â†’ Permisos de API) y que su cuenta sea miembro o propietaria del sitio. Tras concederlo, cierre sesiÃ³n y vuelva a entrar.'
+            : 'Compruebe los permisos de la aplicaciÃ³n (Sites.ReadWrite.All y Sites.Manage.All) y reintente.',
         )
       }
       continue
@@ -234,7 +236,7 @@ interface GraphItem {
   fields: Record<string, unknown>
 }
 
-/** Caché por lista: id lógico (app_id) → id numérico del elemento en SharePoint. */
+/** CachÃ© por lista: id lÃ³gico (app_id) â†’ id numÃ©rico del elemento en SharePoint. */
 const idCache = new Map<string, Map<string, string>>()
 
 function cacheFor(listName: string): Map<string, string> {
@@ -311,7 +313,7 @@ function titleOf(item: Record<string, unknown>): string {
   return 'Elemento'
 }
 
-/** Crea o actualiza el registro (según exista su `app_id`). Devuelve el registro guardado. */
+/** Crea o actualiza el registro (segÃºn exista su `app_id`). Devuelve el registro guardado. */
 export async function upsertItem<T extends StoredRecord>(listName: string, item: T): Promise<T> {
   const siteId = await resolveSiteId()
   const appId = item.id
