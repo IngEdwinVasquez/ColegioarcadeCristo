@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Button, Card, Input, Spinner, Tab, TabList, Table, TableBody, TableCell, TableHeader, TableHeaderCell, TableRow, Text, makeStyles, useToastController } from '@fluentui/react-components'
+import { Button, Card, Input, Select, Spinner, Tab, TabList, Table, TableBody, TableCell, TableHeader, TableHeaderCell, TableRow, Text, makeStyles, useToastController } from '@fluentui/react-components'
 import { ArrowDownloadRegular, ChartMultipleRegular, FolderRegular, OpenRegular, PlayRegular } from '@fluentui/react-icons'
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RTooltip, Legend, PieChart, Pie, Cell } from 'recharts'
 import { PageHeader } from '../../components/shared/PageHeader'
@@ -7,7 +7,7 @@ import { ModalForm } from '../../components/shared/ModalForm'
 import { useApp } from '../../context/useApp'
 import { dataService } from '../../services/dataService'
 import { useCollection } from '../../hooks/useCollection'
-import { resolveSharedFolder, listSharedFiles, downloadSharedFile } from '../../services/sharedFolder'
+import { resolveSharedFolder, listSharedFiles, downloadSharedFile, findSubfolder } from '../../services/sharedFolder'
 import { evaluarPlanificacion } from '../../services/planObservationAi'
 import { extractPdfText } from '../../services/pdf'
 import { downloadPlanPdf } from '../../services/planPdf'
@@ -16,6 +16,18 @@ import { genId, todayIso } from '../../utils/helpers'
 import type { PlanFolderConfig, PlanNivel, PlanObservation } from '../../types'
 
 const LEVELS: PlanNivel[] = ['Inicial', 'Primaria', 'Secundaria']
+
+/** Períodos educativos disponibles. */
+const PERIODOS = ['2024-2025', '2025-2026', '2026-2027', '2027-2028', '2028-2029', '2029-2030', '2030-2031']
+
+/** Carpetas que no corresponden a un docente. */
+const esCarpetaDocente = (name: string) => !/herramient|planes? del centro|documento|año|periodo|general|compartid|plantilla/i.test(name)
+
+/** Documentos de planificación/actividades (PDF). */
+const esDocumentoRelevante = (name: string) => /\.pdf$/i.test(name) && /planific|actividad|plan/i.test(name)
+
+/** Normaliza el nombre del docente para agrupar (sin acentos, títulos ni mayúsculas). */
+const normTeacher = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\b(prof|profa|lic|licda|dr|dra|maestro|maestra)\b\.?/g, '').replace(/\s+/g, ' ').trim()
 
 const DEFAULT_LINKS: Record<PlanNivel, string> = {
   Inicial: '',
@@ -36,13 +48,6 @@ const useStyles = makeStyles({
   linkRow: { display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center', marginBottom: '12px' },
 })
 
-/** Infiere el docente desde la primera subcarpeta o desde el nombre del archivo. */
-function inferTeacher(path: string, fileName: string): string {
-  const parts = path.split('/').filter(Boolean)
-  if (parts.length >= 2) return parts[0]
-  return fileName.replace(/\.[^.]+$/, '').replace(/[_-]+/g, ' ').trim()
-}
-
 /** Página de observación de planificaciones por nivel (Inicial, Primaria, Secundaria). */
 export function ObservacionPlanificacionesPage() {
   const styles = useStyles()
@@ -52,6 +57,7 @@ export function ObservacionPlanificacionesPage() {
   const obsCol = useCollection<PlanObservation>(dataService.getPlanObservations, dataService.savePlanObservation, dataService.deletePlanObservation)
 
   const [level, setLevel] = useState<PlanNivel>('Inicial')
+  const [periodo, setPeriodo] = useState('2025-2026')
   const [link, setLink] = useState('')
   const [analizando, setAnalizando] = useState(false)
   const [progreso, setProgreso] = useState('')
@@ -63,7 +69,7 @@ export function ObservacionPlanificacionesPage() {
     setLink(cfg?.url || DEFAULT_LINKS[level])
   }, [level, foldersCol.loading, foldersCol.items])
 
-  const delNivel = useMemo(() => obsCol.items.filter((o) => o.level === level), [obsCol.items, level])
+  const delNivel = useMemo(() => obsCol.items.filter((o) => o.level === level && (o.periodo ?? '') === periodo), [obsCol.items, level, periodo])
 
   const guardarEnlace = async () => {
     const cfg = foldersCol.items.find((f) => f.level === level)
@@ -76,24 +82,47 @@ export function ObservacionPlanificacionesPage() {
     setAnalizando(true)
     try {
       setProgreso('Resolviendo la carpeta compartida…')
-      const { driveId, itemId, name } = await resolveSharedFolder(link.trim())
-      setProgreso(`Leyendo «${name}»…`)
-      const files = await listSharedFiles(driveId, itemId, 3)
-      const docs = files.filter((f) => /\.pdf$/i.test(f.name)).slice(0, 40)
-      if (docs.length === 0) { toaster.dispatchToast('No se encontraron PDF de planificación en la carpeta.', { intent: 'warning' }); return }
+      const root = await resolveSharedFolder(link.trim())
+      // Localiza la carpeta del período seleccionado (si la raíz no lo es).
+      let folder = { id: root.itemId, name: root.name }
+      let coincide = root.name.includes(periodo)
+      if (!coincide) {
+        setProgreso(`Buscando la carpeta del período ${periodo}…`)
+        const compact = periodo.replace(/[^0-9]/g, '')
+        const found = await findSubfolder(root.driveId, root.itemId, (n) => n.includes(periodo) || n.replace(/[^0-9]/g, '').includes(compact), 3)
+        if (found) { folder = found; coincide = true }
+      }
+      if (!coincide) {
+        toaster.dispatchToast(`La carpeta compartida no corresponde al período ${periodo}. Comparte la carpeta raíz que contenga los años escolares.`, { intent: 'warning' })
+        return
+      }
+      setProgreso(`Leyendo «${folder.name}»…`)
+      const files = await listSharedFiles(root.driveId, folder.id, 4)
+      const docs = files
+        .filter((f) => esDocumentoRelevante(f.name))
+        .filter((f) => { const parts = f.path.split('/'); return parts.length >= 2 && esCarpetaDocente(parts[0]) })
+        .slice(0, 80)
+      if (docs.length === 0) {
+        toaster.dispatchToast(`No se encontraron documentos de planificación/actividades del período ${periodo} en «${folder.name}».`, { intent: 'warning' })
+        return
+      }
+      // Limpia análisis anteriores del mismo nivel/período para no duplicar.
+      for (const old of obsCol.items.filter((o) => o.level === level && (o.periodo ?? '') === periodo)) await obsCol.remove(old.id)
       let n = 0
       for (const f of docs) {
         setProgreso(`Analizando ${f.name} (${++n}/${docs.length})…`)
         try {
-          const file = await downloadSharedFile(driveId, f)
+          const file = await downloadSharedFile(root.driveId, f)
           const text = await extractPdfText(file)
           if (!text.trim()) continue
-          const teacher = inferTeacher(f.path, f.name)
+          // El docente es SIEMPRE la subcarpeta de primer nivel (no el nombre que devuelve la IA).
+          const teacher = f.path.split('/')[0].trim()
           const ev = await evaluarPlanificacion(text, { level, fileName: f.name, suggestedTeacher: teacher })
           await obsCol.save({
             id: genId('pobs'),
             level,
-            teacherName: (ev.docente ?? '').trim() || teacher,
+            periodo,
+            teacherName: teacher,
             fileName: f.name,
             webUrl: f.webUrl,
             date: todayIso(),
@@ -113,7 +142,7 @@ export function ObservacionPlanificacionesPage() {
         }
       }
       await obsCol.refresh()
-      toaster.dispatchToast('Análisis completado. Revisa el panel y los informes.', { intent: 'success' })
+      toaster.dispatchToast(`Análisis completado para ${periodo}. Revisa el panel y los informes.`, { intent: 'success' })
     } catch (e) {
       toaster.dispatchToast(graphErrorMessage(e), { intent: 'error' })
     } finally {
@@ -123,14 +152,15 @@ export function ObservacionPlanificacionesPage() {
   }
 
   const porDocente = useMemo(() => {
-    const map = new Map<string, { name: string; suma: number; n: number; tools: Set<string> }>()
+    const map = new Map<string, { key: string; name: string; suma: number; n: number; tools: Set<string> }>()
     for (const o of delNivel) {
-      const e = map.get(o.teacherName) ?? { name: o.teacherName, suma: 0, n: 0, tools: new Set<string>() }
+      const key = normTeacher(o.teacherName) || o.teacherName
+      const e = map.get(key) ?? { key, name: o.teacherName, suma: 0, n: 0, tools: new Set<string>() }
       e.suma += o.score; e.n += 1
       for (const t of o.tools) e.tools.add(t)
-      map.set(o.teacherName, e)
+      map.set(key, e)
     }
-    return [...map.values()].map((e) => ({ name: e.name, puntaje: Math.round(e.suma / Math.max(1, e.n)), docs: e.n, herramientas: e.tools.size })).sort((a, b) => b.puntaje - a.puntaje)
+    return [...map.values()].map((e) => ({ key: e.key, name: e.name, puntaje: Math.round(e.suma / Math.max(1, e.n)), docs: e.n, herramientas: e.tools.size })).sort((a, b) => b.puntaje - a.puntaje)
   }, [delNivel])
 
   const herramientas = useMemo(() => {
@@ -143,7 +173,7 @@ export function ObservacionPlanificacionesPage() {
 
   /** Genera un informe PDF por docente con sus observaciones. */
   const generarInforme = (teacher: string) => {
-    const items = delNivel.filter((o) => o.teacherName === teacher)
+    const items = delNivel.filter((o) => normTeacher(o.teacherName) === normTeacher(teacher))
     const rows = items.map((o) => `<tr><td>${o.fileName}</td><td>${o.date}</td><td>${o.score}</td><td>${o.tools.join(', ') || '—'}</td><td>${o.resources.join(', ') || '—'}</td></tr>`).join('')
     const html = `<h1>Informe de observación de planificación</h1>
 <p><strong>Nivel:</strong> ${level} · <strong>Docente:</strong> ${teacher} · <strong>Fecha:</strong> ${todayIso()}</p>
@@ -153,7 +183,7 @@ export function ObservacionPlanificacionesPage() {
     void downloadPlanPdf(html, `Informe planificación · ${teacher} · ${level}`)
   }
 
-  const reportItems = reportTeacher ? delNivel.filter((o) => o.teacherName === reportTeacher) : []
+  const reportItems = reportTeacher ? delNivel.filter((o) => normTeacher(o.teacherName) === normTeacher(reportTeacher)) : []
 
   return (
     <div>
@@ -163,13 +193,16 @@ export function ObservacionPlanificacionesPage() {
       />
 
       <TabList selectedValue={level} onTabSelect={(_, d) => setLevel(d.value as PlanNivel)} style={{ marginBottom: '14px' }}>
-        {LEVELS.map((l) => <Tab key={l} value={l}>Docentes de {l} ({obsCol.items.filter((o) => o.level === l).length})</Tab>)}
+        {LEVELS.map((l) => <Tab key={l} value={l}>Docentes de {l} ({obsCol.items.filter((o) => o.level === l && (o.periodo ?? '') === periodo).length})</Tab>)}
       </TabList>
 
       <Card className={styles.chart} style={{ marginBottom: '14px' }}>
         <Text weight="semibold" size={300} block><FolderRegular /> Carpeta compartida del coordinador de {level}</Text>
         <div className={styles.linkRow} style={{ marginTop: '8px' }}>
-          <Input value={link} onChange={(_, d) => setLink(d.value)} placeholder="https://…/shared?id=…" style={{ flex: 1, minWidth: '280px' }} />
+          <Select value={periodo} onChange={(_, d) => setPeriodo(d.value)} style={{ minWidth: '160px' }}>
+            {PERIODOS.map((p) => <option key={p} value={p}>Período {p}</option>)}
+          </Select>
+          <Input value={link} onChange={(_, d) => setLink(d.value)} placeholder="https://…/shared?id=…" style={{ flex: 1, minWidth: '260px' }} />
           <Button appearance="secondary" onClick={() => void guardarEnlace()}>Guardar enlace</Button>
           <Button appearance="primary" icon={analizando ? <Spinner size="tiny" /> : <PlayRegular />} disabled={analizando} onClick={() => void analizar()}>
             {analizando ? 'Analizando…' : 'Analizar carpeta'}
@@ -177,7 +210,7 @@ export function ObservacionPlanificacionesPage() {
           {link && <Button appearance="subtle" icon={<OpenRegular />} onClick={() => window.open(link, '_blank', 'noopener')}>Abrir carpeta</Button>}
         </div>
         <Text size={200} block style={{ color: 'var(--texto-suave)' }}>
-          El coordinador comparte su carpeta de OneDrive; cada docente sube sus planificaciones. La IA evalúa el uso de herramientas y recursos tecnológicos (PDF).
+          Cada subcarpeta es un docente. Se analizan solo los PDF de <strong>planificación/actividades</strong> del período <strong>{periodo}</strong> que evidencien uso de herramientas y recursos tecnológicos. La IA evalúa cada documento.
         </Text>
         {progreso && <Text size={200} block style={{ color: 'var(--azul)', marginTop: '6px' }}>{progreso}</Text>}
       </Card>
