@@ -9,6 +9,7 @@ import { MisAulasPage } from '../modules/docente/MisAulasPage'
 import { AulaPage } from '../modules/docente/AulaPage'
 import { MisClasesPage } from '../modules/docente/MisClasesPage'
 import { MiRegistroGradoPage } from '../modules/registro/RegistroGradoPage'
+import { CorregirExamenPage } from '../modules/academico/CorregirExamenPage'
 import { CursoAsignaturaPage } from '../modules/aulas/CursoAsignaturaPage'
 import { ClaseDocenteDetail } from '../modules/docente/ClaseDocenteDetail'
 import { RecursosPage } from '../modules/docente/RecursosPage'
@@ -32,6 +33,7 @@ const NAV: NavItem[] = [
   { to: '/docentes', label: 'Inicio', icon: <HomeRegular />, end: true, group: 'General' },
   { to: '/docentes/aulas', label: 'Aulas por curso', icon: <VideoRegular />, group: 'Académico' },
   { to: '/docentes/registro-grado', label: 'Registro de Grado', icon: <BookRegular />, group: 'Académico' },
+  { to: '/docentes/corregir-examen', label: 'Corregir examen (IA)', icon: <BookRegular />, group: 'Académico' },
   { to: '/docentes/planificador-ia', label: 'Planificador IA', icon: <SparkleRegular />, group: 'Académico' },
   { to: '/docentes/encuentros', label: 'Encuentros Virtuales', icon: <VideoPersonRegular />, group: 'Comunidad' },
   { to: '/docentes/comunicados', label: 'Comunicados', icon: <MegaphoneRegular />, group: 'Comunidad' },
@@ -46,6 +48,7 @@ export function DocentesPortal() {
         <Route index element={<DocenteDashboard />} />
         <Route path="aulas" element={<MisAulasPage />} />
         <Route path="registro-grado" element={<MiRegistroGradoPage />} />
+        <Route path="corregir-examen" element={<CorregirExamenPage />} />
         <Route path="aulas/:gradeId/:section" element={<AulaPage />} />
         <Route path="aulas/:gradeId/:section/:subjectId" element={<MisClasesPage />} />
         <Route path="aulas/:gradeId/:section/:subjectId/virtual" element={<CursoAsignaturaPage />} />
