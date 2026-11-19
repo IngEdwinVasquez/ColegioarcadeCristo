@@ -9,7 +9,7 @@ import { useCollection } from '../../hooks/useCollection'
 import { interpretExam, gradeExam } from '../../services/examAi'
 import { graphErrorMessage } from '../../services/graph'
 import { genId } from '../../utils/helpers'
-import { asignaturaDe, cursoNombre, isRealSubject, ordenarCursos } from '../../utils/academic'
+import { asignaturaDe, cursoNombre, esGradoValido, isRealSubject, ordenarCursos } from '../../utils/academic'
 import type { ExamAnswer, ExamCorrection, ExamQuestion, ExamSubmission, GradeSection } from '../../types'
 
 const useStyles = makeStyles({
@@ -45,13 +45,17 @@ export function CorregirExamenPage() {
   const pageStudent = useRef<string>('')
 
   const cursos = useMemo(() => {
-    const map = new Map<string, GradeSection>()
-    for (const g of ordenarCursos(grades)) {
+    const vistos = new Set<string>()
+    const out: GradeSection[] = []
+    for (const g of grades) {
+      if (!esGradoValido(g)) continue
       if (!isRealSubject(asignaturaDe(g))) continue
       const k = cursoNombre(g)
-      if (!map.has(k)) map.set(k, g)
+      if (!k || vistos.has(k)) continue
+      vistos.add(k)
+      out.push(g)
     }
-    return [...map.values()]
+    return ordenarCursos(out)
   }, [grades])
 
   const alumnos = useMemo(() => {
