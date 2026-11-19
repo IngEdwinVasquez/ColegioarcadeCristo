@@ -21,6 +21,8 @@ import type {
   EnrollmentLogEntry,
   PlanFolderConfig,
   PlanObservation,
+  ExamCorrection,
+  ExamSubmission,
   Grade,
   GradeSection,
   GradeRegister,
@@ -119,6 +121,8 @@ export const collections = {
     enrollmentLog: collection<EnrollmentLogEntry>(SPO_LISTS.enrollmentLog),
     planFolders: collection<PlanFolderConfig>(SPO_LISTS.planFolders),
     planObservations: collection<PlanObservation>(SPO_LISTS.planObservations),
+    examCorrections: collection<ExamCorrection>(SPO_LISTS.examCorrections),
+    examSubmissions: collection<ExamSubmission>(SPO_LISTS.examSubmissions),
 }
 
 export const dataService = {
@@ -297,6 +301,13 @@ export const dataService = {
   getPlanObservations: collections.planObservations.getAll,
   savePlanObservation: collections.planObservations.save,
   deletePlanObservation: collections.planObservations.remove,
+  // Corrección de exámenes con IA
+  getExamCorrections: collections.examCorrections.getAll,
+  saveExamCorrection: collections.examCorrections.save,
+  deleteExamCorrection: collections.examCorrections.remove,
+  getExamSubmissions: collections.examSubmissions.getAll,
+  saveExamSubmission: collections.examSubmissions.save,
+  deleteExamSubmission: collections.examSubmissions.remove,
 }
 
 export type DataService = typeof dataService

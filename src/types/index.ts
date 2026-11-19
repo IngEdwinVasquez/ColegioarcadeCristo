@@ -939,8 +939,7 @@ export interface PlanFolderConfig {
   coordinator?: string
 }
 
-/** Observación/evaluación de la planificación de un docente. */
-export interface PlanObservation {
+/** Observación/evaluación de la planificación de un docente. */export interface PlanObservation {
   id: string
   level: PlanNivel
   /** Período educativo (ej. 2025-2026). */
@@ -957,6 +956,55 @@ export interface PlanObservation {
   improvements?: string
   recommendations?: string
   analyzedAt: string
+  byUserId?: string
+  byName?: string
+}
+
+// ------------------------------ Corrección de exámenes con IA ------------------------------
+
+export type ExamQuestionType = 'opcion' | 'texto'
+
+export interface ExamQuestion {
+  id: string
+  numero: string
+  enunciado: string
+  tipo: ExamQuestionType
+  opciones: string[]
+  /** Respuesta correcta: letra/opción o texto. */
+  respuesta: string
+}
+
+export interface ExamCorrection {
+  id: string
+  titulo: string
+  courseId: string
+  periodId?: string
+  questions: ExamQuestion[]
+  createdAt: string
+  updatedAt?: string
+}
+
+export interface ExamAnswer {
+  questionId: string
+  numero: string
+  respuesta: string
+  correcta: boolean
+  puntos: number
+  razon?: string
+}
+
+export interface ExamSubmission {
+  id: string
+  examId: string
+  courseId: string
+  studentId: string
+  studentName: string
+  pages: number
+  answers: ExamAnswer[]
+  score: number
+  aiScore: number
+  modified: boolean
+  createdAt: string
   byUserId?: string
   byName?: string
 }
