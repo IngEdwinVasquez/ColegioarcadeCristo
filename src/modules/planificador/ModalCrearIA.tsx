@@ -15,6 +15,15 @@ const ALCANCES: Array<{ value: PlanAlcance; label: string }> = [
   { value: 'anual', label: 'Anual' },
 ]
 
+const ENFOQUES = [
+  'Activo / participativo',
+  'Aprendizaje cooperativo',
+  'Basado en proyectos',
+  'STEAM (ciencia, tecnología, arte y matemática)',
+  'Aula invertida',
+  'Resolución de problemas',
+]
+
 interface Assignment {
   gradeId: string
   subjectId: string
@@ -39,6 +48,9 @@ export function ModalCrearIA({ open, onOpenChange, grades, subjects, assignments
   const [tema, setTema] = useState('')
   const [alcance, setAlcance] = useState<PlanAlcance>('actividad')
   const [duracion, setDuracion] = useState('')
+  const [enfoque, setEnfoque] = useState(ENFOQUES[0])
+  const [integracionTec, setIntegracionTec] = useState('')
+  const [adecuaciones, setAdecuaciones] = useState('')
   const [generando, setGenerando] = useState(false)
   const aiReady = isAiConfigured()
 
@@ -65,6 +77,9 @@ export function ModalCrearIA({ open, onOpenChange, grades, subjects, assignments
     setTema('')
     setAlcance('actividad')
     setDuracion('')
+    setEnfoque(ENFOQUES[0])
+    setIntegracionTec('')
+    setAdecuaciones('')
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, gradeOptions])
 
@@ -85,6 +100,9 @@ export function ModalCrearIA({ open, onOpenChange, grades, subjects, assignments
         tema: tema.trim(),
         alcance,
         duracion: duracion.trim() || undefined,
+        enfoque,
+        integracionTec: integracionTec.trim() || undefined,
+        adecuaciones: adecuaciones.trim() || undefined,
         defaults: { id: genId('plan'), teacherId, gradeId, subjectId },
       })
       await onGenerated(plan)
@@ -101,7 +119,7 @@ export function ModalCrearIA({ open, onOpenChange, grades, subjects, assignments
       open={open}
       onOpenChange={onOpenChange}
       title="Nueva planificación con IA"
-      subtitle="Indica 3 datos y el asistente redacta la estructura pedagógica completa"
+      subtitle="Describe el contexto y el enfoque; el asistente redacta la planificación alineada al currículo dominicano."
       width={640}
       actions={
         <>
@@ -149,6 +167,19 @@ export function ModalCrearIA({ open, onOpenChange, grades, subjects, assignments
                 <Input value={duracion} onChange={(_, d) => setDuracion(d.value)} placeholder="Ej. 45 min / 1 semana" />
               </FormField>
             </FieldRow>
+            <FieldRow>
+              <FormField label="Enfoque pedagógico">
+                <Select value={enfoque} onChange={(_, d) => setEnfoque(d.value)}>
+                  {ENFOQUES.map((e) => <option key={e} value={e}>{e}</option>)}
+                </Select>
+              </FormField>
+              <FormField label="Adecuaciones (opcional)">
+                <Input value={adecuaciones} onChange={(_, d) => setAdecuaciones(d.value)} placeholder="Ej. estudiantes con NEE, ritmos distintos…" />
+              </FormField>
+            </FieldRow>
+            <FormField label="Recursos tecnológicos a integrar (opcional)" hint="Se incluirán en la planificación (M365, Teams, laboratorio, robótica…).">
+              <Input value={integracionTec} onChange={(_, d) => setIntegracionTec(d.value)} placeholder="Ej. Teams, PowerPoint, Excel, laboratorio" />
+            </FormField>
           </>
         )}
       </div>
