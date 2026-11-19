@@ -8,6 +8,12 @@ export interface GenerarPlanInput {
   tema: string
   alcance: PlanAlcance
   duracion?: string
+  /** Enfoque pedagógico elegido (activo, cooperativo, proyectos, STEAM…). */
+  enfoque?: string
+  /** Recursos/herramientas tecnológicas que el docente desea integrar. */
+  integracionTec?: string
+  /** Adecuaciones o necesidades específicas de los estudiantes. */
+  adecuaciones?: string
   observaciones?: string
   defaults: Pick<PlanificacionDinamica, 'id' | 'teacherId' | 'gradeId' | 'subjectId'>
 }
@@ -48,7 +54,7 @@ export async function generarPlanConIA(input: GenerarPlanInput): Promise<Planifi
       { role: 'system', content: SYSTEM_PROMPT },
       {
         role: 'user',
-        content: `Grado/curso: ${input.grado}\nAsignatura: ${input.asignatura}\nTema u objetivo: ${input.tema}\nAlcance: ${input.alcance}${input.duracion ? `\nDuración: ${input.duracion}` : ''}${input.observaciones ? `\nObservaciones: ${input.observaciones}` : ''}`,
+        content: `Grado/curso: ${input.grado}\nAsignatura: ${input.asignatura}\nTema u objetivo: ${input.tema}\nAlcance: ${input.alcance}${input.duracion ? `\nDuración: ${input.duracion}` : ''}${input.enfoque ? `\nEnfoque pedagógico: ${input.enfoque}` : ''}${input.integracionTec ? `\nRecursos tecnológicos a integrar: ${input.integracionTec}` : ''}${input.adecuaciones ? `\nAdecuaciones: ${input.adecuaciones}` : ''}${input.observaciones ? `\nObservaciones: ${input.observaciones}` : ''}`,
       },
     ],
     { temperature: 0.4, jsonMode: true },
