@@ -23,7 +23,7 @@ export function PlanificadorPage() {
   const [editing, setEditing] = useState<PlanificacionDinamica | null>(null)
   const [busyId, setBusyId] = useState<string>()
 
-  const isStaff = role === 'admin' || role === 'tecnologia' || role === 'psicologia'
+  const isStaff = role === 'admin' || role === 'tecnologia' || role === 'psicologia' || role === 'coordinacion'
 
   const mine = useMemo(() => {
     const items = plansCol.items

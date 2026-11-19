@@ -10,6 +10,7 @@ import { AulasNivelPage } from '../modules/coordinacion/AulasNivelPage'
 import { CursoAsignaturaPage } from '../modules/aulas/CursoAsignaturaPage'
 import { RegistroGradoPage } from '../modules/registro/RegistroGradoPage'
 import { CorregirExamenPage } from '../modules/academico/CorregirExamenPage'
+import { PlanificadorPage } from '../modules/planificador/PlanificadorPage'
 import { CargaHorariaPage } from '../modules/administrativo/CargaHorariaPage'
 import { GestionTicPage } from '../modules/tecnologia/GestionTicPage'
 import { AcademicaTecPage } from '../modules/tecnologia/AcademicaTecPage'
@@ -37,6 +38,7 @@ const NAV: NavItem[] = [
   { to: '/coordinacion/personas', label: 'Docentes y Estudiantes', icon: <PeopleRegular />, group: 'Académico' },
   { to: '/coordinacion/horarios', label: 'Horarios de Clase', icon: <CalendarLtrRegular />, group: 'Académico' },
   { to: '/coordinacion/planificacion', label: 'Planificación del Nivel', icon: <NotebookRegular />, group: 'Académico' },
+  { to: '/coordinacion/planificador-ia', label: 'Planificador IA', icon: <SparkleRegular />, group: 'Académico' },
   { to: '/coordinacion/acompanamientos', label: 'Acompañamiento Docente', icon: <HeartPulseRegular />, group: 'Académico' },
   { to: '/coordinacion/cumplimiento', label: 'Cumplimiento', icon: <CheckmarkCircleRegular />, group: 'Académico' },
   { to: '/coordinacion/promocion', label: 'Promoción', icon: <ArrowUpRegular />, group: 'Académico' },
@@ -58,6 +60,7 @@ export function CoordPortal() {
         <Route path="personas" element={<PersonasNivel />} />
         <Route path="horarios" element={<HorariosPage />} />
         <Route path="planificacion" element={<PlanificacionNivel />} />
+        <Route path="planificador-ia" element={<PlanificadorPage />} />
         <Route path="acompanamientos" element={<AcompanamientosPage />} />
         <Route path="cumplimiento" element={<CumplimientoPage />} />
         <Route path="promocion" element={<PromocionPage />} />
