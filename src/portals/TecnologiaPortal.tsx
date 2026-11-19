@@ -10,6 +10,7 @@ import { PromocionPage } from '../modules/administrativo/PromocionPage'
 import { PersonasPage } from '../modules/administrativo/PersonasPage'
 import { SigerdPage } from '../modules/tecnologia/SigerdPage'
 import { AulasViewManagement } from '../modules/aulas/aulas'
+import { PlanificadorPage } from '../modules/planificador/PlanificadorPage'
 import { CursoAsignaturaPage } from '../modules/aulas/CursoAsignaturaPage'
 import { RegistroGradoPage } from '../modules/registro/RegistroGradoPage'
 import { CargaHorariaPage } from '../modules/administrativo/CargaHorariaPage'
@@ -25,6 +26,7 @@ const NAV: NavItem[] = [
   { to: '/tecnologia/gestion-tic', label: 'Planificación TIC', icon: <ClipboardTaskRegular />, group: 'Coordinación TIC' },
   { to: '/tecnologia/gestion-dep-tecnologia', label: 'Gestión Dep. Tecnología', icon: <ClipboardTaskRegular />, group: 'Coordinación TIC' },
   { to: '/tecnologia/academica', label: 'Gestión académica', icon: <BookRegular />, group: 'Coordinación TIC' },
+  { to: '/tecnologia/planificador-ia', label: 'Planificador IA', icon: <SparkleRegular />, group: 'Académico' },
   { to: '/tecnologia/observacion-planificaciones', label: 'Observación de planificaciones', icon: <ClipboardTaskRegular />, group: 'Coordinación TIC' },
   { to: '/tecnologia/acompanamientos', label: 'Acompañamiento Virtual', icon: <HeartPulseRegular />, group: 'Coordinación TIC' },
   { to: '/tecnologia/asignaciones', label: 'Asignaciones', icon: <LinkSquareRegular />, group: 'Académico' },
@@ -48,6 +50,7 @@ export function TecnologiaPortal() {
         <Route path="gestion-tic" element={<GestionTicPage />} />
         <Route path="gestion-dep-tecnologia" element={<GestionDepTecnologia />} />
         <Route path="academica" element={<AcademicaTecPage />} />
+        <Route path="planificador-ia" element={<PlanificadorPage />} />
         <Route path="observacion-planificaciones" element={<ObservacionPlanificacionesPage />} />
         <Route path="acompanamientos" element={<AcompanamientosPage />} />
         <Route path="asignaciones" element={<AsignacionesPage />} />

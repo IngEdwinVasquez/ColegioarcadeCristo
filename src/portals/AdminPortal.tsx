@@ -17,6 +17,7 @@ import { AulasPage } from '../modules/aulas/AulasPage'
 import { AulasViewManagement } from '../modules/aulas/aulas'
 import { CursoAsignaturaPage } from '../modules/aulas/CursoAsignaturaPage'
 import { CorregirExamenPage } from '../modules/academico/CorregirExamenPage'
+import { PlanificadorPage } from '../modules/planificador/PlanificadorPage'
 import { RegistroGradoPage } from '../modules/registro/RegistroGradoPage'
 import { CargaHorariaPage } from '../modules/administrativo/CargaHorariaPage'
 import { EncuentrosPage } from '../modules/encuentros/EncuentrosPage'
@@ -56,6 +57,7 @@ const NAV: NavItem[] = [
   { to: '/administrativo/corregir-examen', label: 'Corregir examen (IA)', icon: <DocumentPdfRegular />, group: 'Académico' },
   { to: '/administrativo/carga-horaria', label: 'Carga horaria', icon: <DocumentPdfRegular />, group: 'Académico' },
   { to: '/administrativo/planificacion', label: 'Planificación Anual', icon: <CalendarTodayRegular />, group: 'Académico' },
+  { to: '/administrativo/planificador-ia', label: 'Planificador IA', icon: <SparkleRegular />, group: 'Académico' },
   { to: '/administrativo/clases', label: 'Clases Impartidas', icon: <NotebookRegular />, group: 'Académico' },
   { to: '/administrativo/aulas', label: 'Aulas Virtuales', icon: <VideoRegular />, group: 'Académico' },
   { to: '/administrativo/aulas-curso', label: 'Aulas por curso', icon: <VideoRegular />, group: 'Académico' },
@@ -83,6 +85,7 @@ export function AdminPortal() {
         <Route path="corregir-examen" element={<CorregirExamenPage />} />
         <Route path="carga-horaria" element={<CargaHorariaPage />} />
         <Route path="planificacion" element={<AnualPlanPage />} />
+        <Route path="planificador-ia" element={<PlanificadorPage />} />
         <Route path="clases" element={<ClasesPage />} />
         <Route path="clases/:id" element={<ClaseDetail />} />
         <Route path="aulas" element={<AulasPage />} />
