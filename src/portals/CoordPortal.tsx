@@ -9,6 +9,7 @@ import { PlanificacionNivel } from '../modules/coordinacion/PlanificacionNivel'
 import { AulasNivelPage } from '../modules/coordinacion/AulasNivelPage'
 import { CursoAsignaturaPage } from '../modules/aulas/CursoAsignaturaPage'
 import { RegistroGradoPage } from '../modules/registro/RegistroGradoPage'
+import { CorregirExamenPage } from '../modules/academico/CorregirExamenPage'
 import { CargaHorariaPage } from '../modules/administrativo/CargaHorariaPage'
 import { GestionTicPage } from '../modules/tecnologia/GestionTicPage'
 import { AcademicaTecPage } from '../modules/tecnologia/AcademicaTecPage'
@@ -43,6 +44,7 @@ const NAV: NavItem[] = [
   { to: '/coordinacion/gestion-academica', label: 'Gestión académica', icon: <BookRegular />, group: 'Académico' },
   { to: '/coordinacion/aulas', label: 'Aulas por curso', icon: <VideoRegular />, group: 'Académico' },
   { to: '/coordinacion/registro-grado', label: 'Registro de Grado', icon: <BookRegular />, group: 'Académico' },
+  { to: '/coordinacion/corregir-examen', label: 'Corregir examen (IA)', icon: <ClipboardTaskRegular />, group: 'Académico' },
   { to: '/coordinacion/carga-horaria', label: 'Carga horaria', icon: <DocumentPdfRegular />, group: 'Académico' },
   { to: '/coordinacion/gestion-tic', label: 'Gestión de Coordinación Pedagógica', icon: <ClipboardTaskRegular />, group: 'Gestión' },
   { to: '/coordinacion/copilot', label: 'Copilot', icon: <SparkleRegular />, group: 'Herramientas' },
@@ -64,6 +66,7 @@ export function CoordPortal() {
         <Route path="aulas" element={<AulasNivelPage />} />
         <Route path="aulas/:gradeId/:section/:subjectId/virtual" element={<CursoAsignaturaPage />} />
         <Route path="registro-grado" element={<RegistroGradoPage scope={{ kind: 'coordinacion' }} />} />
+        <Route path="corregir-examen" element={<CorregirExamenPage />} />
         <Route path="carga-horaria" element={<CargaHorariaPage />} />
         <Route path="gestion-tic" element={<GestionTicPage title="Gestión de Coordinación Pedagógica" />} />
         <Route path="copilot" element={<CopilotPage />} />
