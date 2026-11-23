@@ -41,7 +41,7 @@ const useStyles = makeStyles({
     '@media (min-width: 940px)': { display: 'flex' },
   },
   sideInner: {
-    width: '264px',
+    width: '290px',
     height: '100vh',
     position: 'sticky',
     top: '0px',
@@ -59,20 +59,20 @@ const useStyles = makeStyles({
     gap: '12px',
   },
   flag: { width: '40px', height: '27px', borderRadius: '4px', flexShrink: 0, boxShadow: '0 2px 8px rgba(0,0,0,0.25)' },
-  sideTitle: { fontWeight: 800, letterSpacing: '0.01em', fontSize: '14px', color: '#fff' },
-  sideSub: { fontSize: '11px', color: 'rgba(255,255,255,0.55)', marginTop: '2px' },
-  nav: { flex: 1, padding: '12px 12px', display: 'flex', flexDirection: 'column', gap: '2px', overflowY: 'auto' },
+  sideTitle: { fontWeight: 800, letterSpacing: '0.01em', fontSize: '17px', color: '#fff' },
+  sideSub: { fontSize: '13px', color: 'rgba(255,255,255,0.62)', marginTop: '2px' },
+  nav: { flex: 1, padding: '12px 12px', display: 'flex', flexDirection: 'column', gap: '4px', overflowY: 'auto' },
   search: {
     margin: '0 0 8px',
-    padding: '8px 10px',
+    padding: '10px 12px',
     borderRadius: '10px',
-    border: '1px solid rgba(255,255,255,0.14)',
-    background: 'rgba(255,255,255,0.06)',
+    border: '1px solid rgba(255,255,255,0.16)',
+    background: 'rgba(255,255,255,0.07)',
     color: '#fff',
-    fontSize: '13px',
+    fontSize: '15px',
     outline: 'none',
     width: '100%',
-    '::placeholder': { color: 'rgba(255,255,255,0.4)' },
+    '::placeholder': { color: 'rgba(255,255,255,0.5)' },
   },
   groupToggle: {
     display: 'flex',
@@ -83,13 +83,13 @@ const useStyles = makeStyles({
     border: 'none',
     cursor: 'pointer',
     textAlign: 'left',
-    fontSize: '10.5px',
+    fontSize: '12px',
     fontWeight: 700,
     letterSpacing: '0.08em',
     textTransform: 'uppercase',
-    color: 'rgba(255,255,255,0.45)',
-    padding: '14px 12px 6px',
-    ':hover': { color: 'rgba(255,255,255,0.75)' },
+    color: 'rgba(255,255,255,0.62)',
+    padding: '16px 12px 6px',
+    ':hover': { color: 'rgba(255,255,255,0.9)' },
   },
   groupChevron: { transition: 'transform .15s ease' },
   groupLabel: {
@@ -103,20 +103,22 @@ const useStyles = makeStyles({
   navLink: {
     display: 'flex',
     alignItems: 'center',
-    gap: '11px',
-    padding: '10px 12px',
+    gap: '12px',
+    padding: '12px 12px',
     borderRadius: '10px',
-    color: 'rgba(255,255,255,0.78)',
+    color: 'rgba(255,255,255,0.86)',
     textDecoration: 'none',
-    fontSize: '14px',
+    fontSize: '16px',
+    fontWeight: 500,
+    lineHeight: 1.3,
     position: 'relative',
-    ':hover': { background: 'rgba(255,255,255,0.07)', color: '#fff' },
+    ':hover': { background: 'rgba(255,255,255,0.09)', color: '#fff' },
   },
   navLinkActive: {
-    background: 'rgba(255,255,255,0.12)',
+    background: 'rgba(255,255,255,0.14)',
     color: '#fff',
-    fontWeight: 600,
-    ':hover': { background: 'rgba(255,255,255,0.12)', color: '#fff' },
+    fontWeight: 700,
+    ':hover': { background: 'rgba(255,255,255,0.14)', color: '#fff' },
   },
   navActiveBar: {
     position: 'absolute',
@@ -142,8 +144,8 @@ const useStyles = makeStyles({
     background: 'rgba(255,255,255,0.06)',
     borderRadius: '12px',
   },
-  profileName: { fontSize: '13px', fontWeight: 600, color: '#fff', lineHeight: 1.2 },
-  profileRole: { fontSize: '11px', color: 'rgba(255,255,255,0.55)' },
+  profileName: { fontSize: '15px', fontWeight: 600, color: '#fff', lineHeight: 1.2 },
+  profileRole: { fontSize: '12.5px', color: 'rgba(255,255,255,0.65)' },
   main: { flex: 1, minWidth: '0px', display: 'flex', flexDirection: 'column' },
   topbar: {
     display: 'flex',
@@ -242,7 +244,7 @@ function NavList({ nav }: { nav: NavItem[] }) {
                 {({ isActive }) => (
                   <>
                     {isActive && <span className={styles.navActiveBar} />}
-                    <span style={{ fontSize: '18px', display: 'inline-flex' }}>{item.icon}</span>
+                    <span style={{ fontSize: '21px', display: 'inline-flex', flexShrink: 0 }}>{item.icon}</span>
                     <span>{item.label}</span>
                   </>
                 )}
