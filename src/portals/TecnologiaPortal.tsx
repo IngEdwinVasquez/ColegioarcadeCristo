@@ -1,4 +1,4 @@
-import { Route, Routes } from 'react-router-dom'
+﻿import { Route, Routes } from 'react-router-dom'
 import { AppShell, type NavItem } from '../components/layout/AppShell'
 import { TecnologiaDashboard } from '../modules/tecnologia/TecnologiaDashboard'
 import { GestionTicPage } from '../modules/tecnologia/GestionTicPage'
@@ -22,23 +22,23 @@ import { CopilotPage } from '../modules/copilot/CopilotPage'
 import { DeveloperBoardRegular, PeopleTeamRegular, ShieldPersonRegular, ShieldCheckmarkRegular, ChatRegular, SparkleRegular, ClipboardTaskRegular, BookRegular, BookOpenRegular, LinkSquareRegular, ArrowUpRegular, VideoRegular, DocumentPdfRegular, HeartPulseRegular } from '@fluentui/react-icons'
 
 const NAV: NavItem[] = [
-  { to: '/tecnologia', label: 'Panel de Tecnología', icon: <DeveloperBoardRegular />, end: true, group: 'General' },
-  { to: '/tecnologia/gestion-tic', label: 'Planificación TIC', icon: <ClipboardTaskRegular />, group: 'Coordinación TIC' },
-  { to: '/tecnologia/gestion-dep-tecnologia', label: 'Gestión Dep. Tecnología', icon: <ClipboardTaskRegular />, group: 'Coordinación TIC' },
-  { to: '/tecnologia/academica', label: 'Gestión académica', icon: <BookRegular />, group: 'Coordinación TIC' },
-  { to: '/tecnologia/planificador-ia', label: 'Planificador IA', icon: <SparkleRegular />, group: 'Académico' },
-  { to: '/tecnologia/observacion-planificaciones', label: 'Observación de planificaciones', icon: <ClipboardTaskRegular />, group: 'Coordinación TIC' },
-  { to: '/tecnologia/acompanamientos', label: 'Acompañamiento Virtual', icon: <HeartPulseRegular />, group: 'Coordinación TIC' },
-  { to: '/tecnologia/asignaciones', label: 'Asignaciones', icon: <LinkSquareRegular />, group: 'Académico' },
-  { to: '/tecnologia/aulas', label: 'Aulas por curso', icon: <VideoRegular />, group: 'Académico' },
-  { to: '/tecnologia/registro-grado', label: 'Registro de Grado', icon: <BookRegular />, group: 'Académico' },
-  { to: '/tecnologia/carga-horaria', label: 'Carga horaria', icon: <DocumentPdfRegular />, group: 'Académico' },
-  { to: '/tecnologia/promocion', label: 'Promoción', icon: <ArrowUpRegular />, group: 'Académico' },
+  { to: '/tecnologia', label: 'Panel de TecnologÃ­a', icon: <DeveloperBoardRegular />, end: true, group: 'General' },
+  { to: '/tecnologia/gestion-tic', label: 'PlanificaciÃ³n TIC', icon: <ClipboardTaskRegular />, group: 'CoordinaciÃ³n TIC' },
+  { to: '/tecnologia/gestion-dep-tecnologia', label: 'GestiÃ³n Dep. TecnologÃ­a', icon: <ClipboardTaskRegular />, group: 'CoordinaciÃ³n TIC' },
+  { to: '/tecnologia/academica', label: 'GestiÃ³n acadÃ©mica', icon: <BookRegular />, group: 'CoordinaciÃ³n TIC' },
+  { to: '/tecnologia/planificador-ia', label: 'Planificador IA', icon: <SparkleRegular />, group: 'AcadÃ©mico' },
+  { to: '/tecnologia/observacion-planificaciones', label: 'ObservaciÃ³n de planificaciones', icon: <ClipboardTaskRegular />, group: 'CoordinaciÃ³n TIC' },
+  { to: '/tecnologia/acompanamientos', label: 'AcompaÃ±amiento Virtual', icon: <HeartPulseRegular />, group: 'CoordinaciÃ³n TIC' },
+  { to: '/tecnologia/asignaciones', label: 'Asignaciones', icon: <LinkSquareRegular />, group: 'AcadÃ©mico' },
+  { to: '/tecnologia/aulas', label: 'Aulas Virtuales', icon: <VideoRegular />, group: 'AcadÃ©mico' },
+  { to: '/tecnologia/registro-grado', label: 'Registro de Grado', icon: <BookRegular />, group: 'AcadÃ©mico' },
+  { to: '/tecnologia/carga-horaria', label: 'Carga horaria', icon: <DocumentPdfRegular />, group: 'AcadÃ©mico' },
+  { to: '/tecnologia/promocion', label: 'PromociÃ³n', icon: <ArrowUpRegular />, group: 'AcadÃ©mico' },
   { to: '/tecnologia/personas', label: 'Personal', icon: <PeopleTeamRegular />, group: 'Personas' },
   { to: '/tecnologia/siger', label: 'SIGERD', icon: <BookOpenRegular />, group: 'Personas' },
   { to: '/tecnologia/usuarios', label: 'Usuarios y roles', icon: <ShieldPersonRegular />, group: 'Personas' },
   { to: '/tecnologia/roles', label: 'Roles', icon: <ShieldCheckmarkRegular />, group: 'Personas' },
-  { to: '/tecnologia/chat', label: 'Mensajería', icon: <ChatRegular />, group: 'Comunidad' },
+  { to: '/tecnologia/chat', label: 'MensajerÃ­a', icon: <ChatRegular />, group: 'Comunidad' },
   { to: '/tecnologia/copilot', label: 'Copilot', icon: <SparkleRegular />, group: 'Herramientas' },
 ]
 
