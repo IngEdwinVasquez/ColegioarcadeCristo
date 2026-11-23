@@ -28,10 +28,12 @@ const vacio = (gradeId = ''): Student => ({
  * Alta de estudiante con todos sus datos: cuenta de Microsoft 365 (o creación de
  * una nueva con correo nombre.apellido@arcadecristo.edu.do), curso, nacimiento y tutor.
  */
-export function NuevoEstudianteModal({ open, onClose, onSaved }: {
+export function NuevoEstudianteModal({ open, onClose, onSaved, defaultCourse }: {
   open: boolean
   onClose: () => void
   onSaved?: () => void
+  /** Nombre del curso (aula) para preseleccionar al crear desde un aula. */
+  defaultCourse?: string
 }) {
   const toaster = useToastController()
   const { grades, refreshCatalogs } = useApp()
@@ -43,9 +45,11 @@ export function NuevoEstudianteModal({ open, onClose, onSaved }: {
   const takenIds = useMemo(() => studentsCol.items.map((s) => s.userId ?? '').filter(Boolean), [studentsCol.items])
 
   useEffect(() => {
-    if (open) setForm(vacio(cursos[0]?.id ?? ''))
+    if (!open) return
+    const target = defaultCourse ? cursos.find((g) => cursoNombre(g) === defaultCourse) : cursos[0]
+    setForm(vacio(target?.id ?? cursos[0]?.id ?? ''))
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open])
+  }, [open, defaultCourse])
 
   const set = (patch: Partial<Student>) => setForm((f) => ({ ...f, ...patch }))
 
