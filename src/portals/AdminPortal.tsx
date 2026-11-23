@@ -1,4 +1,4 @@
-import { Route, Routes } from 'react-router-dom'
+import { Route, Routes, Navigate } from 'react-router-dom'
 import { AppShell, type NavItem } from '../components/layout/AppShell'
 import { DireccionPage } from '../modules/administrativo/DireccionPage'
 import { InformesPage } from '../modules/administrativo/InformesPage'
@@ -13,7 +13,6 @@ import { PersonasPage } from '../modules/administrativo/PersonasPage'
 import { SigerdPage } from '../modules/tecnologia/SigerdPage'
 import { UsuariosPage } from '../modules/administrativo/UsuariosPage'
 import { RolesPage } from '../modules/administrativo/RolesPage'
-import { AulasPage } from '../modules/aulas/AulasPage'
 import { AulasViewManagement } from '../modules/aulas/aulas'
 import { CursoAsignaturaPage } from '../modules/aulas/CursoAsignaturaPage'
 import { CorregirExamenPage } from '../modules/academico/CorregirExamenPage'
@@ -59,8 +58,7 @@ const NAV: NavItem[] = [
   { to: '/administrativo/planificacion', label: 'Planificación Anual', icon: <CalendarTodayRegular />, group: 'Académico' },
   { to: '/administrativo/planificador-ia', label: 'Planificador IA', icon: <SparkleRegular />, group: 'Académico' },
   { to: '/administrativo/clases', label: 'Clases Impartidas', icon: <NotebookRegular />, group: 'Académico' },
-  { to: '/administrativo/aulas', label: 'Aulas Virtuales', icon: <VideoRegular />, group: 'Académico' },
-  { to: '/administrativo/aulas-curso', label: 'Aulas por curso', icon: <VideoRegular />, group: 'Académico' },
+  { to: '/administrativo/aulas-curso', label: 'Aulas Virtuales', icon: <VideoRegular />, group: 'Académico' },
   { to: '/administrativo/encuentros', label: 'Encuentros', icon: <VideoPersonRegular />, group: 'Académico' },
   { to: '/administrativo/personas', label: 'Personal', icon: <PeopleTeamRegular />, group: 'Personas' },
   { to: '/administrativo/siger', label: 'SIGERD', icon: <BookOpenRegular />, group: 'Personas' },
@@ -88,8 +86,8 @@ export function AdminPortal() {
         <Route path="planificador-ia" element={<PlanificadorPage />} />
         <Route path="clases" element={<ClasesPage />} />
         <Route path="clases/:id" element={<ClaseDetail />} />
-        <Route path="aulas" element={<AulasPage />} />
-        <Route path="aulas-curso" element={<AulasViewManagement base="/administrativo/aulas-curso" scope={{ kind: 'todos' }} pageTitle="Aulas por curso" subtitle="Todas las aulas del colegio con sus asignaturas y aulas de Teams." />} />
+        <Route path="aulas" element={<Navigate to="/administrativo/aulas-curso" replace />} />
+        <Route path="aulas-curso" element={<AulasViewManagement base="/administrativo/aulas-curso" scope={{ kind: 'todos' }} pageTitle="Aulas Virtuales" subtitle="Todas las aulas del colegio con sus asignaturas y aulas de Teams." />} />
         <Route path="aulas-curso/:gradeId/:section/:subjectId/virtual" element={<CursoAsignaturaPage />} />
         <Route path="encuentros" element={<EncuentrosPage />} />
         <Route path="encuentros/:id" element={<EncuentroDetail />} />
