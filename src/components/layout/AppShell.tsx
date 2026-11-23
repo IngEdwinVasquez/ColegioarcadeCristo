@@ -10,7 +10,7 @@ import {
   Text,
   makeStyles,
 } from '@fluentui/react-components'
-import { NavigationRegular, SignOutRegular, HomeRegular, ChevronRightRegular, LightbulbFilamentRegular, PersonRegular } from '@fluentui/react-icons'
+import { NavigationRegular, SignOutRegular, HomeRegular, ChevronRightRegular, ChevronDownRegular, LightbulbFilamentRegular, PersonRegular } from '@fluentui/react-icons'
 import { useApp } from '../../context/useApp'
 import { dataService } from '../../services/dataService'
 import { useCollection } from '../../hooks/useCollection'
@@ -62,6 +62,36 @@ const useStyles = makeStyles({
   sideTitle: { fontWeight: 800, letterSpacing: '0.01em', fontSize: '14px', color: '#fff' },
   sideSub: { fontSize: '11px', color: 'rgba(255,255,255,0.55)', marginTop: '2px' },
   nav: { flex: 1, padding: '12px 12px', display: 'flex', flexDirection: 'column', gap: '2px', overflowY: 'auto' },
+  search: {
+    margin: '0 0 8px',
+    padding: '8px 10px',
+    borderRadius: '10px',
+    border: '1px solid rgba(255,255,255,0.14)',
+    background: 'rgba(255,255,255,0.06)',
+    color: '#fff',
+    fontSize: '13px',
+    outline: 'none',
+    width: '100%',
+    '::placeholder': { color: 'rgba(255,255,255,0.4)' },
+  },
+  groupToggle: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    width: '100%',
+    background: 'transparent',
+    border: 'none',
+    cursor: 'pointer',
+    textAlign: 'left',
+    fontSize: '10.5px',
+    fontWeight: 700,
+    letterSpacing: '0.08em',
+    textTransform: 'uppercase',
+    color: 'rgba(255,255,255,0.45)',
+    padding: '14px 12px 6px',
+    ':hover': { color: 'rgba(255,255,255,0.75)' },
+  },
+  groupChevron: { transition: 'transform .15s ease' },
   groupLabel: {
     fontSize: '10.5px',
     fontWeight: 700,
@@ -154,19 +184,55 @@ const useStyles = makeStyles({
 
 function NavList({ nav }: { nav: NavItem[] }) {
   const styles = useStyles()
-  const groups: string[] = []
-  for (const item of nav) {
-    const g = item.group ?? 'General'
-    if (!groups.includes(g)) groups.push(g)
-  }
+  const location = useLocation()
+  const [query, setQuery] = useState('')
+
+  const groups = useMemo(() => {
+    const g: string[] = []
+    for (const item of nav) {
+      const n = item.group ?? 'General'
+      if (!g.includes(n)) g.push(n)
+    }
+    return g
+  }, [nav])
+
+  const activeGroup = useMemo(() => {
+    let best: NavItem | undefined
+    for (const n of nav) {
+      const match = n.end ? location.pathname === n.to : location.pathname === n.to || location.pathname.startsWith(n.to + '/')
+      if (match && (!best || n.to.length > best.to.length)) best = n
+    }
+    return best?.group ?? groups[0]
+  }, [location.pathname, nav, groups])
+
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({})
+  useEffect(() => { setOpenGroups((o) => ({ ...o, [activeGroup]: true })) }, [activeGroup])
+
+  const q = query.trim().toLowerCase()
+  const searching = q.length > 0
+  const itemsFor = (group: string) => nav.filter((n) => (n.group ?? 'General') === group && (!searching || n.label.toLowerCase().includes(q)))
+  const groupsToShow = groups.filter((g) => !searching || itemsFor(g).length > 0)
+  const isOpen = (g: string) => searching || (openGroups[g] ?? (g === activeGroup))
+
   return (
     <div className={styles.nav}>
-      {groups.map((group) => (
-        <div key={group}>
-          <div className={styles.groupLabel}>{group}</div>
-          {nav
-            .filter((n) => (n.group ?? 'General') === group)
-            .map((item) => (
+      <input
+        className={styles.search}
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+        placeholder="Buscar en el menú…"
+        aria-label="Buscar en el menú"
+      />
+      {groupsToShow.map((group) => {
+        const items = itemsFor(group)
+        const openG = isOpen(group)
+        return (
+          <div key={group}>
+            <button type="button" className={styles.groupToggle} onClick={() => { if (!searching) setOpenGroups((o) => ({ ...o, [group]: !openG })) }}>
+              <span>{group}</span>
+              <ChevronDownRegular className={styles.groupChevron} style={{ transform: openG ? 'rotate(180deg)' : 'none' }} />
+            </button>
+            {openG && items.map((item) => (
               <NavLink
                 key={item.to}
                 to={item.to}
@@ -182,8 +248,9 @@ function NavList({ nav }: { nav: NavItem[] }) {
                 )}
               </NavLink>
             ))}
-        </div>
-      ))}
+          </div>
+        )
+      })}
     </div>
   )
 }
