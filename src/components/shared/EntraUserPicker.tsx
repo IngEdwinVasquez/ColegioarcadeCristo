@@ -81,6 +81,12 @@ export function EntraUserPicker({ label = 'Cuenta de Microsoft 365 (Entra ID)', 
 
   const labelOf = (u: EntraUser) => `${u.displayName ?? entraEmail(u)} · ${entraEmail(u)}`
 
+  // El correo escrito ya existe en el directorio (se seleccionará en vez de duplicar).
+  const correoExiste = useMemo(() => {
+    const d = correo.trim().toLowerCase()
+    return !!d && users.some((u) => entraEmail(u) === d || (u.userPrincipalName ?? '').toLowerCase() === d)
+  }, [correo, users])
+
   const abrirCrear = () => {
     const n = defaultName ?? query
     setNombre(n)
@@ -95,13 +101,21 @@ export function EntraUserPicker({ label = 'Cuenta de Microsoft 365 (Entra ID)', 
       setCreateError('Indica el nombre, el correo y la contraseña temporal.')
       return
     }
+    const desired = correo.trim().toLowerCase()
+    // Si la cuenta ya existe, se selecciona en lugar de duplicar (evita el error de UPN existente).
+    const existente = users.find((u) => entraEmail(u) === desired || (u.userPrincipalName ?? '').toLowerCase() === desired)
+    if (existente) {
+      onChange(existente)
+      setCreateOpen(false)
+      return
+    }
     setCreando(true)
     setCreateError(null)
     try {
       const user = await createEntraUser({
         displayName: nombre.trim(),
-        mailNickname: correo.split('@')[0],
-        userPrincipalName: correo.trim().toLowerCase(),
+        mailNickname: desired.split('@')[0],
+        userPrincipalName: desired,
         password: pass,
         usageLocation: 'DO',
       })
@@ -110,7 +124,21 @@ export function EntraUserPicker({ label = 'Cuenta de Microsoft 365 (Entra ID)', 
       onChange(user)
       setCreateOpen(false)
     } catch (e) {
-      setCreateError(graphErrorMessage(e))
+      const msg = graphErrorMessage(e)
+      if (/already exists|ya existe|another object/i.test(msg)) {
+        // Sugiere un correo libre (agrega un número) en lugar de mostrar el error crudo.
+        const [local, domain] = desired.split('@')
+        let n = 2
+        let cand = desired
+        while (users.some((u) => entraEmail(u) === cand || (u.userPrincipalName ?? '').toLowerCase() === cand)) {
+          cand = `${local}${n}@${domain}`
+          n++
+        }
+        setCorreo(cand)
+        setCreateError(`Ese correo ya está en uso. Te sugerí uno disponible: ${cand}. Revísalo y vuelve a crear.`)
+      } else {
+        setCreateError(msg)
+      }
     } finally {
       setCreando(false)
     }
@@ -185,6 +213,7 @@ export function EntraUserPicker({ label = 'Cuenta de Microsoft 365 (Entra ID)', 
         </FormField>
         <FormField label="Correo (nombre.apellido@dominio)" required hint="Puedes ajustarlo si la sugerencia no es la correcta.">
           <Input value={correo} onChange={(_, d) => setCorreo(d.value)} placeholder={`nombre.apellido@${M365_DOMAIN}`} />
+          {correoExiste && <Text size={200} block style={{ color: '#B45309', marginTop: '4px' }}>Ese correo ya existe en el directorio: al crear se seleccionará la cuenta existente (no se duplica).</Text>}
         </FormField>
         <FormField label="Contraseña temporal" required hint="El usuario deberá cambiarla al iniciar sesión. Compártela de forma segura.">
           <Input value={pass} onChange={(_, d) => setPass(d.value)} />
