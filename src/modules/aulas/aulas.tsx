@@ -17,6 +17,7 @@ import { dataService } from '../../services/dataService'
 import { normalizarCursos } from '../../services/courseNormalize'
 import { PaseListaModal } from './PaseListaModal'
 import { HistorialAsistenciaModal } from './HistorialAsistenciaModal'
+import { NuevoEstudianteModal } from '../administrativo/NuevoEstudianteModal'
 import { useCollection } from '../../hooks/useCollection'
 import { cursoNombre, nivelShort, ordenarCursos, asignaturaDe, isRealSubject, gradoDe, seccionDe, esGradoValido, GRADOS, SECCIONES, INICIAL_GRADOS, cicloFromGrade } from '../../utils/academic'
 import { createClassTeam, listTenantTeams, resolveTeamUrl } from '../../services/teamsEdu'
@@ -743,6 +744,7 @@ export function AulasView({ scope, subtitle, pageTitle = 'Aulas', onOpenSubject 
   const [guiaSel, setGuiaSel] = useState('')
   const [addStudentOpen, setAddStudentOpen] = useState(false)
   const [addStudentQuery, setAddStudentQuery] = useState('')
+  const [nuevoEstOpen, setNuevoEstOpen] = useState(false)
   const [logOpen, setLogOpen] = useState(false)
   const [agregando, setAgregando] = useState<string | null>(null)
   const [paseOpen, setPaseOpen] = useState(false)
@@ -1209,7 +1211,7 @@ Si falta información, complétala según el Diseño Curricular del MINERD para 
                       {canManage && <Button appearance="secondary" icon={<ImageRegular />} onClick={() => setImgAula(seleccion)}>Cambiar imagen</Button>}
                       {canManage && <Button appearance="primary" icon={<CheckmarkCircleRegular />} onClick={() => setPaseOpen(true)}>Pase de asistencia</Button>}
                       {canManage && <Button appearance="secondary" icon={<BookOpenRegular />} onClick={() => setHistOpen(true)}>Historial de asistencia</Button>}
-                      {canManage && <Button appearance="secondary" icon={<AddRegular />} onClick={() => { setAddStudentQuery(''); setAddStudentOpen(true) }}>Agregar estudiante</Button>}
+                      {canManage && <Button appearance="secondary" icon={<AddRegular />} onClick={() => setNuevoEstOpen(true)}>Nuevo estudiante</Button>}
                       {canManage && <Button appearance="secondary" icon={<PeopleTeamRegular />} onClick={() => setLogOpen(true)}>Estudiantes agregados/eliminados</Button>}
                     </div>
                   </div>
@@ -1305,6 +1307,13 @@ Si falta información, complétala según el Diseño Curricular del MINERD para 
         onClose={() => setHistOpen(false)}
         course={seleccion ? seleccion.records[0] : null}
         totalEstudiantes={estudiantesAula.length}
+      />
+
+      <NuevoEstudianteModal
+        open={nuevoEstOpen}
+        onClose={() => setNuevoEstOpen(false)}
+        defaultCourse={seleccion?.curso}
+        onSaved={() => { void gradesCol.refresh(); void enrollmentsCol.refresh(); void refreshCatalogs() }}
       />
 
       <PaseListaModal
