@@ -9,6 +9,7 @@ const ALCANCE_LABEL: Record<PlanificacionDinamica['alcance'], string> = {
   anual: 'Anual',
   mensual: 'Mensual',
   semanal: 'Semanal',
+  unidad: 'Unidad de aprendizaje',
   actividad: 'Actividad',
 }
 const ESTADO_COLOR: Record<PlanEstado, string> = { activa: '#15803D', borrador: '#EA580C', archivada: '#6B7280' }
