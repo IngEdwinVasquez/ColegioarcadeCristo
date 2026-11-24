@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Button, Card, Input, Select, Spinner, Text, Textarea } from '@fluentui/react-components'
-import { ArrowLeftRegular, ArrowRightRegular, CheckmarkCircleRegular, SaveRegular, SparkleRegular } from '@fluentui/react-icons'
+import { AddRegular, ArrowLeftRegular, ArrowRightRegular, CheckmarkCircleRegular, SaveRegular, SparkleRegular } from '@fluentui/react-icons'
 import { ModalForm } from '../../components/shared/ModalForm'
 import { FormField, FieldRow } from '../../components/shared/form'
 import { isAiConfigured } from '../../services/ai'
@@ -9,13 +9,14 @@ import type { PlanAlcance, PlanificacionDinamica } from '../../types'
 import { genId } from '../../utils/helpers'
 
 const ALCANCES: Array<{ value: PlanAlcance; label: string }> = [
+  { value: 'unidad', label: 'Por unidad de aprendizaje' },
   { value: 'actividad', label: 'Por actividad' },
   { value: 'semanal', label: 'Semanal' },
   { value: 'mensual', label: 'Mensual' },
   { value: 'anual', label: 'Anual' },
 ]
 
-const ENFOQUES = [
+const ENFOQUE_BASE = [
   'Activo / participativo',
   'Aprendizaje cooperativo',
   'Basado en proyectos',
@@ -23,6 +24,26 @@ const ENFOQUES = [
   'Aula invertida',
   'Resolución de problemas',
 ]
+
+const ENFOQUES_KEY = 'arca_plan_enfoques'
+
+function cargarEnfoques(): string[] {
+  let extra: string[] = []
+  try {
+    const raw = localStorage.getItem(ENFOQUES_KEY)
+    if (raw) {
+      const parsed = JSON.parse(raw)
+      if (Array.isArray(parsed)) extra = parsed.map((x) => String(x)).filter(Boolean)
+    }
+  } catch { extra = [] }
+  return [...ENFOQUE_BASE, ...extra.filter((e) => !ENFOQUE_BASE.includes(e))]
+}
+
+function guardarEnfoque(nombre: string) {
+  const extra = cargarEnfoques().filter((e) => !ENFOQUE_BASE.includes(e))
+  if (extra.includes(nombre)) return
+  try { localStorage.setItem(ENFOQUES_KEY, JSON.stringify([...extra, nombre])) } catch { /* ignore */ }
+}
 
 const PASOS = ['Contexto', 'Enfoque', 'Resultado']
 
@@ -35,19 +56,25 @@ interface Props {
   subjects: Array<{ id: string; name: string }>
   assignments: Assignment[]
   teacherId: string
+  /** 'subject' = abierto desde el aula de una asignatura: alcance fijo "por unidad". */
+  mode?: 'general' | 'subject'
   onGenerated: (plan: PlanificacionDinamica) => void | Promise<void>
   onError: (message: string) => void
 }
 
 /** Guía visual de planificación en 3 pasos: Contexto → Enfoque → Resultado. */
-export function ModalCrearIA({ open, onOpenChange, grades, subjects, assignments, teacherId, onGenerated, onError }: Props) {
+export function ModalCrearIA({ open, onOpenChange, grades, subjects, assignments, teacherId, mode = 'general', onGenerated, onError }: Props) {
+  const esUnidad = mode === 'subject'
   const [paso, setPaso] = useState(0)
   const [gradeId, setGradeId] = useState('')
   const [subjectId, setSubjectId] = useState('')
   const [tema, setTema] = useState('')
-  const [alcance, setAlcance] = useState<PlanAlcance>('actividad')
+  const [alcance, setAlcance] = useState<PlanAlcance>(esUnidad ? 'unidad' : 'actividad')
   const [duracion, setDuracion] = useState('')
-  const [enfoque, setEnfoque] = useState(ENFOQUES[0])
+  const [enfoque, setEnfoque] = useState(ENFOQUE_BASE[0])
+  const [enfoques, setEnfoques] = useState<string[]>(ENFOQUE_BASE)
+  const [nuevoEnfoque, setNuevoEnfoque] = useState('')
+  const [prompt, setPrompt] = useState('')
   const [integracionTec, setIntegracionTec] = useState('')
   const [adecuaciones, setAdecuaciones] = useState('')
   const [generando, setGenerando] = useState(false)
@@ -74,14 +101,27 @@ export function ModalCrearIA({ open, onOpenChange, grades, subjects, assignments
     setGradeId(firstGrade)
     setSubjectId(firstSubject(firstGrade))
     setTema('')
-    setAlcance('actividad')
+    setAlcance(esUnidad ? 'unidad' : 'actividad')
     setDuracion('')
-    setEnfoque(ENFOQUES[0])
+    const lista = cargarEnfoques()
+    setEnfoques(lista)
+    setEnfoque(lista[0])
+    setNuevoEnfoque('')
+    setPrompt('')
     setIntegracionTec('')
     setAdecuaciones('')
     setPreview(null)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, gradeOptions])
+  }, [open, gradeOptions, esUnidad])
+
+  const agregarEnfoque = () => {
+    const nombre = nuevoEnfoque.trim()
+    if (!nombre) return
+    guardarEnfoque(nombre)
+    if (!enfoques.includes(nombre)) setEnfoques((prev) => [...prev, nombre])
+    setEnfoque(nombre)
+    setNuevoEnfoque('')
+  }
 
   const sinAsignaturas = gradeOptions.length === 0
 
@@ -95,11 +135,12 @@ export function ModalCrearIA({ open, onOpenChange, grades, subjects, assignments
         grado,
         asignatura,
         tema: tema.trim(),
-        alcance,
+        alcance: esUnidad ? 'unidad' : alcance,
         duracion: duracion.trim() || undefined,
         enfoque,
         integracionTec: integracionTec.trim() || undefined,
         adecuaciones: adecuaciones.trim() || undefined,
+        observaciones: prompt.trim() || undefined,
         defaults: { id: genId('plan'), teacherId, gradeId, subjectId },
       })
       setPreview(plan)
@@ -185,19 +226,28 @@ export function ModalCrearIA({ open, onOpenChange, grades, subjects, assignments
                   </Select>
                 </FormField>
               </FieldRow>
-              <FormField label="Tema u objetivo" required>
-                <Textarea value={tema} onChange={(_, d) => setTema(d.value)} resize="vertical" rows={3} placeholder="Ej. La fotosíntesis: proceso y factores" />
+              <FormField label={esUnidad ? 'Tema de la unidad' : 'Tema u objetivo'} required>
+                <Textarea value={tema} onChange={(_, d) => setTema(d.value)} resize="vertical" rows={3} placeholder={esUnidad ? 'Ej. Unidad 3: La fotosíntesis, proceso y factores' : 'Ej. La fotosíntesis: proceso y factores'} />
               </FormField>
               <FieldRow>
-                <FormField label="Alcance">
-                  <Select value={alcance} onChange={(_, d) => setAlcance(d.value as PlanAlcance)}>
-                    {ALCANCES.map((a) => <option key={a.value} value={a.value}>{a.label}</option>)}
-                  </Select>
-                </FormField>
+                {esUnidad ? (
+                  <FormField label="Alcance" hint="La planificación siempre se hace por unidad de aprendizaje.">
+                    <Text size={300} block style={{ paddingTop: '8px' }}>Por unidad de aprendizaje</Text>
+                  </FormField>
+                ) : (
+                  <FormField label="Alcance">
+                    <Select value={alcance} onChange={(_, d) => setAlcance(d.value as PlanAlcance)}>
+                      {ALCANCES.map((a) => <option key={a.value} value={a.value}>{a.label}</option>)}
+                    </Select>
+                  </FormField>
+                )}
                 <FormField label="Duración (opcional)">
                   <Input value={duracion} onChange={(_, d) => setDuracion(d.value)} placeholder="Ej. 45 min / 1 semana" />
                 </FormField>
               </FieldRow>
+              <FormField label="Instrucciones para la IA (opcional)" hint="Escribe lo que quieras pedirle a la IA: actividades, recursos, evaluación, formato, etc.">
+                <Textarea value={prompt} onChange={(_, d) => setPrompt(d.value)} resize="vertical" rows={3} placeholder="Ej. Incluye una actividad en Teams y una rúbrica de evaluación." />
+              </FormField>
             </>
           )}
 
@@ -205,8 +255,20 @@ export function ModalCrearIA({ open, onOpenChange, grades, subjects, assignments
             <>
               <FormField label="Enfoque pedagógico">
                 <Select value={enfoque} onChange={(_, d) => setEnfoque(d.value)}>
-                  {ENFOQUES.map((e) => <option key={e} value={e}>{e}</option>)}
+                  {enfoques.map((e) => <option key={e} value={e}>{e}</option>)}
                 </Select>
+              </FormField>
+              <FormField label="Agregar un nuevo enfoque" hint="Se guardará para reutilizarlo en próximas planificaciones.">
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <Input
+                    style={{ flex: 1 }}
+                    value={nuevoEnfoque}
+                    onChange={(_, d) => setNuevoEnfoque(d.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); agregarEnfoque() } }}
+                    placeholder="Ej. Aprendizaje basado en gamificación"
+                  />
+                  <Button icon={<AddRegular />} disabled={!nuevoEnfoque.trim()} onClick={agregarEnfoque}>Agregar</Button>
+                </div>
               </FormField>
               <FormField label="Recursos tecnológicos a integrar (opcional)" hint="Se incluirán en la planificación (M365, Teams, laboratorio, robótica…).">
                 <Input value={integracionTec} onChange={(_, d) => setIntegracionTec(d.value)} placeholder="Ej. Teams, PowerPoint, Excel, laboratorio" />

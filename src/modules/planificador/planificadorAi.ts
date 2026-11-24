@@ -40,6 +40,8 @@ Reglas:
 - Adapta el vocabulario, la dificultad y las actividades al grado/curso indicado.
 - Los tres momentos deben existir siempre, en orden inicio, desarrollo, cierre, con su duración.
 - Usa un enfoque activo y competencial (MINERD), integrando tecnología cuando aporte.
+- Si el alcance es "unidad", diseña la unidad de aprendizaje completa (varias actividades/sesiones articuladas hacia el logro).
+- Respetar siempre las "Instrucciones del docente" cuando se indiquen.
 - Español claro y profesional. Responde SOLO el JSON.`
 
 function toStrArray(v: unknown): string[] {
@@ -54,7 +56,7 @@ export async function generarPlanConIA(input: GenerarPlanInput): Promise<Planifi
       { role: 'system', content: SYSTEM_PROMPT },
       {
         role: 'user',
-        content: `Grado/curso: ${input.grado}\nAsignatura: ${input.asignatura}\nTema u objetivo: ${input.tema}\nAlcance: ${input.alcance}${input.duracion ? `\nDuración: ${input.duracion}` : ''}${input.enfoque ? `\nEnfoque pedagógico: ${input.enfoque}` : ''}${input.integracionTec ? `\nRecursos tecnológicos a integrar: ${input.integracionTec}` : ''}${input.adecuaciones ? `\nAdecuaciones: ${input.adecuaciones}` : ''}${input.observaciones ? `\nObservaciones: ${input.observaciones}` : ''}`,
+        content: `Grado/curso: ${input.grado}\nAsignatura: ${input.asignatura}\n${input.alcance === 'unidad' ? 'Tema de la unidad' : 'Tema u objetivo'}: ${input.tema}\nAlcance: ${input.alcance}${input.duracion ? `\nDuración: ${input.duracion}` : ''}${input.enfoque ? `\nEnfoque pedagógico: ${input.enfoque}` : ''}${input.integracionTec ? `\nRecursos tecnológicos a integrar: ${input.integracionTec}` : ''}${input.adecuaciones ? `\nAdecuaciones: ${input.adecuaciones}` : ''}${input.observaciones ? `\nInstrucciones del docente: ${input.observaciones}` : ''}`,
       },
     ],
     { temperature: 0.4, jsonMode: true },

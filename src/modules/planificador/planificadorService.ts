@@ -17,6 +17,7 @@ const ALCANCE_LABEL: Record<PlanificacionDinamica['alcance'], string> = {
   anual: 'Planificación Anual',
   mensual: 'Planificación Mensual',
   semanal: 'Planificación Semanal',
+  unidad: 'Unidad de aprendizaje',
   actividad: 'Planificación por Actividad',
 }
 
