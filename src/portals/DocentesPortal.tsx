@@ -33,7 +33,6 @@ const NAV: NavItem[] = [
   { to: '/docentes', label: 'Inicio', icon: <HomeRegular />, end: true, group: 'General' },
   { to: '/docentes/aulas', label: 'Aulas Virtuales', icon: <VideoRegular />, group: 'Académico' },
   { to: '/docentes/corregir-examen', label: 'Corregir examen (IA)', icon: <BookRegular />, group: 'Académico' },
-  { to: '/docentes/planificador-ia', label: 'Planificador IA', icon: <SparkleRegular />, group: 'Académico' },
   { to: '/docentes/encuentros', label: 'Encuentros Virtuales', icon: <VideoPersonRegular />, group: 'Comunidad' },
   { to: '/docentes/comunicados', label: 'Comunicados', icon: <MegaphoneRegular />, group: 'Comunidad' },
   { to: '/docentes/chat', label: 'Mensajería', icon: <ChatRegular />, group: 'Comunidad' },
