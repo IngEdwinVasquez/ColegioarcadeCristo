@@ -707,7 +707,7 @@ export interface TicCategoryItem {
 
 // ------------------------------ Planificador Dinámico (IA) ------------------------------
 
-export type PlanAlcance = 'anual' | 'mensual' | 'semanal' | 'actividad'
+export type PlanAlcance = 'anual' | 'mensual' | 'semanal' | 'actividad' | 'unidad'
 export type PlanEstado = 'borrador' | 'activa' | 'archivada'
 export type PlanMomentoNombre = 'inicio' | 'desarrollo' | 'cierre'
 

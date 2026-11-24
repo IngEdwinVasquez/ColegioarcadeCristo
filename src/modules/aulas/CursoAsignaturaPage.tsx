@@ -1335,6 +1335,7 @@ Incluye una introducción, al menos 3 recursos variando el tipo según la necesi
       <ModalCrearIA
         open={planIaOpen}
         onOpenChange={setPlanIaOpen}
+        mode="subject"
         grades={[{ id: gradeId, name: draft.curso }]}
         subjects={[{ id: subjectId, name: subjectName }]}
         assignments={[{ gradeId, subjectId }]}
