@@ -38,7 +38,6 @@ const NAV: NavItem[] = [
   { to: '/coordinacion/personas', label: 'Docentes y Estudiantes', icon: <PeopleRegular />, group: 'Académico' },
   { to: '/coordinacion/horarios', label: 'Horarios de Clase', icon: <CalendarLtrRegular />, group: 'Académico' },
   { to: '/coordinacion/planificacion', label: 'Planificación del Nivel', icon: <NotebookRegular />, group: 'Académico' },
-  { to: '/coordinacion/planificador-ia', label: 'Planificador IA', icon: <SparkleRegular />, group: 'Académico' },
   { to: '/coordinacion/acompanamientos', label: 'Acompañamiento Docente', icon: <HeartPulseRegular />, group: 'Académico' },
   { to: '/coordinacion/cumplimiento', label: 'Cumplimiento', icon: <CheckmarkCircleRegular />, group: 'Académico' },
   { to: '/coordinacion/promocion', label: 'Promoción', icon: <ArrowUpRegular />, group: 'Académico' },

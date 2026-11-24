@@ -55,7 +55,6 @@ const NAV: NavItem[] = [
   { to: '/administrativo/corregir-examen', label: 'Corregir examen (IA)', icon: <DocumentPdfRegular />, group: 'Académico' },
   { to: '/administrativo/carga-horaria', label: 'Carga horaria', icon: <DocumentPdfRegular />, group: 'Académico' },
   { to: '/administrativo/planificacion', label: 'Planificación Anual', icon: <CalendarTodayRegular />, group: 'Académico' },
-  { to: '/administrativo/planificador-ia', label: 'Planificador IA', icon: <SparkleRegular />, group: 'Académico' },
   { to: '/administrativo/clases', label: 'Clases Impartidas', icon: <NotebookRegular />, group: 'Académico' },
   { to: '/administrativo/aulas-curso', label: 'Aulas Virtuales', icon: <VideoRegular />, group: 'Académico' },
   { to: '/administrativo/encuentros', label: 'Encuentros', icon: <VideoPersonRegular />, group: 'Académico' },
