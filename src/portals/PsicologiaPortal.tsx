@@ -11,7 +11,7 @@ import { PeopleCheckmarkRegular, MegaphoneRegular, ChatRegular, SparkleRegular, 
 
 const NAV: NavItem[] = [
   { to: '/psicologia', label: 'Psicología y Orientación', icon: <PeopleCheckmarkRegular />, end: true, group: 'General' },
-  { to: '/psicologia/aulas', label: 'Aulas Virtuales', icon: <VideoRegular />, group: 'Académico' },
+  { to: '/psicologia/aulas', label: 'Aulas Virtuales', icon: <VideoRegular />, group: 'Académico', highlight: true },
   { to: '/psicologia/gestion-tic', label: 'Gestión de Psicología y Orientación', icon: <ClipboardTaskRegular />, group: 'Gestión' },
   { to: '/psicologia/comunicados', label: 'Comunicados', icon: <MegaphoneRegular />, group: 'Comunidad' },
   { to: '/psicologia/chat', label: 'Mensajería', icon: <ChatRegular />, group: 'Comunidad' },
