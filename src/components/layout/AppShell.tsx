@@ -32,6 +32,8 @@ export interface NavItem {
   icon: ReactNode
   end?: boolean
   group?: string
+  /** Resalta el texto del elemento en el menú (p. ej. una sección clave). */
+  highlight?: boolean
 }
 
 const useStyles = makeStyles({
@@ -245,7 +247,7 @@ function NavList({ nav }: { nav: NavItem[] }) {
                   <>
                     {isActive && <span className={styles.navActiveBar} />}
                     <span style={{ fontSize: '21px', display: 'inline-flex', flexShrink: 0 }}>{item.icon}</span>
-                    <span>{item.label}</span>
+                    <span style={item.highlight ? { color: '#FFD166', fontWeight: 800, letterSpacing: '0.01em' } : undefined}>{item.label}</span>
                   </>
                 )}
               </NavLink>
