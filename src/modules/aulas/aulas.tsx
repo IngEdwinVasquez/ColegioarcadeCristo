@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
-  Button, Card, Checkbox, Dialog, DialogActions, DialogBody, DialogContent, DialogSurface, DialogTitle,
+  Button, Card, Dialog, DialogActions, DialogBody, DialogContent, DialogSurface, DialogTitle,
   Input, Select, Spinner, Text, Textarea, useToastController, makeStyles, tokens,
   Badge, Table, TableBody, TableCell, TableHeader, TableHeaderCell, TableRow,
 } from '@fluentui/react-components'
 import {
-  VideoRegular, ArrowRightRegular, ImageRegular, AddRegular, DeleteRegular, BookOpenRegular, ArrowUploadRegular, SparkleRegular, ArrowDownloadRegular, CheckmarkCircleRegular, EditRegular, PeopleTeamRegular,
+  VideoRegular, ArrowRightRegular, ImageRegular, AddRegular, DeleteRegular, BookOpenRegular, ArrowUploadRegular, SparkleRegular, ArrowDownloadRegular, CheckmarkCircleRegular, EditRegular, PeopleTeamRegular, CalendarTodayRegular,
 } from '@fluentui/react-icons'
 import { PageHeader } from '../../components/shared/PageHeader'
 import { EmptyStateView } from '../../components/shared/EmptyStateView'
@@ -116,9 +116,6 @@ async function guardarImagenCurso(records: GradeSection[], patch: { imageUrl?: s
 }
 
 const PREVIEW_STYLE: CSSProperties = { width: '100%', height: '360px', border: '1px solid var(--borde)', borderRadius: '10px', background: '#fff' }
-
-/** Colores para asignaturas nuevas del catálogo. */
-const COLORES_ASIGNATURA = ['#0082AD', '#2AA9D8', '#0A7C66', '#B45309', '#7C3AED', '#BE123C', '#15803D', '#4338CA']
 
 /** Palabras y artefactos que se ignoran al comparar nombres de asignaturas. */
 const STOP_ASIGNATURA = new Set(['de', 'del', 'la', 'el', 'los', 'las', 'y', 'e', 'o', 'u', 'sec', 'seccion', 'grado', 'nivel', 'evangelico', 'evangelica', 'integral', 'religiosa', 'humana', 'para', 'con', 'en', 'al', 'on', 'b', 'basica'])
@@ -302,27 +299,22 @@ function TeamModal({ record, open, onClose, onSaved }: { record: GradeSection | 
 }
 
 /** Panel de asignaturas de un aula, con acceso y gestión del aula de Teams. */
-export function AulaSubjectsPanel({ subjects, canManage, onOpenSubject, onPlanificarIA, onChanged, puedePaseAsignatura, onPaseAsignatura }: {
+export function AulaSubjectsPanel({ subjects, canManage, onOpenSubject, onPlanificarIA, onPlanificacionAnual, onChanged, puedePaseAsignatura, onPaseAsignatura }: {
   subjects: GradeSection[]
   canManage: boolean
   onOpenSubject?: (g: GradeSection) => void
   onPlanificarIA?: (g: GradeSection) => void
+  onPlanificacionAnual?: () => void
   onChanged: () => void
   puedePaseAsignatura?: (g: GradeSection) => boolean
   onPaseAsignatura?: (g: GradeSection) => void
 }) {
   const styles = useStyles()
   const toaster = useToastController()
-  const { user, subjects: catsSubjects, grades: todasLasNotas, refreshCatalogs } = useApp()
+  const { user, subjects: catsSubjects, refreshCatalogs } = useApp()
   const [teamRecord, setTeamRecord] = useState<GradeSection | null>(null)
   const [teamOpen, setTeamOpen] = useState(false)
   const [creando, setCreando] = useState<string | null>(null)
-  const [addOpen, setAddOpen] = useState(false)
-  const [modoNueva, setModoNueva] = useState(false)
-  const [asigSel, setAsigSel] = useState('')
-  const [nuevaNombre, setNuevaNombre] = useState('')
-  const [nuevaCorta, setNuevaCorta] = useState('')
-  const [agregando, setAgregando] = useState(false)
   const [delOpen, setDelOpen] = useState(false)
   const [logOpen, setLogOpen] = useState(false)
   const [logItems, setLogItems] = useState<AsignaturaLog[]>([])
@@ -352,73 +344,6 @@ export function AulaSubjectsPanel({ subjects, canManage, onOpenSubject, onPlanif
       toaster.dispatchToast(graphErrorMessage(e), { intent: 'error' })
     } finally {
       setCreando(null)
-    }
-  }
-
-  /** Asignaturas del catálogo que aún no están en este curso. */
-  const yaEnCurso = new Set(subjects.map((g) => normAsignatura(asignaturaDe(g))))
-  const disponibles = useMemo(() => {
-    const nombres = new Map<string, string>()
-    const add = (n: string) => { const k = normAsignatura(n); if (k && !nombres.has(k)) nombres.set(k, n.trim()) }
-    for (const s of catsSubjects) add(s.name)
-    for (const g of todasLasNotas) { const n = asignaturaDe(g); if (n && isRealSubject(n)) add(n) }
-    return [...nombres.entries()].filter(([k]) => !yaEnCurso.has(k)).map(([, v]) => v).sort((a, b) => a.localeCompare(b))
-  }, [catsSubjects, todasLasNotas, subjects])
-
-  const abrirAdd = () => {
-    setModoNueva(false)
-    setAsigSel(disponibles[0] ?? '')
-    setNuevaNombre('')
-    setNuevaCorta('')
-    setAddOpen(true)
-  }
-
-  /** Agrega una asignatura (existente o nueva) al curso, creando el registro del curso. */
-  const confirmarAdd = async () => {
-    const base = subjects.find((g) => isRealSubject(asignaturaDe(g))) ?? subjects[0]
-    if (!base) { toaster.dispatchToast('No se pudo determinar el curso.', { intent: 'error' }); return }
-    setAgregando(true)
-    try {
-      let nombre = ''
-      if (modoNueva) {
-        nombre = nuevaNombre.trim()
-        if (!nombre) { toaster.dispatchToast('Escribe el nombre de la nueva asignatura.', { intent: 'error' }); return }
-      } else {
-        nombre = asigSel.trim()
-        if (!nombre) { toaster.dispatchToast('Selecciona una asignatura.', { intent: 'error' }); return }
-      }
-      if (!catsSubjects.some((s) => normAsignatura(s.name) === normAsignatura(nombre))) {
-        await dataService.saveSubject({ id: genId('sub'), name: nombre, shortName: (modoNueva ? nuevaCorta.trim() : '') || nombre.slice(0, 14), color: COLORES_ASIGNATURA[catsSubjects.length % COLORES_ASIGNATURA.length] })
-      }
-      if (subjects.some((g) => normAsignatura(asignaturaDe(g)) === normAsignatura(nombre))) {
-        toaster.dispatchToast('Esa asignatura ya está en el curso.', { intent: 'error' }); return
-      }
-      await dataService.saveGrade({
-        id: genId('g'),
-        name: base.name,
-        grado: base.grado ?? gradoDe(base),
-        section: base.section ?? seccionDe(base),
-        level: base.level,
-        nivel: base.nivel ?? nivelShort(base.level),
-        ciclo: base.ciclo,
-        asignatura: nombre,
-      })
-      await dataService.saveAsignaturaLog({
-        id: genId('alg'),
-        curso: subjects[0] ? cursoNombre(subjects[0]) : cursoNombre(base),
-        asignatura: nombre,
-        action: 'agregado',
-        userId: user?.id,
-        userName: user?.displayName ?? user?.email ?? '—',
-        fecha: new Date().toISOString(),
-      })
-      await Promise.all([refreshCatalogs(), Promise.resolve(onChanged())])
-      toaster.dispatchToast(`Asignatura "${nombre}" agregada al curso.`, { intent: 'success' })
-      setAddOpen(false)
-    } catch (e) {
-      toaster.dispatchToast(graphErrorMessage(e), { intent: 'error' })
-    } finally {
-      setAgregando(false)
     }
   }
 
@@ -510,7 +435,7 @@ export function AulaSubjectsPanel({ subjects, canManage, onOpenSubject, onPlanif
     <>
       {canManage && (
         <div className={styles.actions} style={{ marginBottom: '10px' }}>
-          <Button appearance="primary" icon={<AddRegular />} onClick={abrirAdd}>Agregar asignatura al curso</Button>
+          {onPlanificacionAnual && <Button appearance="primary" icon={<CalendarTodayRegular />} onClick={onPlanificacionAnual}>Planificación Anual</Button>}
           <Button appearance="secondary" icon={<DeleteRegular />} onClick={() => setDelOpen(true)}>Eliminar asignatura del curso</Button>
           <Button appearance="subtle" icon={<BookOpenRegular />} onClick={() => void abrirLog()}>Movimiento de asignaturas</Button>
           <Text size={200} style={{ color: 'var(--texto-suave)' }}>{subjects.length} asignatura(s)</Text>
@@ -549,40 +474,6 @@ export function AulaSubjectsPanel({ subjects, canManage, onOpenSubject, onPlanif
         ))}
       </div>
       <TeamModal record={teamRecord} open={teamOpen} onClose={() => setTeamOpen(false)} onSaved={onChanged} />
-
-      <ModalForm
-        open={addOpen}
-        onOpenChange={(o) => { if (!o) setAddOpen(false) }}
-        title="Agregar asignatura al curso"
-        subtitle="Selecciona una asignatura del catálogo o crea una nueva si no existe."
-        width={520}
-        actions={
-          <>
-            <Button appearance="secondary" onClick={() => setAddOpen(false)} disabled={agregando}>Cancelar</Button>
-            <Button appearance="primary" icon={agregando ? <Spinner size="tiny" /> : <AddRegular />} disabled={agregando} onClick={() => void confirmarAdd()}>
-              {agregando ? 'Agregando…' : 'Agregar asignatura'}
-            </Button>
-          </>
-        }
-      >
-        <FormField label="Asignatura del catálogo">
-          <Select value={asigSel} disabled={modoNueva || disponibles.length === 0} onChange={(_, d) => setAsigSel(d.value)}>
-            {disponibles.length === 0 && <option value="">Todas las asignaturas ya están en el curso</option>}
-            {disponibles.map((n) => <option key={n} value={n}>{n}</option>)}
-          </Select>
-        </FormField>
-        <Checkbox checked={modoNueva} label="La asignatura no existe: crear una nueva" onChange={(_, d) => setModoNueva(!!d.checked)} />
-        {modoNueva && (
-          <FieldRow>
-            <FormField label="Nombre de la nueva asignatura" required>
-              <Input value={nuevaNombre} onChange={(_, d) => setNuevaNombre(d.value)} placeholder="Ej.: Educación Artística" />
-            </FormField>
-            <FormField label="Nombre corto (opcional)">
-              <Input value={nuevaCorta} onChange={(_, d) => setNuevaCorta(d.value)} />
-            </FormField>
-          </FieldRow>
-        )}
-      </ModalForm>
 
       <ModalForm
         open={editOpen}
@@ -686,11 +577,12 @@ export type AulaScope =
  * - `docente`: solo las aulas/asignaturas asignadas al docente.
  * - `estudiante`: solo las aulas de los cursos en que está matriculado.
  */
-export function AulasView({ scope, subtitle, pageTitle = 'Aulas', onOpenSubject }: {
+export function AulasView({ scope, subtitle, pageTitle = 'Aulas', onOpenSubject, onPlanificacionAnual }: {
   scope: AulaScope
   subtitle?: string
   pageTitle?: string
   onOpenSubject?: (g: GradeSection) => void
+  onPlanificacionAnual?: () => void
 }) {
   const styles = useStyles()
   const toaster = useToastController()
@@ -1220,6 +1112,7 @@ Si falta información, complétala según el Diseño Curricular del MINERD para 
                     canManage={canManage}
                     onOpenSubject={onOpenSubject}
                     onPlanificarIA={(g) => abrirPlanIA(g)}
+                    onPlanificacionAnual={onPlanificacionAnual}
                     onChanged={() => { void gradesCol.refresh() }}
                     puedePaseAsignatura={(g) => !!user?.teacherId && assignmentsCol.items.some((a) => a.teacherId === user.teacherId && a.gradeId === g.id)}
                     onPaseAsignatura={(g) => { setPaseAsig(g); setPaseAsigOpen(true) }}
@@ -1542,6 +1435,7 @@ export function AulasViewManagement({ base, scope, pageTitle, subtitle }: { base
       pageTitle={pageTitle}
       subtitle={subtitle}
       onOpenSubject={(g) => navigate(`${base}/${g.id}/${encodeURIComponent(seccionDe(g))}/${subjectIdOf(g, subjects)}/virtual`)}
+      onPlanificacionAnual={base.startsWith('/administrativo') ? () => navigate('/administrativo/planificacion') : undefined}
     />
   )
 }
