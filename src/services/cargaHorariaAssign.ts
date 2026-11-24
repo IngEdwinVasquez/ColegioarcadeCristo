@@ -77,7 +77,7 @@ const GRADO_MATCH: Array<[RegExp, string]> = [
   [/\b(?:6(?:to|ta|o)?|sexto|sexta)\b/, '6to'],
 ]
 
-/** Extrae el grado (1roâ€¦6to) y las secciones (Aâ€“G) de un texto como "5to", "6to A", "4to. A,B". */
+/** Extrae el grado (1ro…6to) y las secciones (A–G) de un texto como "5to", "6to A", "4to. A,B". */
 function parseGrado(texto: string): { grado: string; secciones: string[]; general: boolean } {
   const t = norm(texto)
   const gm = GRADO_MATCH.find(([re]) => re.test(t))
@@ -103,7 +103,7 @@ function emparejarDocente(nombre: string, teachers: Teacher[]): { teacher?: Teac
   return { teacher: mejorScore > 0 ? mejor : undefined, score: mejorScore, ambiguo: empates > 1 }
 }
 
-/** Busca (o describe) la asignatura en el catÃ¡logo. */
+/** Busca (o describe) la asignatura en el catálogo. */
 function emparejarAsignatura(nombre: string, subjects: Subject[]): { id?: string; nombre: string; nueva: boolean } {
   const n = norm(nombre)
   const exacto = subjects.find((s) => norm(s.name) === n)
@@ -113,7 +113,7 @@ function emparejarAsignatura(nombre: string, subjects: Subject[]): { id?: string
   return { nombre: nombre.trim(), nueva: true }
 }
 
-/** Cursos objetivo (grado + secciÃ³n + nivel) para un item de la carga horaria. */
+/** Cursos objetivo (grado + sección + nivel) para un item de la carga horaria. */
 function resolverCursos(grados: string[], nivelLargo: string, grades: GradeSection[]): Array<{ grado: string; seccion: string; level: string }> {
   const delNivel = grades.filter((g) => nivelShort(g.level) === nivelShort(nivelLargo))
   const objetivos: Array<{ grado: string; seccion: string; level: string }> = []
@@ -139,7 +139,7 @@ function seccionesDe(grado: string, grades: GradeSection[]): string[] {
   return s.length ? s : ['A']
 }
 
-/** Resuelve el aula de Inicial (Pre-Kínder/Kínder/Pre-Primaria) a partir del texto del grado. */
+/** Resuelve el aula de Inicial (Pre-K�nder/K�nder/Pre-Primaria) a partir del texto del grado. */
 function resolverCursoInicial(gradoTexto: string, grades: GradeSection[]): { grado: string; seccion: string } | null {
   const delNivel = grades.filter((g) => nivelShort(g.level) === 'Inicial')
   const secMatch = norm(gradoTexto).match(/\b([a-g])\b/)
@@ -154,26 +154,26 @@ function resolverCursoInicial(gradoTexto: string, grades: GradeSection[]): { gra
   return match ? { grado: gradoDe(match), seccion: seccionDe(match) } : { grado: gi.nombre, seccion }
 }
 
-/* ------------------------------- extracciÃ³n IA ------------------------------- */
+/* ------------------------------- extracción IA ------------------------------- */
 
-const EXTRACCION_PROMPT = (nivel: string) => `Eres un asistente que extrae la informaciÃ³n de un documento "DistribuciÃ³n de la carga horaria" del Nivel ${nivel} (RepÃºblica Dominicana).
-Devuelve un JSON vÃ¡lido con esta forma exacta:
-{"docentes":[{"docente":"nombre tal como aparece","grado":"texto de la columna Grado/SecciÃ³n","carga":"30 horas","items":[{"asignatura":"MatemÃ¡ticas","grados":["5to","6to A","6to B"]}]}]}
+const EXTRACCION_PROMPT = (nivel: string) => `Eres un asistente que extrae la información de un documento "Distribución de la carga horaria" del Nivel ${nivel} (República Dominicana).
+Devuelve un JSON válido con esta forma exacta:
+{"docentes":[{"docente":"nombre tal como aparece","grado":"texto de la columna Grado/Sección","carga":"30 horas","items":[{"asignatura":"Matemáticas","grados":["5to","6to A","6to B"]}]}]}
 Reglas para "grados" de cada asignatura:
-- Interpreta la columna "Grado/SecciÃ³n" y cualquier grado/ciclo mencionado en el texto de la asignatura.
-- "5to, 6to A y B" â†’ ["5to","6to A","6to B"]. "4to. A,B" â†’ ["4to A","4to B"]. "5to, 6to" â†’ ["5to","6to"].
-- "Secundario" â†’ ["1ro","2do","3ro","4to","5to","6to"]. "Primario" â†’ ["1ro","2do","3ro","4to","5to","6to"].
+- Interpreta la columna "Grado/Sección" y cualquier grado/ciclo mencionado en el texto de la asignatura.
+- "5to, 6to A y B" → ["5to","6to A","6to B"]. "4to. A,B" → ["4to A","4to B"]. "5to, 6to" → ["5to","6to"].
+- "Secundario" → ["1ro","2do","3ro","4to","5to","6to"]. "Primario" → ["1ro","2do","3ro","4to","5to","6to"].
 - Si la asignatura dice "Primer Ciclo" (1er ciclo) usa solo ["1ro","2do","3ro"]; si dice "Segundo Ciclo" (2do ciclo) usa solo ["4to","5to","6to"].
 - Si en "Secundario" una asignatura menciona un grado concreto (p. ej. "Optativa de 5to", "Ciencias Sociales en 1ro", "Arte en 5to y 6to A y B") usa esos grados para ESA asignatura.
 - Separa cada asignatura distinta en un item. No inventes asignaturas ni docentes.
-- En "asignatura" usa el nombre del Ã¡rea/materia (sin las horas ni el grado).
-Responde ÃšNICAMENTE el JSON.`
+- En "asignatura" usa el nombre del área/materia (sin las horas ni el grado).
+Responde ÚNICAMENTE el JSON.`
 
 /** Analiza el PDF de la carga horaria y devuelve las filas de docentes (una sola llamada a la IA). */
 export async function extraerCargaHoraria(textoPdf: string, nivel: string): Promise<CargaDocente[]> {
   const res = await aiChat(
     [
-      { role: 'system', content: 'Asistente curricular MINERD. Responde solo JSON vÃ¡lido.' },
+      { role: 'system', content: 'Asistente curricular MINERD. Responde solo JSON válido.' },
       { role: 'user', content: `${EXTRACCION_PROMPT(nivel)}\n\nDocumento:\n"""${textoPdf.slice(0, 20000)}"""` },
     ],
     { temperature: 0.2, jsonMode: true, maxTokens: 4000 },
@@ -190,9 +190,9 @@ export async function extraerCargaHoraria(textoPdf: string, nivel: string): Prom
   })).filter((d) => d.docente && d.items.length)
 }
 
-/* ------------------------------- plan / aplicaciÃ³n ------------------------------- */
+/* ------------------------------- plan / aplicación ------------------------------- */
 
-/** Construye el plan (sin escribir) a partir de las filas extraÃ­das. */
+/** Construye el plan (sin escribir) a partir de las filas extraídas. */
 export function construirPlan(nivel: string, filas: CargaDocente[], ctx: CargaContexto): PlanCarga {
   const docentes: DocentePlan[] = []
   const asignaturasNuevas = new Set<string>()
@@ -203,14 +203,14 @@ export function construirPlan(nivel: string, filas: CargaDocente[], ctx: CargaCo
   for (const fila of filas) {
     const { teacher, score, ambiguo } = emparejarDocente(fila.docente, ctx.teachers)
     const advertencias: string[] = []
-    if (!teacher) advertencias.push(`No se encontró el docente "${fila.docente}" en la plataforma.`)
+    if (!teacher) advertencias.push(`No se encontr� el docente "${fila.docente}" en la plataforma.`)
     else if (ambiguo) advertencias.push(`Varios docentes coinciden con "${fila.docente}"; verifique el emparejamiento.`)
 
     const itemsResueltos: ItemResuelto[] = []
     const pares = new Set<string>()
     let titulares = 0
     if (nivelShort(nivel) === 'Inicial') {
-      // En Inicial el docente trabaja todas las áreas en un aula: titular + "Asignatura General".
+      // En Inicial el docente trabaja todas las �reas en un aula: titular + "Asignatura General".
       const curso = resolverCursoInicial(fila.grado, ctx.grades)
       if (curso) {
         const existenteGeneral = ctx.subjects.find((s) => /general/.test(norm(s.name)))
@@ -281,7 +281,7 @@ export async function aplicarPlan(
     const wanted = new Map<string, { gradeId: string; subjectId: string }>()
 
     for (const item of fila.items) {
-      // Inicial: el docente trabaja todas las áreas en un aula (titular + "Asignatura General").
+      // Inicial: el docente trabaja todas las �reas en un aula (titular + "Asignatura General").
       if (item.titular) {
         let objetivo = grades.filter((g) => nivelShort(g.level) === 'Inicial' && gradoDe(g) === item.gradoInicial && seccionDe(g) === item.seccionInicial)
         if (objetivo.length === 0 && item.gradoInicial) {
@@ -302,7 +302,7 @@ export async function aplicarPlan(
         for (const g of objetivo) {
           if (g.leadTeacherId !== fila.docenteId) { await dataServiceSaveGrade({ ...g, leadTeacherId: fila.docenteId }); titularesAsignados++ }
         }
-        // Asignatura General del aula de Inicial: se asegura en el catálogo y se asigna al docente.
+        // Asignatura General del aula de Inicial: se asegura en el cat�logo y se asigna al docente.
         let general = subjects.find((s) => /general/.test(norm(s.name)))
         if (!general) {
           general = { id: genId('sub'), name: 'Asignatura General', shortName: 'General' }
@@ -331,7 +331,7 @@ export async function aplicarPlan(
         wanted.set(`${rec.id}|${general.id}`, { gradeId: rec.id, subjectId: general.id })
         continue
       }
-      // Asignatura: usar la del catálogo o crear una nueva.
+      // Asignatura: usar la del cat�logo o crear una nueva.
       let subject = subjects.find((s) => norm(s.name) === norm(item.asignatura))
       if (!subject) {
         subject = { id: genId('sub'), name: item.asignatura, shortName: item.asignatura.slice(0, 14) }
@@ -346,7 +346,7 @@ export async function aplicarPlan(
       }
     }
 
-    // Reconciliar asignaciones del docente en el perÃ­odo activo.
+    // Reconciliar asignaciones del docente en el período activo.
     const todas = await dataServiceGetAssignments()
     const mias = todas.filter((a) => a.teacherId === fila.docenteId && (!period || a.periodId === period.id))
     for (const { gradeId, subjectId } of wanted.values()) {

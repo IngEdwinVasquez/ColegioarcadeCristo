@@ -52,7 +52,6 @@ const NAV: NavItem[] = [
   { to: '/administrativo/promocion', label: 'Promoción', icon: <ArrowUpRegular />, group: 'Académico' },
   { to: '/administrativo/asignaciones', label: 'Asignaciones', icon: <LinkSquareRegular />, group: 'Académico' },
   { to: '/administrativo/gestion-academica', label: 'Gestión académica', icon: <BookRegular />, group: 'Académico' },
-  { to: '/administrativo/registro-grado', label: 'Registro de Grado', icon: <BookRegular />, group: 'Académico' },
   { to: '/administrativo/corregir-examen', label: 'Corregir examen (IA)', icon: <DocumentPdfRegular />, group: 'Académico' },
   { to: '/administrativo/carga-horaria', label: 'Carga horaria', icon: <DocumentPdfRegular />, group: 'Académico' },
   { to: '/administrativo/planificacion', label: 'Planificación Anual', icon: <CalendarTodayRegular />, group: 'Académico' },

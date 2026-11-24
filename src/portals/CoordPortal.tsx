@@ -1,4 +1,4 @@
-﻿import { Route, Routes } from 'react-router-dom'
+import { Route, Routes } from 'react-router-dom'
 import { AppShell, type NavItem } from '../components/layout/AppShell'
 import { CoordDashboard } from '../modules/coordinacion/CoordDashboard'
 import { PersonasNivel } from '../modules/coordinacion/PersonasNivel'
@@ -35,20 +35,19 @@ import {
 
 const NAV: NavItem[] = [
   { to: '/coordinacion', label: 'Inicio', icon: <HomeRegular />, end: true, group: 'General' },
-  { to: '/coordinacion/personas', label: 'Docentes y Estudiantes', icon: <PeopleRegular />, group: 'AcadÃ©mico' },
-  { to: '/coordinacion/horarios', label: 'Horarios de Clase', icon: <CalendarLtrRegular />, group: 'AcadÃ©mico' },
-  { to: '/coordinacion/planificacion', label: 'PlanificaciÃ³n del Nivel', icon: <NotebookRegular />, group: 'AcadÃ©mico' },
-  { to: '/coordinacion/planificador-ia', label: 'Planificador IA', icon: <SparkleRegular />, group: 'AcadÃ©mico' },
-  { to: '/coordinacion/acompanamientos', label: 'AcompaÃ±amiento Docente', icon: <HeartPulseRegular />, group: 'AcadÃ©mico' },
-  { to: '/coordinacion/cumplimiento', label: 'Cumplimiento', icon: <CheckmarkCircleRegular />, group: 'AcadÃ©mico' },
-  { to: '/coordinacion/promocion', label: 'PromociÃ³n', icon: <ArrowUpRegular />, group: 'AcadÃ©mico' },
-  { to: '/coordinacion/asignaciones', label: 'Asignaciones', icon: <LinkSquareRegular />, group: 'AcadÃ©mico' },
-  { to: '/coordinacion/gestion-academica', label: 'GestiÃ³n acadÃ©mica', icon: <BookRegular />, group: 'AcadÃ©mico' },
-  { to: '/coordinacion/aulas', label: 'Aulas Virtuales', icon: <VideoRegular />, group: 'AcadÃ©mico' },
-  { to: '/coordinacion/registro-grado', label: 'Registro de Grado', icon: <BookRegular />, group: 'AcadÃ©mico' },
-  { to: '/coordinacion/corregir-examen', label: 'Corregir examen (IA)', icon: <ClipboardTaskRegular />, group: 'AcadÃ©mico' },
-  { to: '/coordinacion/carga-horaria', label: 'Carga horaria', icon: <DocumentPdfRegular />, group: 'AcadÃ©mico' },
-  { to: '/coordinacion/gestion-tic', label: 'GestiÃ³n de CoordinaciÃ³n PedagÃ³gica', icon: <ClipboardTaskRegular />, group: 'GestiÃ³n' },
+  { to: '/coordinacion/personas', label: 'Docentes y Estudiantes', icon: <PeopleRegular />, group: 'Académico' },
+  { to: '/coordinacion/horarios', label: 'Horarios de Clase', icon: <CalendarLtrRegular />, group: 'Académico' },
+  { to: '/coordinacion/planificacion', label: 'Planificación del Nivel', icon: <NotebookRegular />, group: 'Académico' },
+  { to: '/coordinacion/planificador-ia', label: 'Planificador IA', icon: <SparkleRegular />, group: 'Académico' },
+  { to: '/coordinacion/acompanamientos', label: 'Acompañamiento Docente', icon: <HeartPulseRegular />, group: 'Académico' },
+  { to: '/coordinacion/cumplimiento', label: 'Cumplimiento', icon: <CheckmarkCircleRegular />, group: 'Académico' },
+  { to: '/coordinacion/promocion', label: 'Promoción', icon: <ArrowUpRegular />, group: 'Académico' },
+  { to: '/coordinacion/asignaciones', label: 'Asignaciones', icon: <LinkSquareRegular />, group: 'Académico' },
+  { to: '/coordinacion/gestion-academica', label: 'Gestión académica', icon: <BookRegular />, group: 'Académico' },
+  { to: '/coordinacion/aulas', label: 'Aulas Virtuales', icon: <VideoRegular />, group: 'Académico' },
+  { to: '/coordinacion/corregir-examen', label: 'Corregir examen (IA)', icon: <ClipboardTaskRegular />, group: 'Académico' },
+  { to: '/coordinacion/carga-horaria', label: 'Carga horaria', icon: <DocumentPdfRegular />, group: 'Académico' },
+  { to: '/coordinacion/gestion-tic', label: 'Gestión de Coordinación Pedagógica', icon: <ClipboardTaskRegular />, group: 'Gestión' },
   { to: '/coordinacion/copilot', label: 'Copilot', icon: <SparkleRegular />, group: 'Herramientas' },
 ]
 
@@ -71,7 +70,7 @@ export function CoordPortal() {
         <Route path="registro-grado" element={<RegistroGradoPage scope={{ kind: 'coordinacion' }} />} />
         <Route path="corregir-examen" element={<CorregirExamenPage />} />
         <Route path="carga-horaria" element={<CargaHorariaPage />} />
-        <Route path="gestion-tic" element={<GestionTicPage title="GestiÃ³n de CoordinaciÃ³n PedagÃ³gica" />} />
+        <Route path="gestion-tic" element={<GestionTicPage title="Gestión de Coordinación Pedagógica" />} />
         <Route path="copilot" element={<CopilotPage />} />
       </Route>
     </Routes>

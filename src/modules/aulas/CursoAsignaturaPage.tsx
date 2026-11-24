@@ -163,6 +163,11 @@ export function CursoAsignaturaPage() {
   }, [allStudents, enrollmentsCol.items, gradeId])
 
   const editable = user?.roles.some((r) => ['docente', 'admin', 'tecnologia', 'coordinacion'].includes(r)) ?? false
+  const registroHref = user?.roles.includes('coordinacion')
+    ? '#/coordinacion/registro-grado'
+    : user?.roles.includes('docente')
+      ? '#/docentes/registro-grado'
+      : '#/administrativo/registro-grado'
   const studentId = user?.studentId ?? ''
   const isStudent = !!studentId && !editable
 
@@ -802,6 +807,7 @@ Incluye una introducción, al menos 3 recursos variando el tipo según la necesi
       <TabList selectedValue={tab} onTabSelect={(_, d) => setTab(String(d.value))} style={{ marginBottom: '14px' }}>
         <Tab value="curso">Contenido del curso</Tab>
         {!isStudent && <Tab value="calificaciones">Registro de calificaciones</Tab>}
+        {!isStudent && <Tab value="registro-grado">Registro de Grado</Tab>}
       </TabList>
 
       {tab === 'curso' && (
@@ -1040,6 +1046,33 @@ Incluye una introducción, al menos 3 recursos variando el tipo según la necesi
           <input ref={studentFileRef} type="file" style={{ display: 'none' }} onChange={(e) => { const id = studentActividad; if (id) void subirEntregaEstudiante(e.target.files?.[0], id) }} />
           <input ref={unidadImgRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => void subirImagenUnidad(e.target.files?.[0])} />
         </>
+      )}
+
+      {!isStudent && tab === 'registro-grado' && (
+        <Card className={styles.card}>
+          <Text weight="semibold" size={400} block>Registro de Grado · {subject?.name ?? 'Asignatura'}</Text>
+          <Text size={200} block style={{ color: 'var(--texto-suave)' }}>
+            La información del Registro de Grado (MINERD) se usa de base para generar la planificación con IA. Súbelo o actualízalo desde aquí.
+          </Text>
+          {(() => {
+            const reg = registrosCol.items.find((r) => r.curso === draft.curso)
+            if (!reg) return <Text size={200} style={{ color: 'var(--texto-suave)' }}>Aún no hay registro de grado para este curso.</Text>
+            const esp = reg.especificaciones?.[subject?.name ?? ''] ?? {}
+            const periodos = [esp.p1, esp.p2, esp.p3, esp.p4].filter(Boolean).length
+            return (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                <Text size={200}><strong>Curso:</strong> {reg.curso}</Text>
+                <Text size={200}><strong>Nivel:</strong> {reg.nivel}{reg.ciclo ? ` · ${reg.ciclo}` : ''}</Text>
+                <Text size={200}><strong>Estudiantes:</strong> {reg.estudiantes.length}</Text>
+                {reg.plantillaNombre && <Text size={200}><strong>PDF:</strong> {reg.plantillaNombre}</Text>}
+                <Text size={200}><strong>Especificaciones de {subject?.name ?? 'la asignatura'}:</strong> {periodos} período(s) registrados</Text>
+              </div>
+            )
+          })()}
+          <div className={styles.actions}>
+            <Button appearance="primary" icon={<BookOpenRegular />} as="a" href={registroHref}>Abrir / Subir registro de grado</Button>
+          </div>
+        </Card>
       )}
 
       {!isStudent && tab === 'calificaciones' && (
