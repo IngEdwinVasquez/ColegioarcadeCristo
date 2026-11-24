@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Button, Input, Select, Spinner, Table, TableBody, TableCell, TableHeader, TableHeaderCell, TableRow, Text, useToastController } from '@fluentui/react-components'
-import { CheckmarkCircleRegular, AddRegular, DeleteRegular } from '@fluentui/react-icons'
+import { CheckmarkCircleRegular, AddRegular, DeleteRegular, ArrowSyncRegular } from '@fluentui/react-icons'
 import { ModalForm } from '../../components/shared/ModalForm'
 import { FormField, FieldRow } from '../../components/shared/form'
 import { dataService } from '../../services/dataService'
@@ -45,12 +45,40 @@ export function PaseListaModal({ open, onClose, course, estudiantes, periodId, t
   const [saving, setSaving] = useState(false)
   const [nuevoId, setNuevoId] = useState('')
   const [gestion, setGestion] = useState(false)
+  const [listaTodos, setListaTodos] = useState<Alumno[]>(todosEstudiantes ?? [])
+  const [refrescando, setRefrescando] = useState(false)
+  const [buscar, setBuscar] = useState('')
 
   const gestionaRoster = !!(onAgregarEstudiante || onQuitarEstudiante)
   const disponibles = useMemo(
-    () => (todosEstudiantes ?? []).filter((s) => !estudiantes.some((e) => e.id === s.id)),
-    [todosEstudiantes, estudiantes],
+    () => listaTodos.filter((s) => !estudiantes.some((e) => e.id === s.id)),
+    [listaTodos, estudiantes],
   )
+  const disponiblesFiltrados = useMemo(() => {
+    const q = buscar.trim().toLowerCase()
+    return q ? disponibles.filter((s) => s.fullName.toLowerCase().includes(q)) : disponibles
+  }, [disponibles, buscar])
+
+  // Al abrir (o al usar «Actualizar lista»), se leen de nuevo todos los estudiantes creados.
+  const actualizarLista = async (silencioso = false) => {
+    setRefrescando(true)
+    try {
+      const fresh = await dataService.getStudents()
+      const arr = fresh.map((s) => ({ id: s.id, fullName: s.fullName }))
+      setListaTodos(arr)
+      if (!silencioso) toaster.dispatchToast(`Lista actualizada: ${arr.length} estudiante(s).`, { intent: 'success' })
+    } catch (e) {
+      if (!silencioso) toaster.dispatchToast(e instanceof Error ? e.message : 'No se pudo actualizar la lista.', { intent: 'error' })
+    } finally {
+      setRefrescando(false)
+    }
+  }
+
+  // Al abrir, refresca en segundo plano para incluir estudiantes recién creados.
+  useEffect(() => {
+    if (open && gestionaRoster) void actualizarLista(true)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, gestionaRoster])
 
   const agregar = async () => {
     if (!onAgregarEstudiante || !nuevoId) return
@@ -168,12 +196,15 @@ export function PaseListaModal({ open, onClose, course, estudiantes, periodId, t
       </div>
       {gestionaRoster && (
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap', marginBottom: '10px' }}>
+          <Input value={buscar} onChange={(_, d) => setBuscar(d.value)} placeholder="Buscar estudiante…" style={{ minWidth: '180px' }} />
           <Select value={nuevoId} onChange={(_, d) => setNuevoId(d.value)} disabled={gestion} style={{ minWidth: '260px' }}>
             <option value="">— Agregar estudiante al curso —</option>
-            {disponibles.map((s) => <option key={s.id} value={s.id}>{s.fullName}</option>)}
+            {disponiblesFiltrados.map((s) => <option key={s.id} value={s.id}>{s.fullName}</option>)}
           </Select>
+          <Button appearance="secondary" icon={refrescando ? <Spinner size="tiny" /> : <ArrowSyncRegular />} disabled={refrescando || gestion} onClick={() => void actualizarLista()} title="Recargar la lista de estudiantes creados">Actualizar lista</Button>
           <Button appearance="secondary" icon={<AddRegular />} disabled={gestion || !nuevoId} onClick={() => void agregar()}>Agregar al curso</Button>
           {disponibles.length === 0 && <Text size={200} style={{ color: 'var(--texto-suave)' }}>Todos los estudiantes ya están en el curso.</Text>}
+          {disponibles.length > 0 && disponiblesFiltrados.length === 0 && <Text size={200} style={{ color: 'var(--texto-suave)' }}>Sin coincidencias. Pulsa «Actualizar lista» si el estudiante fue creado recientemente.</Text>}
         </div>
       )}
       {estudiantes.length === 0 ? (
