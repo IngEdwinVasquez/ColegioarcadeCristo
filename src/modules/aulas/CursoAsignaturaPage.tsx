@@ -9,8 +9,9 @@ import { useApp } from '../../context/useApp'
 import { dataService } from '../../services/dataService'
 import { useCollection } from '../../hooks/useCollection'
 import { uploadFile, uploadAndShare, downloadFileAsDataUrl, getFileDownloadUrl, listFilesInFolder } from '../../services/onedrive'
+import { extractPdfText } from '../../services/pdf'
 import { htmlToPdfBlob, downloadPlanPdf } from '../../services/planPdf'
-import { aiChat } from '../../services/ai'
+import { aiChat, parseAiJson } from '../../services/ai'
 import { createClassModule } from '../../services/teamsEdu'
 import { graphErrorMessage } from '../../services/graph'
 import { genId, todayIso } from '../../utils/helpers'
@@ -93,6 +94,9 @@ export function CursoAsignaturaPage() {
   const [informeUnidad, setInformeUnidad] = useState<{ unidadId: string; texto: string } | null>(null)
   const [datosUnidad, setDatosUnidad] = useState<{ unidadId: string; tema: string; descripcion: string } | null>(null)
   const [unidadBusy, setUnidadBusy] = useState(false)
+  const [unidadesBusy, setUnidadesBusy] = useState(false)
+  const [refDocsBusy, setRefDocsBusy] = useState(false)
+  const refDocsInput = useRef<HTMLInputElement>(null)
   const [planForm, setPlanForm] = useState({ periodo: 'Año escolar completo (Períodos I, II, III y IV)', observaciones: '' })
 
   const gradeId = params.gradeId ?? ''
@@ -338,6 +342,83 @@ export function CursoAsignaturaPage() {
     }
   }
 
+  /** Genera automáticamente las unidades de aprendizaje (con actividades) desde la planificación del curso. */
+  const generarUnidadesDesdePlan = async () => {
+    if (!draft) return
+    const planHtml = planesClase[0]?.html ?? ''
+    if (!planHtml) { toaster.dispatchToast('Primero crea la planificación del curso.', { intent: 'error' }); return }
+    const planTexto = planHtml.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').slice(0, 7000)
+    const asignatura = subject?.name ?? 'Asignatura'
+    const registro = registrosCol.items.find((r) => r.curso === draft.curso)
+    const esp = registro?.especificaciones?.[asignatura] ?? {}
+    const espTexto = [esp.p1, esp.p2, esp.p3, esp.p4].filter(Boolean).join(' | ').slice(0, 2000)
+    setUnidadesBusy(true)
+    try {
+      const prompt = `Eres diseñador curricular del MINERD. A partir de la PLANIFICACIÓN GENERAL del curso de "${asignatura}" (${draft.curso}), crea las UNIDADES DE APRENDIZAJE del período. Devuelve SOLO JSON válido:
+{"unidades":[{"titulo":"Unidad 1: ...","tema":"...","introduccion":"2-3 frases","desde":"YYYY-MM-DD","hasta":"YYYY-MM-DD","actividades":[{"titulo":"...","instrucciones":"...","puntos":10}]}]}
+Reglas: entre 4 y 8 unidades; 2 a 4 actividades por unidad; coherentes con contenidos y competencias.
+Planificación:\n${planTexto}${espTexto ? `\nEspecificaciones curriculares: ${espTexto}` : ''}`
+      const raw = await aiChat([
+        { role: 'system', content: 'Diseñador curricular MINERD. Devuelve JSON.' },
+        { role: 'user', content: prompt },
+      ], { jsonMode: true, temperature: 0.4, maxTokens: 3000 })
+      const parsed = parseAiJson<{ unidades: Array<Record<string, unknown>> }>(raw)
+      if (!parsed?.unidades?.length) throw new Error('La IA no devolvió unidades. Intenta de nuevo.')
+      const nuevas: CursoUnidad[] = parsed.unidades.map((u, i) => {
+        const acts = Array.isArray(u.actividades) ? (u.actividades as Array<Record<string, unknown>>) : []
+        return {
+          id: genId('uni'),
+          titulo: typeof u.titulo === 'string' && u.titulo ? u.titulo : `Unidad ${i + 1}`,
+          tema: typeof u.tema === 'string' ? u.tema : undefined,
+          introduccion: typeof u.introduccion === 'string' ? u.introduccion : undefined,
+          aiCreated: true,
+          desde: typeof u.desde === 'string' ? u.desde : undefined,
+          hasta: typeof u.hasta === 'string' ? u.hasta : undefined,
+          recursos: [],
+          actividades: acts.map((a) => ({
+            id: genId('act'),
+            titulo: typeof a.titulo === 'string' && a.titulo ? a.titulo : 'Actividad',
+            instrucciones: typeof a.instrucciones === 'string' ? a.instrucciones : undefined,
+            puntos: typeof a.puntos === 'number' ? a.puntos : 10,
+          })),
+        }
+      })
+      const next = { ...draft, updatedAt: new Date().toISOString(), units: [...draft.units, ...nuevas] }
+      await pagesCol.save(next)
+      savedRef.current = JSON.stringify({ ...next, updatedAt: '' })
+      setDraft(next)
+      toaster.dispatchToast(`${nuevas.length} unidad(es) generadas. Puedes editarlas o eliminarlas.`, { intent: 'success' })
+    } catch (e) {
+      toaster.dispatchToast(graphErrorMessage(e), { intent: 'error' })
+    } finally {
+      setUnidadesBusy(false)
+    }
+  }
+
+  const subirRefDocs = async (files: FileList | null) => {
+    if (!files || !draft) return
+    setRefDocsBusy(true)
+    try {
+      const docs = [...(draft.planRefDocs ?? [])]
+      for (const file of Array.from(files)) {
+        let text = ''
+        if (/\.pdf$/i.test(file.name) || /pdf/i.test(file.type)) {
+          try { text = (await extractPdfText(file)).slice(0, 12000) } catch { /* sin texto */ }
+        }
+        const ref = await uploadAndShare('Planificaciones/Referencias', file)
+        docs.push({ ref: ref.id, name: file.name, text })
+      }
+      const next = { ...draft, planRefDocs: docs, updatedAt: new Date().toISOString() }
+      await pagesCol.save(next)
+      setDraft(next)
+      toaster.dispatchToast('Documentos de referencia guardados. La IA los usará al generar la planificación.', { intent: 'success' })
+    } catch (e) {
+      toaster.dispatchToast(graphErrorMessage(e), { intent: 'error' })
+    } finally {
+      setRefDocsBusy(false)
+    }
+  }
+
   const addRecurso = () => {
     if (!draft || !nuevoRecurso) return
     const u = draft.units.find((x) => x.id === nuevoRecurso.unidadId)
@@ -500,6 +581,7 @@ ${regInfo}
 Especificaciones curriculares registradas por período:
 ${espInfo}
 ${template ? `Estructura de referencia (documento modelo del curso):\n"""${template}"""` : ''}
+${(draft.planRefDocs ?? []).length ? `Documentos de referencia proporcionados por el docente (úsalos como contenido base):\n${(draft.planRefDocs ?? []).map((d) => `- ${d.name}: ${(d.text ?? '').slice(0, 3000)}`).join('\n')}` : ''}
 Si falta información, complétala según el Diseño Curricular del MINERD para ese grado y asignatura, integrándola coherentemente con lo registrado. Devuelve ÚNICAMENTE el HTML completo del documento (usa <h1>, <h2>, <h3>, <p>, <ul>/<li> y <table>).`
       const html = await aiChat([
         { role: 'system', content: 'Asistente curricular MINERD. Devuelve HTML completo.' },
@@ -778,6 +860,7 @@ Incluye una introducción, al menos 3 recursos variando el tipo según la necesi
           {/* Unidades */}
           <div className={styles.actions} style={{ marginBottom: '10px' }}>
             {editable && <Button appearance="secondary" icon={<AddRegular />} onClick={addUnidad}>Agregar unidad de aprendizaje</Button>}
+            {editable && <Button appearance="secondary" icon={unidadesBusy ? <Spinner size="tiny" /> : <SparkleRegular />} disabled={unidadesBusy || planesClase.length === 0} onClick={() => void generarUnidadesDesdePlan()}>{unidadesBusy ? 'Generando unidades…' : 'Generar unidades con IA'}</Button>}
             <Text size={200} style={{ color: 'var(--texto-suave)' }}>{draft.units.length} unidad(es)</Text>
           </div>
 
@@ -1030,6 +1113,22 @@ Incluye una introducción, al menos 3 recursos variando el tipo según la necesi
               <Textarea value={planForm.observaciones} resize="vertical" onChange={(_, d) => setPlanForm({ ...planForm, observaciones: d.value })} />
             </FormField>
           </>
+        )}
+        {editable && (
+          <FormField label="Documentos de referencia (opcional)" hint="PDF que la IA usará como contenido base junto con el Registro de Grado y el documento modelo.">
+            <input ref={refDocsInput} type="file" accept="application/pdf,image/*" multiple style={{ display: 'none' }} onChange={(e) => { void subirRefDocs(e.target.files); e.target.value = '' }} />
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+              <Button appearance="secondary" icon={refDocsBusy ? <Spinner size="tiny" /> : <ArrowUploadRegular />} disabled={refDocsBusy} onClick={() => refDocsInput.current?.click()}>
+                Subir documentos de referencia
+              </Button>
+              <Text size={200} style={{ color: 'var(--texto-suave)' }}>{(draft?.planRefDocs ?? []).length} documento(s)</Text>
+            </div>
+            {(draft?.planRefDocs ?? []).length > 0 && (
+              <div style={{ marginTop: '6px', display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                {(draft?.planRefDocs ?? []).map((d) => <Text key={d.ref} size={200}>• {d.name}</Text>)}
+              </div>
+            )}
+          </FormField>
         )}
         {(planPreview || planPreviewUrl) && (
           <div>
