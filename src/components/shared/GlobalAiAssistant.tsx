@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react'
 import { useLocation } from 'react-router-dom'
-import { Button, Tab, TabList, Textarea, Spinner, useToastController, makeStyles, tokens } from '@fluentui/react-components'
+import { Button, Checkbox, Tab, TabList, Text, Textarea, Spinner, useToastController, makeStyles, tokens } from '@fluentui/react-components'
 import { SparkleRegular, CopyRegular, DocumentPdfRegular, CloudArrowUpRegular } from '@fluentui/react-icons'
 import { ModalForm } from './ModalForm'
 import { FormField } from './form'
@@ -36,7 +36,7 @@ const MODOS: Array<{ value: Modo; label: string; hint: string }> = [
 const escapeHtml = (s: string) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c] as string))
 
 function buildSystemPrompt(modo: Modo, section: AiSectionConfig, rol?: string): string {
-  const base = `Eres un asistente experto de la Plataforma Virtual del ${appConfig.institution} (República Dominicana). El usuario está en la sección «${section.label}» con el rol «${rol ?? 'usuario'}». Responde en español, claro, profesional y listo para usar en un centro educativo.`
+  const base = `Eres un asistente experto de la Plataforma Virtual del ${appConfig.institution} (República Dominicana). El usuario está en la sección «${section.label}» con el rol «${rol ?? 'usuario'}». Responde en español, claro, profesional y listo para usar en un centro educativo. Cuando se te entregue la información visible en la ventana actual, úsala como contexto principal: apóyate en esos datos, no los contradigas y no los repitas literalmente si no se pide.`
   const porModo: Record<Modo, string> = {
     crear: 'REDACTA desde cero el recurso/actividad/material solicitado, con estructura y detalles suficientes para usarlo de inmediato.',
     modificar: 'MEJORA el contenido que se te entrega: corrige, ordena, enriquece y adapta al contexto indicado, conservando la intención original.',
@@ -57,6 +57,8 @@ export function GlobalAiAssistant() {
   const [modo, setModo] = useState<Modo>('crear')
   const [prompt, setPrompt] = useState('')
   const [contexto, setContexto] = useState('')
+  const [windowContext, setWindowContext] = useState('')
+  const [usarVentana, setUsarVentana] = useState(true)
   const [salida, setSalida] = useState('')
   const [generando, setGenerando] = useState(false)
   const pdfRef = useRef<HTMLInputElement>(null)
@@ -65,6 +67,21 @@ export function GlobalAiAssistant() {
   const sectionCfg = getAiSection(location.pathname)
   const hint = MODOS.find((m) => m.value === modo)?.hint
 
+  /** Captura el texto visible del área de contenido de la ventana activa. */
+  const capturarVentana = (): string => {
+    const el = document.querySelector('.app-surface') as HTMLElement | null
+    const txt = (el?.innerText ?? '')
+      .replace(/[ \t]+\n/g, '\n')
+      .replace(/\n{3,}/g, '\n\n')
+      .trim()
+    return txt.slice(0, 6000)
+  }
+
+  const abrir = () => {
+    setWindowContext(capturarVentana())
+    setOpen(true)
+  }
+
   const generar = async () => {
     if (!prompt.trim()) {
       toaster.dispatchToast('Escribe qué necesitas.', { intent: 'error' })
@@ -72,7 +89,14 @@ export function GlobalAiAssistant() {
     }
     setGenerando(true)
     try {
-      const contenido = `${prompt.trim()}${contexto ? `\n\nCONTEXTO:\n${contexto}` : ''}`
+      const partes = [prompt.trim()]
+      if (usarVentana && windowContext) {
+        partes.push(`INFORMACIÓN VISIBLE EN LA VENTANA ACTUAL (usa esto como contexto principal):\n${windowContext}`)
+      }
+      if (contexto) {
+        partes.push(`CONTEXTO ADICIONAL APORTADO POR EL USUARIO:\n${contexto}`)
+      }
+      const contenido = partes.join('\n\n')
       const out = await aiChat(
         [
           { role: 'system', content: buildSystemPrompt(modo, sectionCfg, role ?? undefined) },
@@ -120,7 +144,7 @@ export function GlobalAiAssistant() {
 
   return (
     <>
-      <Button className={styles.fab} appearance="primary" size="large" icon={<SparkleRegular />} onClick={() => setOpen(true)} title="Asistente IA">
+      <Button className={styles.fab} appearance="primary" size="large" icon={<SparkleRegular />} onClick={abrir} title="Asistente IA">
         Asistente IA
       </Button>
 
@@ -155,6 +179,16 @@ export function GlobalAiAssistant() {
           <FormField label="¿Qué necesitas?" required>
             <Textarea value={prompt} onChange={(_, d) => setPrompt(d.value)} resize="vertical" rows={4} placeholder={sectionCfg.placeholder} />
           </FormField>
+          <div style={{ marginBottom: '10px' }}>
+            <Checkbox
+              checked={usarVentana}
+              onChange={(_, d) => setUsarVentana(!!d.checked)}
+              label="Usar la información visible en esta ventana como contexto"
+            />
+            <Text size={200} block style={{ color: tokens.colorNeutralForeground3, marginTop: '4px' }}>
+              {windowContext ? `Contexto de la ventana capturado (${windowContext.length} caracteres).` : 'No se detectó información en esta ventana.'}
+            </Text>
+          </div>
           <FormField label="Contexto (opcional)" hint="Pega información o adjunta un PDF para dar contexto a la IA.">
             <Textarea value={contexto} onChange={(_, d) => setContexto(d.value)} resize="vertical" rows={3} />
           </FormField>
