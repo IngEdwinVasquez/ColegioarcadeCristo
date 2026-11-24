@@ -26,7 +26,6 @@ const NAV: NavItem[] = [
   { to: '/tecnologia/gestion-tic', label: 'Planificación TIC', icon: <ClipboardTaskRegular />, group: 'Coordinación TIC' },
   { to: '/tecnologia/gestion-dep-tecnologia', label: 'Gestión Dep. Tecnología', icon: <ClipboardTaskRegular />, group: 'Coordinación TIC' },
   { to: '/tecnologia/academica', label: 'Gestión académica', icon: <BookRegular />, group: 'Coordinación TIC' },
-  { to: '/tecnologia/planificador-ia', label: 'Planificador IA', icon: <SparkleRegular />, group: 'Académico' },
   { to: '/tecnologia/observacion-planificaciones', label: 'Observación de planificaciones', icon: <ClipboardTaskRegular />, group: 'Coordinación TIC' },
   { to: '/tecnologia/acompanamientos', label: 'Acompañamiento Virtual', icon: <HeartPulseRegular />, group: 'Coordinación TIC' },
   { to: '/tecnologia/asignaciones', label: 'Asignaciones', icon: <LinkSquareRegular />, group: 'Académico' },

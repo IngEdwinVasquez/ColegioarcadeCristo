@@ -16,7 +16,9 @@ import { createClassModule } from '../../services/teamsEdu'
 import { graphErrorMessage } from '../../services/graph'
 import { genId, todayIso } from '../../utils/helpers'
 import { cursoNombre, asignaturaDe } from '../../utils/academic'
-import type { CoursePage, CursoActividad, CursoEntrega, CursoLabel, CursoRecurso, CursoRecursoTipo, CursoUnidad, Enrollment, GradeRegister, GradeSection, SubjectPlan } from '../../types'
+import type { CoursePage, CursoActividad, CursoEntrega, CursoLabel, CursoRecurso, CursoRecursoTipo, CursoUnidad, Enrollment, GradeRegister, GradeSection, PlanificacionDinamica, SubjectPlan } from '../../types'
+import { ModalCrearIA } from '../planificador/ModalCrearIA'
+import { planificadorService } from '../planificador/planificadorService'
 
 const RECURSO_TIPOS: Array<{ value: CursoRecursoTipo; label: string }> = [
   { value: 'texto', label: 'Texto / página' },
@@ -81,6 +83,7 @@ export function CursoAsignaturaPage() {
   const registrosCol = useCollection<GradeRegister>(dataService.getGradeRegisters)
   const gradesCol = useCollection<GradeSection>(dataService.getGrades, dataService.saveGrade)
   const [planOpen, setPlanOpen] = useState(false)
+  const [planIaOpen, setPlanIaOpen] = useState(false)
   const [planBusy, setPlanBusy] = useState(false)
   const [planDoc, setPlanDoc] = useState<{ url: string; modulo: string } | null>(null)
   const [planEditId, setPlanEditId] = useState<string | null>(null)
@@ -783,6 +786,7 @@ Incluye una introducción, al menos 3 recursos variando el tipo según la necesi
         actions={editable ? (
           <>
             {planesClase.length === 0 && <Button appearance="secondary" icon={<SparkleRegular />} onClick={abrirPlanClase}>Crear planificación del curso</Button>}
+            <Button appearance="secondary" icon={<SparkleRegular />} onClick={() => setPlanIaOpen(true)}>Planificador IA</Button>
             <Button appearance="secondary" icon={creandoModulo ? <Spinner size="tiny" /> : <AddRegular />} disabled={creandoModulo} onClick={() => void crearModuloAsignatura()}>{creandoModulo ? 'Creando…' : 'Crear módulo en Teams'}</Button>
             <Button appearance="primary" icon={busy ? <Spinner size="tiny" /> : <SaveRegular />} disabled={busy} onClick={() => void guardar()}>Guardar</Button>
           </>
@@ -1327,6 +1331,21 @@ Incluye una introducción, al menos 3 recursos variando el tipo según la necesi
           return u?.informeFecha ? <Text size={200} block style={{ color: 'var(--texto-suave)' }}>Último informe: {u.informeFecha}</Text> : null
         })()}
       </ModalForm>
+
+      <ModalCrearIA
+        open={planIaOpen}
+        onOpenChange={setPlanIaOpen}
+        grades={[{ id: gradeId, name: draft.curso }]}
+        subjects={[{ id: subjectId, name: subjectName }]}
+        assignments={[{ gradeId, subjectId }]}
+        teacherId={user?.teacherId ?? user?.id ?? ''}
+        onGenerated={async (plan: PlanificacionDinamica) => {
+          await planificadorService.save(plan)
+          toaster.dispatchToast('Planificación generada y guardada en el Planificador IA.', { intent: 'success' })
+          setPlanIaOpen(false)
+        }}
+        onError={(m) => toaster.dispatchToast(m, { intent: 'error' })}
+      />
     </div>
   )
 }
