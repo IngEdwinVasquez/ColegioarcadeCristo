@@ -1429,13 +1429,14 @@ export function StudentAulasView({ studentId }: { studentId: string }) {
 export function AulasViewManagement({ base, scope, pageTitle, subtitle }: { base: string; scope: AulaScope; pageTitle: string; subtitle?: string }) {
   const navigate = useNavigate()
   const { subjects } = useApp()
+  const root = `/${base.split('/').filter(Boolean)[0] ?? ''}`
   return (
     <AulasView
       scope={scope}
       pageTitle={pageTitle}
       subtitle={subtitle}
       onOpenSubject={(g) => navigate(`${base}/${g.id}/${encodeURIComponent(seccionDe(g))}/${subjectIdOf(g, subjects)}/virtual`)}
-      onPlanificacionAnual={base.startsWith('/administrativo') ? () => navigate('/administrativo/planificacion') : undefined}
+      onPlanificacionAnual={() => navigate(`${root}/planificacion-anual`)}
     />
   )
 }

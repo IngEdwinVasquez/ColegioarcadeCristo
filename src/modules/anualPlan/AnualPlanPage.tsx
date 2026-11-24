@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { Button, Input, Select, Table, TableBody, TableCell, TableHeader, TableHeaderCell, TableRow, Text, Toolbar, ToolbarButton, makeStyles, tokens } from '@fluentui/react-components'
 import { AddRegular, OpenRegular, SearchRegular, PlayRegular, DeleteRegular, CalendarTodayRegular } from '@fluentui/react-icons'
 import { PageHeader } from '../../components/shared/PageHeader'
@@ -12,7 +12,7 @@ import { useCollection } from '../../hooks/useCollection'
 import { PlanForm } from './PlanForm'
 import type { ClassPlan, SchoolClassRecord } from '../../types'
 import { formatDate, genId, relativeDay } from '../../utils/helpers'
-import { cursoNombre } from '../../utils/academic'
+import { cursoNombre, seccionDe } from '../../utils/academic'
 
 const useStyles = makeStyles({
   toolbar: { marginBottom: '16px', gap: '12px', flexWrap: 'wrap' },
@@ -23,7 +23,9 @@ const useStyles = makeStyles({
 export function AnualPlanPage() {
   const styles = useStyles()
   const navigate = useNavigate()
-  const { subjects, grades, subjectById, gradeById, teacherById, role } = useApp()
+  const location = useLocation()
+  const portalBase = location.pathname.split('/').filter(Boolean)[0] ?? ''
+  const { subjects, grades, subjectById, gradeById, teacherById } = useApp()
 
   const plansCol = useCollection<ClassPlan>(dataService.getClassPlans, dataService.saveClassPlan, dataService.deleteClassPlan)
   const classesCol = useCollection<SchoolClassRecord>(dataService.getClasses, dataService.saveClassRecord, dataService.deleteClassRecord)
@@ -91,7 +93,12 @@ export function AnualPlanPage() {
     }
     await classesCol.save(record)
     await plansCol.save({ ...plan, status: 'impartida', classId: record.id })
-    navigate(`/${role === 'admin' ? 'administrativo' : 'docentes'}/clases/${record.id}`)
+    if (portalBase === 'administrativo') {
+      navigate(`/administrativo/clases/${record.id}`)
+    } else if (portalBase === 'docentes') {
+      const g = gradeById(record.gradeId)
+      if (g) navigate(`/docentes/aulas/${record.gradeId}/${encodeURIComponent(seccionDe(g))}/${record.subjectId}/clase/${record.id}`)
+    }
   }
 
   return (

@@ -5,6 +5,7 @@ import { GestionTicPage } from '../modules/tecnologia/GestionTicPage'
 import { GestionDepTecnologia } from '../modules/tecnologia/GestionDepTecnologia'
 import { AcademicaTecPage } from '../modules/tecnologia/AcademicaTecPage'
 import { ObservacionPlanificacionesPage } from '../modules/tecnologia/ObservacionPlanificacionesPage'
+import { AnualPlanPage } from '../modules/anualPlan/AnualPlanPage'
 import { AsignacionesPage } from '../modules/administrativo/AsignacionesPage'
 import { PromocionPage } from '../modules/administrativo/PromocionPage'
 import { PersonasPage } from '../modules/administrativo/PersonasPage'
@@ -48,6 +49,7 @@ export function TecnologiaPortal() {
         <Route path="gestion-tic" element={<GestionTicPage />} />
         <Route path="gestion-dep-tecnologia" element={<GestionDepTecnologia />} />
         <Route path="academica" element={<AcademicaTecPage />} />
+        <Route path="planificacion-anual" element={<AnualPlanPage />} />
         <Route path="planificador-ia" element={<PlanificadorPage />} />
         <Route path="observacion-planificaciones" element={<ObservacionPlanificacionesPage />} />
         <Route path="acompanamientos" element={<AcompanamientosPage />} />

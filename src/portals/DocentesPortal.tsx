@@ -2,6 +2,7 @@ import { Route, Routes } from 'react-router-dom'
 import { AppShell, type NavItem } from '../components/layout/AppShell'
 import { DocenteDashboard } from '../modules/dashboard/DocenteDashboard'
 import { PlanificacionPage } from '../modules/planificacion/PlanificacionPage'
+import { AnualPlanPage } from '../modules/anualPlan/AnualPlanPage'
 import { PlanificadorSemanal } from '../modules/planificacion/PlanificadorSemanal'
 import { GradosSeccionesPage } from '../modules/planificacion/GradosSeccionesPage'
 import { PlanificadorPage } from '../modules/planificador/PlanificadorPage'
@@ -52,6 +53,7 @@ export function DocentesPortal() {
         <Route path="aulas/:gradeId/:section/:subjectId/virtual" element={<CursoAsignaturaPage />} />
         <Route path="aulas/:gradeId/:section/:subjectId/clase/:classId" element={<ClaseDocenteDetail />} />
         <Route path="planificaciones" element={<PlanificacionPage />} />
+        <Route path="planificacion-anual" element={<AnualPlanPage />} />
         <Route path="planificador" element={<PlanificadorSemanal />} />
         <Route path="planificador-ia" element={<PlanificadorPage />} />
         <Route path="grados-secciones" element={<GradosSeccionesPage />} />
