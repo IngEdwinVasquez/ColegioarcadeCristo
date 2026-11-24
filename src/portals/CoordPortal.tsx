@@ -42,7 +42,7 @@ const NAV: NavItem[] = [
   { to: '/coordinacion/cumplimiento', label: 'Cumplimiento', icon: <CheckmarkCircleRegular />, group: 'Académico' },
   { to: '/coordinacion/promocion', label: 'Promoción', icon: <ArrowUpRegular />, group: 'Académico' },
   { to: '/coordinacion/asignaciones', label: 'Asignaciones', icon: <LinkSquareRegular />, group: 'Académico' },
-  { to: '/coordinacion/gestion-academica', label: 'Gestión académica', icon: <BookRegular />, group: 'Académico' },
+  { to: '/coordinacion/gestion-academica', label: 'Agregar Asignaturas', icon: <BookRegular />, group: 'Académico' },
   { to: '/coordinacion/aulas', label: 'Aulas Virtuales', icon: <VideoRegular />, group: 'Académico' },
   { to: '/coordinacion/corregir-examen', label: 'Corregir examen (IA)', icon: <ClipboardTaskRegular />, group: 'Académico' },
   { to: '/coordinacion/carga-horaria', label: 'Carga horaria', icon: <DocumentPdfRegular />, group: 'Académico' },

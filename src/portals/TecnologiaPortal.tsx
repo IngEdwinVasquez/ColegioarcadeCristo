@@ -25,7 +25,7 @@ const NAV: NavItem[] = [
   { to: '/tecnologia', label: 'Panel de Tecnología', icon: <DeveloperBoardRegular />, end: true, group: 'General' },
   { to: '/tecnologia/gestion-tic', label: 'Planificación TIC', icon: <ClipboardTaskRegular />, group: 'Coordinación TIC' },
   { to: '/tecnologia/gestion-dep-tecnologia', label: 'Gestión Dep. Tecnología', icon: <ClipboardTaskRegular />, group: 'Coordinación TIC' },
-  { to: '/tecnologia/academica', label: 'Gestión académica', icon: <BookRegular />, group: 'Coordinación TIC' },
+  { to: '/tecnologia/academica', label: 'Agregar Asignaturas', icon: <BookRegular />, group: 'Coordinación TIC' },
   { to: '/tecnologia/observacion-planificaciones', label: 'Observación de planificaciones', icon: <ClipboardTaskRegular />, group: 'Coordinación TIC' },
   { to: '/tecnologia/acompanamientos', label: 'Acompañamiento Virtual', icon: <HeartPulseRegular />, group: 'Coordinación TIC' },
   { to: '/tecnologia/asignaciones', label: 'Asignaciones', icon: <LinkSquareRegular />, group: 'Académico' },
