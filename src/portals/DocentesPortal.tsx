@@ -1,4 +1,4 @@
-﻿import { Route, Routes } from 'react-router-dom'
+import { Route, Routes } from 'react-router-dom'
 import { AppShell, type NavItem } from '../components/layout/AppShell'
 import { DocenteDashboard } from '../modules/dashboard/DocenteDashboard'
 import { PlanificacionPage } from '../modules/planificacion/PlanificacionPage'
@@ -31,13 +31,12 @@ import {
 
 const NAV: NavItem[] = [
   { to: '/docentes', label: 'Inicio', icon: <HomeRegular />, end: true, group: 'General' },
-  { to: '/docentes/aulas', label: 'Aulas Virtuales', icon: <VideoRegular />, group: 'AcadÃ©mico' },
-  { to: '/docentes/registro-grado', label: 'Registro de Grado', icon: <BookRegular />, group: 'AcadÃ©mico' },
-  { to: '/docentes/corregir-examen', label: 'Corregir examen (IA)', icon: <BookRegular />, group: 'AcadÃ©mico' },
-  { to: '/docentes/planificador-ia', label: 'Planificador IA', icon: <SparkleRegular />, group: 'AcadÃ©mico' },
+  { to: '/docentes/aulas', label: 'Aulas Virtuales', icon: <VideoRegular />, group: 'Académico' },
+  { to: '/docentes/corregir-examen', label: 'Corregir examen (IA)', icon: <BookRegular />, group: 'Académico' },
+  { to: '/docentes/planificador-ia', label: 'Planificador IA', icon: <SparkleRegular />, group: 'Académico' },
   { to: '/docentes/encuentros', label: 'Encuentros Virtuales', icon: <VideoPersonRegular />, group: 'Comunidad' },
   { to: '/docentes/comunicados', label: 'Comunicados', icon: <MegaphoneRegular />, group: 'Comunidad' },
-  { to: '/docentes/chat', label: 'MensajerÃ­a', icon: <ChatRegular />, group: 'Comunidad' },
+  { to: '/docentes/chat', label: 'Mensajería', icon: <ChatRegular />, group: 'Comunidad' },
   { to: '/docentes/copilot', label: 'Copilot', icon: <SparkleRegular />, group: 'Herramientas' },
 ]
 
