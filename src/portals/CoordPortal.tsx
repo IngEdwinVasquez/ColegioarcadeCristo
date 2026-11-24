@@ -6,6 +6,7 @@ import { HorariosPage } from '../modules/coordinacion/HorariosPage'
 import { AcompanamientosPage } from '../modules/coordinacion/AcompanamientosPage'
 import { CumplimientoPage } from '../modules/coordinacion/CumplimientoPage'
 import { PlanificacionNivel } from '../modules/coordinacion/PlanificacionNivel'
+import { AnualPlanPage } from '../modules/anualPlan/AnualPlanPage'
 import { AulasNivelPage } from '../modules/coordinacion/AulasNivelPage'
 import { CursoAsignaturaPage } from '../modules/aulas/CursoAsignaturaPage'
 import { RegistroGradoPage } from '../modules/registro/RegistroGradoPage'
@@ -58,6 +59,7 @@ export function CoordPortal() {
         <Route path="personas" element={<PersonasNivel />} />
         <Route path="horarios" element={<HorariosPage />} />
         <Route path="planificacion" element={<PlanificacionNivel />} />
+        <Route path="planificacion-anual" element={<AnualPlanPage />} />
         <Route path="planificador-ia" element={<PlanificadorPage />} />
         <Route path="acompanamientos" element={<AcompanamientosPage />} />
         <Route path="cumplimiento" element={<CumplimientoPage />} />

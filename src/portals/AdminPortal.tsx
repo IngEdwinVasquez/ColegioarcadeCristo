@@ -79,6 +79,7 @@ export function AdminPortal() {
         <Route path="corregir-examen" element={<CorregirExamenPage />} />
         <Route path="carga-horaria" element={<CargaHorariaPage />} />
         <Route path="planificacion" element={<AnualPlanPage />} />
+        <Route path="planificacion-anual" element={<AnualPlanPage />} />
         <Route path="planificador-ia" element={<PlanificadorPage />} />
         <Route path="clases" element={<ClasesPage />} />
         <Route path="clases/:id" element={<ClaseDetail />} />

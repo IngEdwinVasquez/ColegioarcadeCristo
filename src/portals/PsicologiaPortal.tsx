@@ -1,8 +1,9 @@
-import { Route, Routes } from 'react-router-dom'
+import { Route, Routes, useNavigate } from 'react-router-dom'
 import { AppShell, type NavItem } from '../components/layout/AppShell'
 import { PsicologiaPage } from '../modules/administrativo/PsicologiaPage'
 import { GestionTicPage } from '../modules/tecnologia/GestionTicPage'
 import { AulasView } from '../modules/aulas/aulas'
+import { AnualPlanPage } from '../modules/anualPlan/AnualPlanPage'
 import { Comunicados } from '../modules/dashboard/Comunicados'
 import { ChatPage } from '../modules/chat/ChatPage'
 import { CopilotPage } from '../modules/copilot/CopilotPage'
@@ -17,12 +18,25 @@ const NAV: NavItem[] = [
   { to: '/psicologia/copilot', label: 'Copilot', icon: <SparkleRegular />, group: 'Herramientas' },
 ]
 
+function AulasPsicologia() {
+  const navigate = useNavigate()
+  return (
+    <AulasView
+      scope={{ kind: 'todos' }}
+      pageTitle="Aulas Virtuales"
+      subtitle="Todas las aulas del colegio con sus asignaturas."
+      onPlanificacionAnual={() => navigate('/psicologia/planificacion-anual')}
+    />
+  )
+}
+
 export function PsicologiaPortal() {
   return (
     <Routes>
       <Route element={<AppShell nav={NAV} />}>
         <Route index element={<PsicologiaPage />} />
-        <Route path="aulas" element={<AulasView scope={{ kind: 'todos' }} pageTitle="Aulas por curso" subtitle="Todas las aulas del colegio con sus asignaturas." />} />
+        <Route path="aulas" element={<AulasPsicologia />} />
+        <Route path="planificacion-anual" element={<AnualPlanPage />} />
         <Route path="gestion-tic" element={<GestionTicPage title="Gestión de Psicología y Orientación" />} />
         <Route path="comunicados" element={<Comunicados />} />
         <Route path="chat" element={<ChatPage />} />
