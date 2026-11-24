@@ -1289,6 +1289,8 @@ export interface CoursePage {
   headerUrl?: string
   descripcion?: string
   labels: CursoLabel[]
+  /** Documentos de referencia adicionales para que la IA genere la planificación. */
+  planRefDocs?: Array<{ ref: string; name: string; text?: string }>
   units: CursoUnidad[]
   entregas: CursoEntrega[]
   updatedAt: string
