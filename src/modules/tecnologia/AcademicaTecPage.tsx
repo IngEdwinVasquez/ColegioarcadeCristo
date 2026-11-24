@@ -329,7 +329,7 @@ export function AcademicaTecPage() {
   return (
     <div>
       <PageHeader
-        title="Gestión académica"
+        title="Agregar Asignaturas"
         subtitle="Cursos y secciones del colegio con su equipo de Microsoft Teams. Cada curso puede tener un equipo de clase donde se agregan el docente y los estudiantes."
         actions={
           <>
