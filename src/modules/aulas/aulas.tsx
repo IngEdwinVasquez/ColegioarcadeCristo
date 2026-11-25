@@ -907,8 +907,14 @@ export function AulasView({ scope, subtitle, pageTitle = 'Aulas', onOpenSubject,
       ].filter(Boolean).join('\n') || '(La sección de especificaciones curriculares del registro de grado está vacía; complétala según el Diseño Curricular MINERD del grado y la asignatura.)'
       const modelo = seleccion.records.find((r) => r.planTemplateName)
       const template = (modelo?.planTemplateText ?? '').slice(0, 8000)
-      const prompt = `Eres un docente de República Dominicana (MINERD). Redacta la PLANIFICACIÓN GENERAL DEL CURSO de la asignatura "${asignatura}" para el curso ${seleccion.curso}, correspondiente a ${planForm.periodo}. Es la planificación de TODO EL CURSO (del período académico completo), NO de una clase.
-${planForm.observaciones ? `Indicaciones del docente: ${planForm.observaciones}` : ''}
+      const editando = planEditing && !!planPreview
+      const indicacion = planForm.observaciones.trim()
+      const encabezado = editando
+        ? `Eres un docente de República Dominicana (MINERD). ACTUALIZA la PLANIFICACIÓN GENERAL DEL CURSO de la asignatura "${asignatura}" para el curso ${seleccion.curso}, correspondiente a ${planForm.periodo}. Es la planificación de TODO EL CURSO (del período académico completo), NO de una clase. Aplica ÚNICAMENTE las modificaciones solicitadas por el docente y conserva el resto del contenido, la estructura y el formato. Devuelve la planificación COMPLETA actualizada en HTML.`
+        : `Eres un docente de República Dominicana (MINERD). Redacta la PLANIFICACIÓN GENERAL DEL CURSO de la asignatura "${asignatura}" para el curso ${seleccion.curso}, correspondiente a ${planForm.periodo}. Es la planificación de TODO EL CURSO (del período académico completo), NO de una clase.`
+      const prompt = `${encabezado}
+${indicacion ? `${editando ? 'Instrucción de modificación del docente' : 'Indicaciones del docente'}: ${indicacion}` : ''}
+${editando ? `\nDocumento ACTUAL de la planificación (HTML) que debes modificar (aplica solo los cambios pedidos y devuélvelo completo):\n"""${planPreview.slice(0, 12000)}"""\n` : ''}
 
 Debe contener, en este orden, los siguientes apartados:
 1. Encabezado: centro educativo, regional, distrito, nivel, ciclo, grado/curso, asignatura, docente y período académico.
@@ -1335,7 +1341,7 @@ Si falta información, complétala según el Diseño Curricular del MINERD para 
       >
         {seleccion && (
           <>
-            {!planEditing && (
+            {!planEditing ? (
               <>
                 <FieldRow>
                   <FormField label="Asignatura">
@@ -1351,6 +1357,19 @@ Si falta información, complétala según el Diseño Curricular del MINERD para 
                   <Textarea value={planForm.observaciones} resize="vertical" onChange={(_, d) => setPlanForm({ ...planForm, observaciones: d.value })} />
                 </FormField>
               </>
+            ) : (
+              <FormField
+                label="Instrucciones para regenerar (¿qué deseas modificar?)"
+                hint="Escribe los cambios que quieres aplicar a la planificación actual. La IA conservará el resto y aplicará solo lo indicado."
+              >
+                <Textarea
+                  value={planForm.observaciones}
+                  resize="vertical"
+                  rows={4}
+                  placeholder="Ej.: Agrega una actividad con Teams en el Período II y cambia la evaluación a una rúbrica."
+                  onChange={(_, d) => setPlanForm({ ...planForm, observaciones: d.value })}
+                />
+              </FormField>
             )}
             {(planPreview || planPreviewUrl) && (
               <div>
