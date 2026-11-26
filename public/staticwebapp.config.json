@@ -1,7 +1,7 @@
 {
   "navigationFallback": {
     "rewrite": "/index.html",
-    "exclude": ["/images/*", "/icons/*", "/assets/*", "/*.{css,js,map,ico,png,svg,jpg,webmanifest,json,woff2}"]
+    "exclude": ["/images/*", "/icons/*", "/assets/*", "/auditoria-tic/*", "/*.{css,js,map,ico,png,svg,jpg,webmanifest,json,woff2}"]
   },
   "mimeTypes": {
     ".webmanifest": "application/manifest+json"
