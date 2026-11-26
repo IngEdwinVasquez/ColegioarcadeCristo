@@ -7,6 +7,7 @@ import { PromocionPage } from '../modules/administrativo/PromocionPage'
 import { AsignacionesPage } from '../modules/administrativo/AsignacionesPage'
 import { AcademicaTecPage } from '../modules/tecnologia/AcademicaTecPage'
 import { AnualPlanPage } from '../modules/anualPlan/AnualPlanPage'
+import { AuditoriaTicDocentesPage } from '../modules/tecnologia/AuditoriaTicDocentesPage'
 import { ClasesPage } from '../modules/clases/ClasesPage'
 import { ClaseDetail } from '../modules/clases/ClaseDetail'
 import { PersonasPage } from '../modules/administrativo/PersonasPage'
@@ -49,6 +50,7 @@ const NAV: NavItem[] = [
   { to: '/administrativo/informes', label: 'Informes', icon: <ClipboardTaskRegular />, group: 'Informes' },
   { to: '/administrativo/clases', label: 'Clases Impartidas', icon: <NotebookRegular />, group: 'Informes' },
   { to: '/administrativo/encuentros', label: 'Encuentros', icon: <VideoPersonRegular />, group: 'Informes' },
+  { to: '/administrativo/auditoria-tic-docentes', label: 'Auditoría TIC Docentes', icon: <ClipboardTaskRegular />, group: 'Informes' },
   { to: '/administrativo/admisiones', label: 'Admisiones', icon: <PersonAddRegular />, group: 'Gestión' },
   { to: '/administrativo/promocion', label: 'Promoción', icon: <ArrowUpRegular />, group: 'Gestión' },
   { to: '/administrativo/asignaciones', label: 'Asignaciones', icon: <LinkSquareRegular />, group: 'Gestión' },
@@ -80,6 +82,7 @@ export function AdminPortal() {
         <Route path="carga-horaria" element={<CargaHorariaPage />} />
         <Route path="planificacion" element={<AnualPlanPage />} />
         <Route path="planificacion-anual" element={<AnualPlanPage />} />
+        <Route path="auditoria-tic-docentes" element={<AuditoriaTicDocentesPage />} />
         <Route path="planificador-ia" element={<PlanificadorPage />} />
         <Route path="clases" element={<ClasesPage />} />
         <Route path="clases/:id" element={<ClaseDetail />} />

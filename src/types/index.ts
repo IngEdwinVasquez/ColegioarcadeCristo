@@ -1295,3 +1295,45 @@ export interface CoursePage {
   entregas: CursoEntrega[]
   updatedAt: string
 }
+
+// ------------------------------ Auditoría TIC Docentes ------------------------------
+
+export type TicNivel = 'Inicial' | 'Primaria' | 'Secundaria'
+
+/** Configuración de la carpeta de evidencias TIC por nivel. */
+export interface TicAuditoriaConfig {
+  id: string
+  level: TicNivel
+  /** 'onedrive' = carpeta del OneDrive del usuario; 'share' = enlace compartido. */
+  mode: 'onedrive' | 'share'
+  /** Ruta relativa dentro de ArcaDeCristo (mode 'onedrive'). */
+  path: string
+  /** Enlace compartido (mode 'share'). */
+  shareUrl: string
+  updatedAt: string
+}
+
+/** Evidencia/documento analizado de un docente TIC. */
+export interface TicAuditoriaDoc {
+  id: string
+  level: TicNivel
+  fileId: string
+  path: string
+  fileName: string
+  webUrl?: string
+  docente: string
+  /** Mes en formato YYYY-MM (vacío si no se pudo determinar). */
+  mes: string
+  mesLabel: string
+  tipo: string
+  resumen: string
+  herramientas: string[]
+  evidencias: string[]
+  fortalezas?: string
+  mejoras?: string
+  puntaje: number
+  source: 'ia' | 'manual'
+  analizadoEn: string
+  analizadoPor?: string
+}
+
