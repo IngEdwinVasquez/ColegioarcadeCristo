@@ -1,0 +1,693 @@
+{
+    "Kinder A":  {
+                     "Teacher":  "Kinder A",
+                     "Pairs":  [
+                                   {
+                                       "Course":  "Kinder A",
+                                       "Subject":  "Áreas Integradas",
+                                       "Files":  46,
+                                       "Planning":  2,
+                                       "Resources":  40,
+                                       "Instruments":  3,
+                                       "Results":  1,
+                                       "Evidence":  38,
+                                       "Tools":  "aplicacion, proyector, video, youtube"
+                                   },
+                                   {
+                                       "Course":  "Kinder A",
+                                       "Subject":  "Educación Artística",
+                                       "Files":  2,
+                                       "Planning":  1,
+                                       "Resources":  0,
+                                       "Instruments":  0,
+                                       "Results":  0,
+                                       "Evidence":  0,
+                                       "Tools":  ""
+                                   },
+                                   {
+                                       "Course":  "Kinder A",
+                                       "Subject":  "Formación Humana / Valores",
+                                       "Files":  2,
+                                       "Planning":  2,
+                                       "Resources":  0,
+                                       "Instruments":  0,
+                                       "Results":  0,
+                                       "Evidence":  0,
+                                       "Tools":  ""
+                                   },
+                                   {
+                                       "Course":  "Kinder A",
+                                       "Subject":  "Lengua Española",
+                                       "Files":  2,
+                                       "Planning":  2,
+                                       "Resources":  0,
+                                       "Instruments":  0,
+                                       "Results":  0,
+                                       "Evidence":  0,
+                                       "Tools":  ""
+                                   }
+                               ],
+                     "Courses":  [
+                                     {
+                                         "Course":  "Kinder A",
+                                         "Files":  52,
+                                         "Planning":  7,
+                                         "Resources":  40,
+                                         "Instruments":  3,
+                                         "Results":  1
+                                     }
+                                 ],
+                     "Subjects":  [
+                                      {
+                                          "Subject":  "Áreas Integradas",
+                                          "Files":  46,
+                                          "Planning":  2,
+                                          "Resources":  40,
+                                          "Instruments":  3,
+                                          "Results":  1
+                                      },
+                                      {
+                                          "Subject":  "Educación Artística",
+                                          "Files":  2,
+                                          "Planning":  1,
+                                          "Resources":  0,
+                                          "Instruments":  0,
+                                          "Results":  0
+                                      },
+                                      {
+                                          "Subject":  "Formación Humana / Valores",
+                                          "Files":  2,
+                                          "Planning":  2,
+                                          "Resources":  0,
+                                          "Instruments":  0,
+                                          "Results":  0
+                                      },
+                                      {
+                                          "Subject":  "Lengua Española",
+                                          "Files":  2,
+                                          "Planning":  2,
+                                          "Resources":  0,
+                                          "Instruments":  0,
+                                          "Results":  0
+                                      }
+                                  ]
+                 },
+    "Preprimario A":  {
+                          "Teacher":  "Preprimario A",
+                          "Pairs":  [
+                                        {
+                                            "Course":  "Preprimario A",
+                                            "Subject":  "Áreas Integradas",
+                                            "Files":  1,
+                                            "Planning":  1,
+                                            "Resources":  0,
+                                            "Instruments":  0,
+                                            "Results":  0,
+                                            "Evidence":  0,
+                                            "Tools":  ""
+                                        },
+                                        {
+                                            "Course":  "Preprimario A",
+                                            "Subject":  "Educación Artística",
+                                            "Files":  1,
+                                            "Planning":  1,
+                                            "Resources":  0,
+                                            "Instruments":  0,
+                                            "Results":  0,
+                                            "Evidence":  0,
+                                            "Tools":  "video"
+                                        }
+                                    ],
+                          "Courses":  [
+                                          {
+                                              "Course":  "Preprimario A",
+                                              "Files":  2,
+                                              "Planning":  2,
+                                              "Resources":  0,
+                                              "Instruments":  0,
+                                              "Results":  0
+                                          }
+                                      ],
+                          "Subjects":  [
+                                           {
+                                               "Subject":  "Áreas Integradas",
+                                               "Files":  1,
+                                               "Planning":  1,
+                                               "Resources":  0,
+                                               "Instruments":  0,
+                                               "Results":  0
+                                           },
+                                           {
+                                               "Subject":  "Educación Artística",
+                                               "Files":  1,
+                                               "Planning":  1,
+                                               "Resources":  0,
+                                               "Instruments":  0,
+                                               "Results":  0
+                                           }
+                                       ]
+                      },
+    "Prekinder A":  {
+                        "Teacher":  "Prekinder A",
+                        "Pairs":  [
+                                      {
+                                          "Course":  "Prekinder A",
+                                          "Subject":  "Áreas Integradas",
+                                          "Files":  351,
+                                          "Planning":  5,
+                                          "Resources":  312,
+                                          "Instruments":  2,
+                                          "Results":  3,
+                                          "Evidence":  306,
+                                          "Tools":  "excel, video, youtube"
+                                      },
+                                      {
+                                          "Course":  "Prekinder A",
+                                          "Subject":  "Ciencias Sociales",
+                                          "Files":  1,
+                                          "Planning":  1,
+                                          "Resources":  0,
+                                          "Instruments":  0,
+                                          "Results":  0,
+                                          "Evidence":  0,
+                                          "Tools":  "excel, video, youtube"
+                                      },
+                                      {
+                                          "Course":  "Prekinder A",
+                                          "Subject":  "Educación Artística",
+                                          "Files":  4,
+                                          "Planning":  2,
+                                          "Resources":  0,
+                                          "Instruments":  1,
+                                          "Results":  0,
+                                          "Evidence":  0,
+                                          "Tools":  "excel, video, youtube"
+                                      },
+                                      {
+                                          "Course":  "Prekinder A",
+                                          "Subject":  "Formación Humana / Valores",
+                                          "Files":  5,
+                                          "Planning":  1,
+                                          "Resources":  3,
+                                          "Instruments":  0,
+                                          "Results":  0,
+                                          "Evidence":  0,
+                                          "Tools":  ""
+                                      },
+                                      {
+                                          "Course":  "Prekinder A",
+                                          "Subject":  "Lengua Española",
+                                          "Files":  5,
+                                          "Planning":  5,
+                                          "Resources":  0,
+                                          "Instruments":  0,
+                                          "Results":  0,
+                                          "Evidence":  0,
+                                          "Tools":  "celular, excel, proyector, video, youtube"
+                                      },
+                                      {
+                                          "Course":  "Prekinder A",
+                                          "Subject":  "STEAM / Ciencias",
+                                          "Files":  21,
+                                          "Planning":  0,
+                                          "Resources":  20,
+                                          "Instruments":  0,
+                                          "Results":  0,
+                                          "Evidence":  18,
+                                          "Tools":  "video"
+                                      }
+                                  ],
+                        "Courses":  [
+                                        {
+                                            "Course":  "Prekinder A",
+                                            "Files":  387,
+                                            "Planning":  14,
+                                            "Resources":  335,
+                                            "Instruments":  3,
+                                            "Results":  3
+                                        }
+                                    ],
+                        "Subjects":  [
+                                         {
+                                             "Subject":  "Áreas Integradas",
+                                             "Files":  351,
+                                             "Planning":  5,
+                                             "Resources":  312,
+                                             "Instruments":  2,
+                                             "Results":  3
+                                         },
+                                         {
+                                             "Subject":  "Ciencias Sociales",
+                                             "Files":  1,
+                                             "Planning":  1,
+                                             "Resources":  0,
+                                             "Instruments":  0,
+                                             "Results":  0
+                                         },
+                                         {
+                                             "Subject":  "Educación Artística",
+                                             "Files":  4,
+                                             "Planning":  2,
+                                             "Resources":  0,
+                                             "Instruments":  1,
+                                             "Results":  0
+                                         },
+                                         {
+                                             "Subject":  "Formación Humana / Valores",
+                                             "Files":  5,
+                                             "Planning":  1,
+                                             "Resources":  3,
+                                             "Instruments":  0,
+                                             "Results":  0
+                                         },
+                                         {
+                                             "Subject":  "Lengua Española",
+                                             "Files":  5,
+                                             "Planning":  5,
+                                             "Resources":  0,
+                                             "Instruments":  0,
+                                             "Results":  0
+                                         },
+                                         {
+                                             "Subject":  "STEAM / Ciencias",
+                                             "Files":  21,
+                                             "Planning":  0,
+                                             "Resources":  20,
+                                             "Instruments":  0,
+                                             "Results":  0
+                                         }
+                                     ]
+                    },
+    "Kinder B":  {
+                     "Teacher":  "Kinder B",
+                     "Pairs":  [
+                                   {
+                                       "Course":  "Kinder B",
+                                       "Subject":  "Áreas Integradas",
+                                       "Files":  300,
+                                       "Planning":  5,
+                                       "Resources":  274,
+                                       "Instruments":  9,
+                                       "Results":  1,
+                                       "Evidence":  277,
+                                       "Tools":  "aplicacion, proyector, video, youtube"
+                                   },
+                                   {
+                                       "Course":  "Kinder B",
+                                       "Subject":  "Ciencias de la Naturaleza",
+                                       "Files":  2,
+                                       "Planning":  1,
+                                       "Resources":  0,
+                                       "Instruments":  0,
+                                       "Results":  0,
+                                       "Evidence":  0,
+                                       "Tools":  "video, youtube"
+                                   },
+                                   {
+                                       "Course":  "Kinder B",
+                                       "Subject":  "Ciencias Sociales",
+                                       "Files":  3,
+                                       "Planning":  3,
+                                       "Resources":  0,
+                                       "Instruments":  0,
+                                       "Results":  0,
+                                       "Evidence":  0,
+                                       "Tools":  "video, youtube"
+                                   },
+                                   {
+                                       "Course":  "Kinder B",
+                                       "Subject":  "Educación Artística",
+                                       "Files":  2,
+                                       "Planning":  0,
+                                       "Resources":  0,
+                                       "Instruments":  0,
+                                       "Results":  0,
+                                       "Evidence":  0,
+                                       "Tools":  "video"
+                                   },
+                                   {
+                                       "Course":  "Kinder B",
+                                       "Subject":  "Educación Física / Psicomotricidad",
+                                       "Files":  11,
+                                       "Planning":  11,
+                                       "Resources":  0,
+                                       "Instruments":  0,
+                                       "Results":  0,
+                                       "Evidence":  0,
+                                       "Tools":  "video, youtube"
+                                   },
+                                   {
+                                       "Course":  "Kinder B",
+                                       "Subject":  "Formación Humana / Valores",
+                                       "Files":  17,
+                                       "Planning":  17,
+                                       "Resources":  0,
+                                       "Instruments":  0,
+                                       "Results":  0,
+                                       "Evidence":  0,
+                                       "Tools":  "video, youtube"
+                                   },
+                                   {
+                                       "Course":  "Kinder B",
+                                       "Subject":  "Lengua Española",
+                                       "Files":  4,
+                                       "Planning":  2,
+                                       "Resources":  0,
+                                       "Instruments":  1,
+                                       "Results":  0,
+                                       "Evidence":  0,
+                                       "Tools":  "celular, proyector, video"
+                                   },
+                                   {
+                                       "Course":  "Kinder B",
+                                       "Subject":  "STEAM / Ciencias",
+                                       "Files":  15,
+                                       "Planning":  1,
+                                       "Resources":  11,
+                                       "Instruments":  0,
+                                       "Results":  0,
+                                       "Evidence":  11,
+                                       "Tools":  ""
+                                   }
+                               ],
+                     "Courses":  [
+                                     {
+                                         "Course":  "Kinder B",
+                                         "Files":  354,
+                                         "Planning":  40,
+                                         "Resources":  285,
+                                         "Instruments":  10,
+                                         "Results":  1
+                                     }
+                                 ],
+                     "Subjects":  [
+                                      {
+                                          "Subject":  "Áreas Integradas",
+                                          "Files":  300,
+                                          "Planning":  5,
+                                          "Resources":  274,
+                                          "Instruments":  9,
+                                          "Results":  1
+                                      },
+                                      {
+                                          "Subject":  "Ciencias de la Naturaleza",
+                                          "Files":  2,
+                                          "Planning":  1,
+                                          "Resources":  0,
+                                          "Instruments":  0,
+                                          "Results":  0
+                                      },
+                                      {
+                                          "Subject":  "Ciencias Sociales",
+                                          "Files":  3,
+                                          "Planning":  3,
+                                          "Resources":  0,
+                                          "Instruments":  0,
+                                          "Results":  0
+                                      },
+                                      {
+                                          "Subject":  "Educación Artística",
+                                          "Files":  2,
+                                          "Planning":  0,
+                                          "Resources":  0,
+                                          "Instruments":  0,
+                                          "Results":  0
+                                      },
+                                      {
+                                          "Subject":  "Educación Física / Psicomotricidad",
+                                          "Files":  11,
+                                          "Planning":  11,
+                                          "Resources":  0,
+                                          "Instruments":  0,
+                                          "Results":  0
+                                      },
+                                      {
+                                          "Subject":  "Formación Humana / Valores",
+                                          "Files":  17,
+                                          "Planning":  17,
+                                          "Resources":  0,
+                                          "Instruments":  0,
+                                          "Results":  0
+                                      },
+                                      {
+                                          "Subject":  "Lengua Española",
+                                          "Files":  4,
+                                          "Planning":  2,
+                                          "Resources":  0,
+                                          "Instruments":  1,
+                                          "Results":  0
+                                      },
+                                      {
+                                          "Subject":  "STEAM / Ciencias",
+                                          "Files":  15,
+                                          "Planning":  1,
+                                          "Resources":  11,
+                                          "Instruments":  0,
+                                          "Results":  0
+                                      }
+                                  ]
+                 },
+    "Preprimario B":  {
+                          "Teacher":  "Preprimario B",
+                          "Pairs":  [
+                                        {
+                                            "Course":  "Preprimario B",
+                                            "Subject":  "Áreas Integradas",
+                                            "Files":  105,
+                                            "Planning":  3,
+                                            "Resources":  85,
+                                            "Instruments":  5,
+                                            "Results":  1,
+                                            "Evidence":  83,
+                                            "Tools":  "aplicacion, celular, proyector, video, youtube"
+                                        },
+                                        {
+                                            "Course":  "Preprimario B",
+                                            "Subject":  "Ciencias Sociales",
+                                            "Files":  1,
+                                            "Planning":  0,
+                                            "Resources":  1,
+                                            "Instruments":  0,
+                                            "Results":  0,
+                                            "Evidence":  1,
+                                            "Tools":  ""
+                                        },
+                                        {
+                                            "Course":  "Preprimario B",
+                                            "Subject":  "Educación Artística",
+                                            "Files":  3,
+                                            "Planning":  0,
+                                            "Resources":  0,
+                                            "Instruments":  1,
+                                            "Results":  0,
+                                            "Evidence":  0,
+                                            "Tools":  "celular, video"
+                                        },
+                                        {
+                                            "Course":  "Preprimario B",
+                                            "Subject":  "Educación Física / Psicomotricidad",
+                                            "Files":  4,
+                                            "Planning":  0,
+                                            "Resources":  2,
+                                            "Instruments":  0,
+                                            "Results":  2,
+                                            "Evidence":  0,
+                                            "Tools":  ""
+                                        },
+                                        {
+                                            "Course":  "Preprimario B",
+                                            "Subject":  "Formación Humana / Valores",
+                                            "Files":  1,
+                                            "Planning":  1,
+                                            "Resources":  0,
+                                            "Instruments":  0,
+                                            "Results":  0,
+                                            "Evidence":  0,
+                                            "Tools":  "aplicacion, youtube"
+                                        },
+                                        {
+                                            "Course":  "Preprimario B",
+                                            "Subject":  "Lengua Española",
+                                            "Files":  3,
+                                            "Planning":  2,
+                                            "Resources":  0,
+                                            "Instruments":  0,
+                                            "Results":  0,
+                                            "Evidence":  0,
+                                            "Tools":  "aplicacion, video"
+                                        },
+                                        {
+                                            "Course":  "Preprimario B",
+                                            "Subject":  "STEAM / Ciencias",
+                                            "Files":  2,
+                                            "Planning":  0,
+                                            "Resources":  1,
+                                            "Instruments":  0,
+                                            "Results":  0,
+                                            "Evidence":  1,
+                                            "Tools":  "celular, video"
+                                        }
+                                    ],
+                          "Courses":  [
+                                          {
+                                              "Course":  "Preprimario B",
+                                              "Files":  119,
+                                              "Planning":  6,
+                                              "Resources":  89,
+                                              "Instruments":  6,
+                                              "Results":  3
+                                          }
+                                      ],
+                          "Subjects":  [
+                                           {
+                                               "Subject":  "Áreas Integradas",
+                                               "Files":  105,
+                                               "Planning":  3,
+                                               "Resources":  85,
+                                               "Instruments":  5,
+                                               "Results":  1
+                                           },
+                                           {
+                                               "Subject":  "Ciencias Sociales",
+                                               "Files":  1,
+                                               "Planning":  0,
+                                               "Resources":  1,
+                                               "Instruments":  0,
+                                               "Results":  0
+                                           },
+                                           {
+                                               "Subject":  "Educación Artística",
+                                               "Files":  3,
+                                               "Planning":  0,
+                                               "Resources":  0,
+                                               "Instruments":  1,
+                                               "Results":  0
+                                           },
+                                           {
+                                               "Subject":  "Educación Física / Psicomotricidad",
+                                               "Files":  4,
+                                               "Planning":  0,
+                                               "Resources":  2,
+                                               "Instruments":  0,
+                                               "Results":  2
+                                           },
+                                           {
+                                               "Subject":  "Formación Humana / Valores",
+                                               "Files":  1,
+                                               "Planning":  1,
+                                               "Resources":  0,
+                                               "Instruments":  0,
+                                               "Results":  0
+                                           },
+                                           {
+                                               "Subject":  "Lengua Española",
+                                               "Files":  3,
+                                               "Planning":  2,
+                                               "Resources":  0,
+                                               "Instruments":  0,
+                                               "Results":  0
+                                           },
+                                           {
+                                               "Subject":  "STEAM / Ciencias",
+                                               "Files":  2,
+                                               "Planning":  0,
+                                               "Resources":  1,
+                                               "Instruments":  0,
+                                               "Results":  0
+                                           }
+                                       ]
+                      },
+    "Prekinder B":  {
+                        "Teacher":  "Prekinder B",
+                        "Pairs":  [
+                                      {
+                                          "Course":  "Prekinder B",
+                                          "Subject":  "Áreas Integradas",
+                                          "Files":  182,
+                                          "Planning":  3,
+                                          "Resources":  175,
+                                          "Instruments":  2,
+                                          "Results":  2,
+                                          "Evidence":  175,
+                                          "Tools":  "excel, video, youtube"
+                                      },
+                                      {
+                                          "Course":  "Prekinder B",
+                                          "Subject":  "Educación Artística",
+                                          "Files":  2,
+                                          "Planning":  1,
+                                          "Resources":  0,
+                                          "Instruments":  0,
+                                          "Results":  0,
+                                          "Evidence":  0,
+                                          "Tools":  "youtube"
+                                      },
+                                      {
+                                          "Course":  "Prekinder B",
+                                          "Subject":  "Educación Física / Psicomotricidad",
+                                          "Files":  1,
+                                          "Planning":  0,
+                                          "Resources":  0,
+                                          "Instruments":  0,
+                                          "Results":  1,
+                                          "Evidence":  0,
+                                          "Tools":  ""
+                                      },
+                                      {
+                                          "Course":  "Prekinder B",
+                                          "Subject":  "Lengua Española",
+                                          "Files":  3,
+                                          "Planning":  2,
+                                          "Resources":  0,
+                                          "Instruments":  1,
+                                          "Results":  0,
+                                          "Evidence":  0,
+                                          "Tools":  "excel, video, youtube"
+                                      }
+                                  ],
+                        "Courses":  [
+                                        {
+                                            "Course":  "Prekinder B",
+                                            "Files":  188,
+                                            "Planning":  6,
+                                            "Resources":  175,
+                                            "Instruments":  3,
+                                            "Results":  3
+                                        }
+                                    ],
+                        "Subjects":  [
+                                         {
+                                             "Subject":  "Áreas Integradas",
+                                             "Files":  182,
+                                             "Planning":  3,
+                                             "Resources":  175,
+                                             "Instruments":  2,
+                                             "Results":  2
+                                         },
+                                         {
+                                             "Subject":  "Educación Artística",
+                                             "Files":  2,
+                                             "Planning":  1,
+                                             "Resources":  0,
+                                             "Instruments":  0,
+                                             "Results":  0
+                                         },
+                                         {
+                                             "Subject":  "Educación Física / Psicomotricidad",
+                                             "Files":  1,
+                                             "Planning":  0,
+                                             "Resources":  0,
+                                             "Instruments":  0,
+                                             "Results":  1
+                                         },
+                                         {
+                                             "Subject":  "Lengua Española",
+                                             "Files":  3,
+                                             "Planning":  2,
+                                             "Resources":  0,
+                                             "Instruments":  1,
+                                             "Results":  0
+                                         }
+                                     ]
+                    }
+}
