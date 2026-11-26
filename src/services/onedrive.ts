@@ -158,3 +158,69 @@ export async function downloadFileAsDataUrl(fileId: string): Promise<string> {
     reader.readAsDataURL(blob)
   })
 }
+
+export interface DriveItemFull {
+  id: string
+  name: string
+  webUrl?: string
+  downloadUrl?: string
+  mimeType?: string
+  path: string
+  size?: number
+  lastModifiedDateTime?: string
+}
+
+/** Lista recursivamente los archivos de una carpeta del OneDrive del usuario. */
+export async function listFilesRecursive(folder: string, maxDepth = 4): Promise<DriveItemFull[]> {
+  const out: DriveItemFull[] = []
+  const encodedRaw = folder.split('/').filter(Boolean).map(encodeURIComponent).join('/')
+  let rootId = ''
+  try {
+    rootId = (await graphRequest<{ id: string }>(`/me/drive/root:/${buildPath(folder)}`)).id
+  } catch (error) {
+    if ((error as { statusCode?: number }).statusCode !== 404) throw error
+    // Segundo intento: carpeta relativa a la raíz del OneDrive (no dentro de ArcaDeCristo).
+    try {
+      rootId = (await graphRequest<{ id: string }>(`/me/drive/root:/${encodedRaw}`)).id
+    } catch (error2) {
+      if ((error2 as { statusCode?: number }).statusCode === 404) return []
+      throw error2
+    }
+  }
+  interface Item {
+    id: string
+    name: string
+    webUrl?: string
+    file?: { mimeType?: string }
+    folder?: { childCount: number }
+    size?: number
+    lastModifiedDateTime?: string
+    '@microsoft.graph.downloadUrl'?: string
+  }
+  const walk = async (id: string, rel: string, depth: number): Promise<void> => {
+    let next: string | undefined = `/me/drive/items/${id}/children?$select=id,name,webUrl,file,folder,size,lastModifiedDateTime,@microsoft.graph.downloadUrl&$top=200`
+    while (next) {
+      const page: { value: Item[]; '@odata.nextLink'?: string } = await graphRequest(next, 'GET')
+      for (const it of page.value ?? []) {
+        const p = rel ? `${rel}/${it.name}` : it.name
+        if (it.folder) {
+          if (depth < maxDepth) await walk(it.id, p, depth + 1)
+        } else {
+          out.push({
+            id: it.id,
+            name: it.name,
+            webUrl: it.webUrl,
+            downloadUrl: it['@microsoft.graph.downloadUrl'],
+            mimeType: it.file?.mimeType,
+            path: p,
+            size: it.size,
+            lastModifiedDateTime: it.lastModifiedDateTime,
+          })
+        }
+      }
+      next = page['@odata.nextLink']
+    }
+  }
+  await walk(rootId, '', 0)
+  return out
+}
