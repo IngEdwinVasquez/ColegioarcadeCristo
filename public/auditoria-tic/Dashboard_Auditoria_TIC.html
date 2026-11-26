@@ -245,28 +245,16 @@ function sum(arr,fn){ return arr.reduce((a,b)=>a+(Number(fn(b))||0),0); }
 function destroy(name){ if(charts[name]){ charts[name].destroy(); delete charts[name]; } }
 
 function pairsActive(){ return !!val('fCourse') || !!val('fSubject'); }
-function teacherMatchesPairs(t){
-  if(!pairsActive()) return true;
-  return (((CS[t]&&CS[t].Pairs)||[]).filter(pairFilter)).length > 0;
-}
-function filteredTeachers(){
-  const lvl = val('fLevel');
-  return TEACHERS.filter(t => (!lvl || AUDIT[t].Scores.Level === lvl) && teacherMatchesPairs(t));
-}
-function activeTeachers(){
-  const f = filteredTeachers();
-  if(selectedTeacher && f.includes(selectedTeacher)) return [selectedTeacher];
-  return f;
-}
+function anyRowFilter(){ return !!val('fYear') || !!val('fPeriod') || !!val('fMonth') || !!val('fCourse') || !!val('fSubject'); }
 function monthFilter(m){
   return (!val('fYear')||m.Year===val('fYear')) && (!val('fPeriod')||m.Period===val('fPeriod')) && (!val('fMonth')||m.Month===val('fMonth'));
 }
 function pairFilter(p){
   return (!val('fCourse')||p.Course===val('fCourse')) && (!val('fSubject')||p.Subject===val('fSubject'));
 }
-/** Filas del docente según los filtros del encabezado (mes y curso/asignatura). */
+/** Filas del docente según los filtros del encabezado (año, periodo, mes, curso y asignatura). */
 function rowsFor(t){
-  if(pairsActive()){
+  if(window.AUDIT_PM){
     return (PM[t]||[]).filter(m =>
       (!val('fYear')||m.Year===val('fYear')) &&
       (!val('fPeriod')||m.Period===val('fPeriod')) &&
@@ -275,6 +263,16 @@ function rowsFor(t){
       (!val('fSubject')||m.Subject===val('fSubject')));
   }
   return (AUDIT[t].Months||[]).filter(monthFilter).map(m=>({ Year:m.Year, Period:m.Period, Month:m.Month, Course:'', Subject:'', Files:m.Files, Planning:m.Planning, Resources:m.Resources, Instruments:m.Instruments, Results:m.Results, Evidence:m.Evidence||0 }));
+}
+function teacherHasRows(t){ if(!anyRowFilter()) return true; return rowsFor(t).length > 0; }
+function filteredTeachers(){
+  const lvl = val('fLevel');
+  return TEACHERS.filter(t => (!lvl || AUDIT[t].Scores.Level === lvl) && teacherHasRows(t));
+}
+function activeTeachers(){
+  const f = filteredTeachers();
+  if(selectedTeacher && f.includes(selectedTeacher)) return [selectedTeacher];
+  return f;
 }
 
 function init(){
@@ -391,7 +389,7 @@ function renderMonthly(){
 function renderCoverage(){
   const ts = activeTeachers();
   let labels, datasets, title;
-  if(pairsActive()){
+  if(anyRowFilter()){
     const by={};
     ts.forEach(t=>rowsFor(t).forEach(r=>{
       const k=(r.Course||'Sin curso')+' · '+(r.Subject||'Sin asignatura');
