@@ -311,19 +311,18 @@ function renderAll(){ renderKPIs(); renderRanking(); renderRadar(); renderMonthl
 
 function renderKPIs(){
   const ts = activeTeachers();
-  const rows = [], pairs = [];
-  ts.forEach(t=>{
-    rows.push(...rowsFor(t));
-    ((CS[t]&&CS[t].Pairs)||[]).filter(pairFilter).forEach(p=>pairs.push(p));
-  });
+  const rows = [];
+  ts.forEach(t=>{ rows.push(...rowsFor(t)); });
   const avg = ts.length ? Math.round(ts.reduce((a,t)=>a+AUDIT[t].Scores.Total,0)/ts.length) : 0;
+  const coursesN = new Set(rows.map(r=>r.Course).filter(c=>c && c!=='Sin curso')).size;
+  const subjectsN = new Set(rows.map(r=>r.Subject).filter(s=>s && s!=='Sin asignatura')).size;
   const cards = [
     {l:'Promedio de auditoría', v:avg+'/100', s:ts.length+' docente(s)', t:'Promedio del puntaje total de auditoría (0–100) de los docentes del filtro.'},
     {l:'Planificaciones', v:fmt(sum(rows,m=>m.Planning)), s:'en el filtro', t:'Cantidad de archivos identificados como planificación en el filtro actual.'},
     {l:'Recursos', v:fmt(sum(rows,m=>m.Resources)), s:'digitales / evidencias', t:'Cantidad de recursos/evidencias (presentaciones, videos, imágenes, PDF, etc.) en el filtro.'},
     {l:'Instrumentos', v:fmt(sum(rows,m=>m.Instruments)), s:'de evaluación', t:'Cantidad de instrumentos de evaluación (rúbricas, listas de cotejo, pruebas, etc.) en el filtro.'},
     {l:'Resultados', v:fmt(sum(rows,m=>m.Results)), s:'evidencias', t:'Cantidad de resultados/evidencias de aprendizaje (calificaciones, informes, boletines, etc.) en el filtro.'},
-    {l:'Cursos / asignaturas', v:new Set(pairs.map(p=>p.Course)).size+' / '+new Set(pairs.map(p=>p.Subject)).size, s:'atendidos', t:'Cursos y asignaturas distintos atendidos por los docentes del filtro.'}
+    {l:'Cursos / asignaturas', v:coursesN+' / '+subjectsN, s:'atendidos', t:'Cursos y asignaturas distintos con datos en el filtro.'}
   ];
   $('kpis').innerHTML = cards.map(c=>`<div class="kpi" title="${esc(c.t)}"><div class="kpi-label">${esc(c.l)}</div><div class="kpi-value" title="${esc(c.t)}">${esc(c.v)}</div><div class="kpi-sub">${esc(c.s)}</div></div>`).join('');
 }
