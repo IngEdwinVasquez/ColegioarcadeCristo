@@ -23,6 +23,8 @@ import type {
   PlanObservation,
   ExamCorrection,
   ExamSubmission,
+  TicAuditoriaConfig,
+  TicAuditoriaDoc,
   Grade,
   GradeSection,
   GradeRegister,
@@ -123,6 +125,8 @@ export const collections = {
     planObservations: collection<PlanObservation>(SPO_LISTS.planObservations),
     examCorrections: collection<ExamCorrection>(SPO_LISTS.examCorrections),
     examSubmissions: collection<ExamSubmission>(SPO_LISTS.examSubmissions),
+    ticAuditoria: collection<TicAuditoriaDoc>(SPO_LISTS.ticAuditoria),
+    ticAuditoriaConfig: collection<TicAuditoriaConfig>(SPO_LISTS.ticAuditoriaConfig),
 }
 
 export const dataService = {
@@ -308,6 +312,13 @@ export const dataService = {
   getExamSubmissions: collections.examSubmissions.getAll,
   saveExamSubmission: collections.examSubmissions.save,
   deleteExamSubmission: collections.examSubmissions.remove,
+  // Auditoría TIC Docentes (evidencias mensuales por nivel)
+  getTicAuditoria: collections.ticAuditoria.getAll,
+  saveTicAuditoria: collections.ticAuditoria.save,
+  deleteTicAuditoria: collections.ticAuditoria.remove,
+  getTicAuditoriaConfigs: collections.ticAuditoriaConfig.getAll,
+  saveTicAuditoriaConfig: collections.ticAuditoriaConfig.save,
+  deleteTicAuditoriaConfig: collections.ticAuditoriaConfig.remove,
 }
 
 export type DataService = typeof dataService

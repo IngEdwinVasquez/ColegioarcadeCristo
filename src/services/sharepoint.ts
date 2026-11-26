@@ -56,6 +56,8 @@ export const SPO_LISTS = {
   planObservations: 'ARC_PlanObservations',
   examCorrections: 'ARC_ExamCorrections',
   examSubmissions: 'ARC_ExamSubmissions',
+  ticAuditoria: 'ARC_TicAuditoria',
+  ticAuditoriaConfig: 'ARC_TicAuditoriaConfig',
 } as const
 
 export type SpoListName = (typeof SPO_LISTS)[keyof typeof SPO_LISTS]
@@ -126,7 +128,7 @@ interface GraphColumn {
   name: string
 }
 
-const PROVISION_KEY = 'arca_spo_provisioned_v18'
+const PROVISION_KEY = 'arca_spo_provisioned_v19'
 
 /** Nombre de lista → id de SharePoint (se rellena al aprovisionar o a demanda). */
 const listIds = new Map<string, string>()
